@@ -1,7 +1,7 @@
 // lib/domain/entities/bluetooth_connection.dart
 class BluetoothConnection {
-  final String deviceId;
-  final String deviceName;
+  final dynamic deviceId;
+  final String? name;
 
-  BluetoothConnection({required this.deviceId, required this.deviceName});
+  BluetoothConnection({required this.deviceId, this.name});
 }

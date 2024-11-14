@@ -5,18 +5,20 @@ import 'config/app_theme.dart';
 import 'presentation/screens/setup_screen.dart';
 import 'application/services/bluetooth_communication_service.dart';
 import 'domain/use_cases/send_recognition_message.dart';
+import 'domain/use_cases/ble_connect_to_device.dart';
 import 'application/controllers/setup_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await requestPermissions();
-
   // Initialize the services
-  Get.put(BluetoothCommunicationService());
+  final bluetoothService = BluetoothCommunicationService();
+  Get.put(bluetoothService);
   // Initialize the use cases
-  Get.put(SendRecognitionMessage(Get.find<BluetoothCommunicationService>()));
+  Get.put(SendRecognitionMessage(bluetoothService));
+  Get.put(ConnectToDevice(bluetoothService));
   // Initialize the controllers
-  Get.put(SetupController(Get.find<SendRecognitionMessage>(), Get.find<BluetoothCommunicationService>()));
+  Get.put(SetupController(Get.find<ConnectToDevice>(), Get.find<SendRecognitionMessage>(), bluetoothService));
   runApp(MyApp());
 }
 

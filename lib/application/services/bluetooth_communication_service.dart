@@ -1,65 +1,73 @@
 // lib/application/services/bluetooth_communication_service.dart
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:universal_ble/universal_ble.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/bluetooth_connection.dart';
+import 'dart:convert';
 
 class BluetoothCommunicationService extends GetxService {
-  var devices = <BluetoothDevice>[].obs;
+  var devices = <BleDevice>[].obs;
   var isScanning = false.obs;
 
-  Future<void> startScan() async {
+  BluetoothCommunicationService() {
+    UniversalBle.onScanResult = (BleDevice device) {
+      if (!devices.any((d) => d.deviceId == device.deviceId)) {
+        devices.add(device);
+      }
+    };
+  }
+
+  Future<List<BluetoothConnection>> startScan() async {
     devices.clear();
     isScanning.value = true;
-    FlutterBluePlus.startScan(timeout: Duration(seconds: 4));
-    FlutterBluePlus.scanResults.listen((results) {
-      for (ScanResult r in results) {
-        if (!devices.contains(r.device)) {
-          devices.add(r.device);
-        }
-      }
-    }).onDone(() {
-      isScanning.value = false;
-    });
+    AvailabilityState state = await UniversalBle.getBluetoothAvailabilityState();
+    if (state == AvailabilityState.poweredOn) {
+      await UniversalBle.startScan();
+    }
+    await Future.delayed(Duration(seconds: 4)); // Esperar un tiempo para obtener resultados
+    isScanning.value = false;
+    return devices.map((d) => BluetoothConnection(deviceId: d.deviceId, name: d.name)).toList();
   }
 
   void stopScan() {
-    FlutterBluePlus.stopScan();
+    UniversalBle.stopScan();
     isScanning.value = false;
   }
 
-  Future<void> sendMessage(BluetoothConnection connection, String message) async {
-    BluetoothDevice? device;
-    for (var d in devices) {
-      if (d.remoteId.str == connection.deviceId) {
-        device = d;
-        break;
-      }
+  Future<void> connectToDevice(BluetoothConnection connection) async {
+    BleDevice? device = devices.firstWhereOrNull((d) => d.deviceId == connection.deviceId);
+    if (device == null) {
+      throw Exception('Device not found');
     }
-    if (device != null) {
-      try {
-        // Connect to the device
-        await device.connect();
-        // Discover services
-        List<BluetoothService> services = await device.discoverServices();
-        for (BluetoothService service in services) {
-          // Iterate through the characteristics of the service
-          for (BluetoothCharacteristic characteristic in service.characteristics) {
-            // Check if the characteristic supports write property
-            if (characteristic.properties.write) {
-              // Write the message to the characteristic
-              await characteristic.write(message.codeUnits);
-            } else {
-              throw Exception('The WRITE property is not supported by this BLE characteristic: ${characteristic.uuid}');
-            }
+    await UniversalBle.connect(device.deviceId);
+  }
+
+  Future<void> sendMessage(BluetoothConnection connection, String message) async {
+    BleDevice? device = devices.firstWhereOrNull((d) => d.deviceId == connection.deviceId);
+    if (device == null) {
+      throw Exception('Device not found');
+    }
+    try {
+      // Ensure the device is connected
+      BleConnectionState connectionState = await UniversalBle.getConnectionState(device.deviceId);
+      if (connectionState != BleConnectionState.connected) {
+        await UniversalBle.connect(device.deviceId);
+      }
+      // Discover services
+      List<BleService> services = await UniversalBle.discoverServices(device.deviceId);
+      for (BleService service in services) {
+        // Iterate through the characteristics of the service
+        for (BleCharacteristic characteristic in service.characteristics) {
+          // Check if the characteristic supports write property
+          if (characteristic.properties.contains(CharacteristicProperty.write)) {
+            // Write the message to the characteristic
+            await UniversalBle.writeValue(device.deviceId, service.uuid, characteristic.uuid, utf8.encode(message), BleOutputProperty.withResponse);
           }
         }
-        // Disconnect from the device
-        await device.disconnect();
-      } catch (e) {
-        throw Exception('Failed to send message: $e');
       }
-    } else {
-      throw Exception('Device not found');
+      // Disconnect from the device
+      await UniversalBle.disconnect(device.deviceId);
+    } catch (e) {
+      throw Exception('Failed to send message: $e');
     }
   }
 }

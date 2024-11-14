@@ -25,8 +25,8 @@ void showBluetoothDeviceDialog(BuildContext context) {
                 itemBuilder: (context, index) {
                   final device = controller.devices[index];
                   return ListTile(
-                    title: Text(device.platformName.isNotEmpty ? device.platformName : 'Unknown Device'),
-                    subtitle: Text(device.remoteId.toString()),
+                    title: Text(device.name ?? 'Unknown Device'),
+                    subtitle: Text(device.deviceId),
                     onTap: () {
                       controller.selectDevice(device);
                       Navigator.of(context).pop();
@@ -38,12 +38,12 @@ void showBluetoothDeviceDialog(BuildContext context) {
           }
         }),
         actions: <Widget>[
-          TextButton(
-            child: Text('Scan Again'),
-            onPressed: () {
+          Obx(() => TextButton(
+            onPressed: controller.isScanning ? null : () {
               controller.startScan();
             },
-          ),
+            child: Text('Scan Again'),
+          )),
           TextButton(
             child: Text('Close'),
             onPressed: () {

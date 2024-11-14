@@ -11,6 +11,10 @@ La aplicación permite la interacción con el dispositivo ESP32 de las siguiente
 - **Bluetooth**: Para configuración inicial, ajuste de modos y recepción de datos específicos (como la escala de voltaje).
 - **Wi-Fi**: Para recibir datos de adquisición de señales en tiempo real.
 
+### Sistemas operativos soportados
+
+La aplicacion funcionara en Android, Linux y Windows.
+
 ### Flujo de Funcionamiento
 
 1. **Conexión Bluetooth**: La aplicación inicia una conexión Bluetooth con el ESP32 y realiza un intercambio de claves mediante **RSA** para establecer la clave de cifrado **AES**, que será utilizada en la comunicación posterior.
