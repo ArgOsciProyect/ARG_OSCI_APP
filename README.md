@@ -24,7 +24,7 @@
 
 ### Requerimientos no funcionales
 - REQNFAPP1: Interfaz similar a un osciloscopio de mercado (REQ2)
-- REQNFAPP2: 
+- REQNFAPP2: Aplicar principios SOLID (REQ5 - REQ6)
 
 ## Descripción General
 
