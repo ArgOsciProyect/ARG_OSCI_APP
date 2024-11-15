@@ -1,5 +1,31 @@
 # arg_osci_app
 
+## Requerimientos
+
+### Requerimientos de producto
+- REQ 1: Interfaz de comunicacion inalambrica
+- REQ 2: Funcionalidades basicas de un osciloscopio
+- REQ 3: Que sea facil de reproducir con un bajo costo
+- REQ 4: Que sea de codigo y hardware abierto
+- REQ 5: Adaptable a otras tecnologias
+- REQ 6: Mantenible a largo plazo
+
+## Requerimientos APP
+### Requerimientos funcionales
+- REQFAPP1: Comunicacion de control por Wi-Fi (REQ1)
+- REQFAPP2: Comunicacion de datos por Wi-Fi (REQ1)
+- REQFAPP3: Comunicacion de emparejamiento inicial por BLE (REQ1)
+- REQFAPP4: Graficador con escalas variables (REQ2)
+- REQFAPP5: Opcion de filtro digital configurable por el usuario (REQ2)
+- REQFAPP6: Trigger digital (REQ2)
+- REQFAPP7: Tolerancia de mas de un dispositivo para multiples entradas (REQ2 - REQ5)
+- REQFAPP8: Multiplataforma (REQ3-REQ5)
+- REQFAPP9: Las tecnologias utilizadas deben ser de codigo abierto (REQ4)
+
+### Requerimientos no funcionales
+- REQNFAPP1: Interfaz similar a un osciloscopio de mercado (REQ2)
+- REQNFAPP2: 
+
 ## Descripción General
 
 Este proyecto consiste en el desarrollo de una aplicación de osciloscopio, diseñada en **Flutter** y que se comunica con un dispositivo **ESP32** mediante **Wi-Fi** y **Bluetooth**. La aplicación permite la adquisición de datos en tiempo real con capacidades de visualización y análisis, y permite al usuario seleccionar modos de funcionamiento, ajustar configuraciones de gráficos y recibir alertas de conexión.
