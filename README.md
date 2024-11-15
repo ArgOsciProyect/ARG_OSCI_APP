@@ -1,8 +1,7 @@
 # arg_osci_app
 
-## Requerimientos
+## Requerimientos de producto
 
-### Requerimientos de producto
 - REQ 1: Interfaz de comunicacion inalambrica
 - REQ 2: Funcionalidades basicas de un osciloscopio
 - REQ 3: Que sea facil de reproducir con un bajo costo
