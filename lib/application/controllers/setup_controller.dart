@@ -5,7 +5,6 @@ import '../../domain/use_cases/ble_connect_to_device.dart';
 import '../../domain/use_cases/send_message.dart';
 import '../../domain/entities/bluetooth_connection.dart';
 import '../../application/services/bluetooth_communication_service.dart';
-import 'dart:convert';
 
 class SetupController extends GetxController {
   final ConnectToDevice connectToDevice;
@@ -82,9 +81,7 @@ class SetupController extends GetxController {
       String publicKey = await bluetoothService.receivePublicKey(connection);
       await bluetoothService.sendEncryptedAESKey(connection, publicKey);
       final aesKey = generateAESKey(); // Store the AES key for decryption
-      final encryptedMessage = await receiveMessage.execute(connection);
-      final decodedMessage = base64Decode(encryptedMessage);
-      final decryptedMessage = decryptAES(decodedMessage, aesKey);
+      final decryptedMessage = await bluetoothService.receiveAndDecryptMessage(connection, aesKey);
       if (decryptedMessage == 'Ready') {
         return 'Ready';
       }

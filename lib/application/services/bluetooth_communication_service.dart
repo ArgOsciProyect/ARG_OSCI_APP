@@ -5,24 +5,23 @@ import '../../domain/entities/bluetooth_connection.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:pointycastle/export.dart' as crypto;
-import 'package:pointycastle/asymmetric/api.dart';
-import 'package:pointycastle/asymmetric/rsa.dart';
 
 // Método para generar una clave AES
 List<int> generateAESKey() {
-  final key = Uint8List(16);
-  final secureRandom = crypto.FortunaRandom();
-  secureRandom.seed(crypto.KeyParameter(Uint8List.fromList(List<int>.generate(32, (i) => i))));
-  secureRandom.nextBytes(key);
-  return key;
+  final key = crypto.KeyParameter(Uint8List(16));
+  return key.key;
 }
 
 // Método para cifrar una clave AES usando una clave pública RSA
 List<int> encryptAESKeyWithRSA(List<int> aesKey, String publicKey) {
-  final parser = crypto.RSAPublicKeyParser();
-  final rsaPublicKey = parser.parse(publicKey) as RSAPublicKey;
+  // Separar la clave pública en módulo y exponente
+  final parts = publicKey.split('|');
+  final modulus = BigInt.parse(parts[0]);
+  final exponent = BigInt.parse(parts[1]);
+
+  final rsaPublicKey = crypto.RSAPublicKey(modulus, exponent);
   final encryptor = crypto.OAEPEncoding(crypto.RSAEngine())
-    ..init(true, crypto.PublicKeyParameter<RSAPublicKey>(rsaPublicKey));
+    ..init(true, crypto.PublicKeyParameter<crypto.RSAPublicKey>(rsaPublicKey));
   return encryptor.process(Uint8List.fromList(aesKey));
 }
 
@@ -110,6 +109,12 @@ class BluetoothCommunicationService extends GetxService {
     List<int> aesKey = generateAESKey();
     List<int> encryptedAESKey = encryptAESKeyWithRSA(aesKey, publicKey);
     await sendMessage(connection, base64Encode(encryptedAESKey));
+  }
+
+  Future<String> receiveAndDecryptMessage(BluetoothConnection connection, List<int> aesKey) async {
+    final encryptedMessage = await receiveMessage(connection);
+    final decodedMessage = base64Decode(encryptedMessage);
+    return decryptAES(decodedMessage, aesKey);
   }
 
   Future<String> receiveMessage(BluetoothConnection connection) async{
