@@ -4,9 +4,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'config/app_theme.dart';
 import 'presentation/screens/setup_screen.dart';
 import 'application/services/bluetooth_communication_service.dart';
-import 'domain/use_cases/send_recognition_message.dart';
+import 'domain/use_cases/send_message.dart';
 import 'domain/use_cases/ble_connect_to_device.dart';
 import 'application/controllers/setup_controller.dart';
+import 'domain/use_cases/receive_message.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,10 +16,10 @@ void main() async {
   final bluetoothService = BluetoothCommunicationService();
   Get.put(bluetoothService);
   // Initialize the use cases
-  Get.put(SendRecognitionMessage(bluetoothService));
+  Get.put(SendMessage(bluetoothService));
   Get.put(ConnectToDevice(bluetoothService));
   // Initialize the controllers
-  Get.put(SetupController(Get.find<ConnectToDevice>(), Get.find<SendRecognitionMessage>(), bluetoothService));
+  Get.put(SetupController(Get.find<ConnectToDevice>(), Get.find<SendMessage>(), bluetoothService, Get.find<ReceiveMessage>()));
   runApp(MyApp());
 }
 

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../application/controllers/setup_controller.dart';
+import 'ap_selection_dialog.dart';
 
 void showBluetoothDeviceDialog(BuildContext context) {
   final SetupController controller = Get.find<SetupController>();
@@ -27,9 +28,13 @@ void showBluetoothDeviceDialog(BuildContext context) {
                   return ListTile(
                     title: Text(device.name ?? 'Unknown Device'),
                     subtitle: Text(device.deviceId),
-                    onTap: () {
+                    onTap: () async {
                       controller.selectDevice(device);
-                      Navigator.of(context).pop();
+                      final result = await controller.setupSecureConnection();
+                      if (result == 'Ready' && context.mounted) {
+                        Navigator.of(context).pop();
+                        showAPSelectionDialog(context);
+                      }
                     },
                   );
                 },

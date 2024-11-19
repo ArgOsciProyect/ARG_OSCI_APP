@@ -1,15 +1,15 @@
-// lib/domain/use_cases/send_recognition_message.dart
+// lib/domain/use_cases/send_message.dart
 import '../entities/bluetooth_connection.dart';
 import '../../application/services/bluetooth_communication_service.dart';
 
-class SendRecognitionMessage {
+class SendMessage {
   final BluetoothCommunicationService bluetoothService;
 
-  SendRecognitionMessage(this.bluetoothService);
+  SendMessage(this.bluetoothService);
 
-  Future<void> execute(BluetoothConnection connection) async {
+  Future<void> execute(BluetoothConnection connection, String message) async {
     try {
-      await bluetoothService.sendMessage(connection, "Recognition");
+      await bluetoothService.sendMessage(connection, message);
     } catch (e) {
       throw Exception('Failed to send recognition message: $e');
     }

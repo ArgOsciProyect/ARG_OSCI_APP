@@ -3,6 +3,36 @@ import 'package:universal_ble/universal_ble.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/bluetooth_connection.dart';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:pointycastle/export.dart' as crypto;
+import 'package:pointycastle/asymmetric/api.dart';
+import 'package:pointycastle/asymmetric/rsa.dart';
+
+// Método para generar una clave AES
+List<int> generateAESKey() {
+  final key = Uint8List(16);
+  final secureRandom = crypto.FortunaRandom();
+  secureRandom.seed(crypto.KeyParameter(Uint8List.fromList(List<int>.generate(32, (i) => i))));
+  secureRandom.nextBytes(key);
+  return key;
+}
+
+// Método para cifrar una clave AES usando una clave pública RSA
+List<int> encryptAESKeyWithRSA(List<int> aesKey, String publicKey) {
+  final parser = crypto.RSAPublicKeyParser();
+  final rsaPublicKey = parser.parse(publicKey) as RSAPublicKey;
+  final encryptor = crypto.OAEPEncoding(crypto.RSAEngine())
+    ..init(true, crypto.PublicKeyParameter<RSAPublicKey>(rsaPublicKey));
+  return encryptor.process(Uint8List.fromList(aesKey));
+}
+
+// Método para descifrar un mensaje AES
+String decryptAES(List<int> encryptedMessage, List<int> aesKey) {
+  final key = crypto.KeyParameter(Uint8List.fromList(aesKey));
+  final cipher = crypto.PaddedBlockCipher('AES/ECB/PKCS7Padding')
+    ..init(false, crypto.ParametersWithIV(key, Uint8List(0)));
+  return utf8.decode(cipher.process(Uint8List.fromList(encryptedMessage)));
+}
 
 class BluetoothCommunicationService extends GetxService {
   var devices = <BleDevice>[].obs;
@@ -60,7 +90,7 @@ class BluetoothCommunicationService extends GetxService {
           // Check if the characteristic supports write property
           if (characteristic.properties.contains(CharacteristicProperty.write)) {
             // Write the message to the characteristic
-            await UniversalBle.writeValue(device.deviceId, service.uuid, characteristic.uuid, utf8.encode(message), BleOutputProperty.withResponse);
+            await UniversalBle.writeValue(device.deviceId, service.uuid, characteristic.uuid, Uint8List.fromList(utf8.encode(message)), BleOutputProperty.withResponse);
           }
         }
       }
@@ -68,6 +98,49 @@ class BluetoothCommunicationService extends GetxService {
       await UniversalBle.disconnect(device.deviceId);
     } catch (e) {
       throw Exception('Failed to send message: $e');
+    }
+  }
+
+  Future<String> receivePublicKey(BluetoothConnection connection) async {
+    String publicKey = await receiveMessage(connection);
+    return publicKey;
+  }
+
+  Future<void> sendEncryptedAESKey(BluetoothConnection connection, String publicKey) async {
+    List<int> aesKey = generateAESKey();
+    List<int> encryptedAESKey = encryptAESKeyWithRSA(aesKey, publicKey);
+    await sendMessage(connection, base64Encode(encryptedAESKey));
+  }
+
+  Future<String> receiveMessage(BluetoothConnection connection) async{
+    BleDevice? device = devices.firstWhereOrNull((d) => d.deviceId == connection.deviceId);
+    if (device == null) {
+      throw Exception('Device not found');
+    }
+    try {
+      // Ensure the device is connected
+      BleConnectionState connectionState = await UniversalBle.getConnectionState(device.deviceId);
+      if (connectionState != BleConnectionState.connected) {
+        await UniversalBle.connect(device.deviceId);
+      }
+      // Discover services
+      List<BleService> services = await UniversalBle.discoverServices(device.deviceId);
+      for (BleService service in services) {
+        // Iterate through the characteristics of the service
+        for (BleCharacteristic characteristic in service.characteristics) {
+          // Check if the characteristic supports read property
+          if (characteristic.properties.contains(CharacteristicProperty.read)) {
+            // Read the value from the characteristic
+            List<int> value = await UniversalBle.readValue(device.deviceId, service.uuid, characteristic.uuid);
+            return utf8.decode(value);
+          }
+        }
+      }
+      // Disconnect from the device
+      await UniversalBle.disconnect(device.deviceId);
+      throw Exception('No characteristic found to read message');
+    } catch (e) {
+      throw Exception('Failed to receive message: $e');
     }
   }
 }

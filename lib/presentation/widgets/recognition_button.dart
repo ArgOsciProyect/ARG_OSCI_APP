@@ -13,7 +13,7 @@ class RecognitionButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: () async {
         try {
-          await controller.sendRecognition();
+          await controller.sendMessageToDevice("ack");
           Get.snackbar('Success', 'Recognition message sent successfully');
         } catch (e) {
           Get.snackbar('Error', 'Failed to send recognition message: $e');
