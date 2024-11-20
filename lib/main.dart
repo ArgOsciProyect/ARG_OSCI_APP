@@ -18,6 +18,7 @@ void main() async {
   // Initialize the use cases
   Get.put(SendMessage(bluetoothService));
   Get.put(ConnectToDevice(bluetoothService));
+  Get.put(ReceiveMessage(bluetoothService)); // Añadir esta línea
   // Initialize the controllers
   Get.put(SetupController(Get.find<ConnectToDevice>(), Get.find<SendMessage>(), bluetoothService, Get.find<ReceiveMessage>()));
   runApp(MyApp());

@@ -30,6 +30,7 @@ void showBluetoothDeviceDialog(BuildContext context) {
                     subtitle: Text(device.deviceId),
                     onTap: () async {
                       controller.selectDevice(device);
+                      await controller.runRecognition();
                       final result = await controller.setupSecureConnection();
                       if (result == 'Ready' && context.mounted) {
                         Navigator.of(context).pop();

@@ -14,6 +14,7 @@ class SetupController extends GetxController {
   var selectedDevice = Rx<BluetoothConnection?>(null);
   var devices = <BluetoothConnection>[].obs;
   final _isScanning = false.obs;
+  List<int>? aesKey; // Variable para almacenar la clave AES
 
   SetupController(this.connectToDevice, this.sendMessage, this.bluetoothService, this.receiveMessage);
 
@@ -79,9 +80,9 @@ class SetupController extends GetxController {
     final connection = selectedDevice.value;
     if (connection != null) {
       String publicKey = await bluetoothService.receivePublicKey(connection);
-      await bluetoothService.sendEncryptedAESKey(connection, publicKey);
-      final aesKey = generateAESKey(); // Store the AES key for decryption
-      final decryptedMessage = await bluetoothService.receiveAndDecryptMessage(connection, aesKey);
+      aesKey = generateAESKey(); // Generar y almacenar la clave AES
+      await bluetoothService.sendEncryptedAESKey(connection, publicKey, aesKey!);
+      final decryptedMessage = await bluetoothService.receiveAndDecryptMessage(connection, aesKey!);
       if (decryptedMessage == 'Ready') {
         return 'Ready';
       }

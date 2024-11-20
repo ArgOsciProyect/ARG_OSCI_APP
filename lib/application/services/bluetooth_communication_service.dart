@@ -87,7 +87,7 @@ class BluetoothCommunicationService extends GetxService {
         // Iterate through the characteristics of the service
         for (BleCharacteristic characteristic in service.characteristics) {
           // Check if the characteristic supports write property
-          if (characteristic.properties.contains(CharacteristicProperty.write)) {
+          if (characteristic.properties.contains(CharacteristicProperty.write) && characteristic.properties.) {
             // Write the message to the characteristic
             await UniversalBle.writeValue(device.deviceId, service.uuid, characteristic.uuid, Uint8List.fromList(utf8.encode(message)), BleOutputProperty.withResponse);
           }
@@ -105,8 +105,7 @@ class BluetoothCommunicationService extends GetxService {
     return publicKey;
   }
 
-  Future<void> sendEncryptedAESKey(BluetoothConnection connection, String publicKey) async {
-    List<int> aesKey = generateAESKey();
+  Future<void> sendEncryptedAESKey(BluetoothConnection connection, String publicKey, List<int> aesKey) async {
     List<int> encryptedAESKey = encryptAESKeyWithRSA(aesKey, publicKey);
     await sendMessage(connection, base64Encode(encryptedAESKey));
   }
@@ -137,6 +136,7 @@ class BluetoothCommunicationService extends GetxService {
           if (characteristic.properties.contains(CharacteristicProperty.read)) {
             // Read the value from the characteristic
             List<int> value = await UniversalBle.readValue(device.deviceId, service.uuid, characteristic.uuid);
+            print('Received value: $value');
             return utf8.decode(value);
           }
         }
