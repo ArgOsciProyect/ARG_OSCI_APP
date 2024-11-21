@@ -1,34 +1,30 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'config/app_theme.dart';
 import 'presentation/screens/setup_screen.dart';
-import 'application/services/bluetooth_communication_service.dart';
+import 'domain/entities/socket_connection.dart';
 import 'domain/use_cases/send_message.dart';
-import 'domain/use_cases/ble_connect_to_device.dart';
-import 'application/controllers/setup_controller.dart';
 import 'domain/use_cases/receive_message.dart';
+import 'application/controllers/setup_controller.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await requestPermissions();
-  // Initialize the services
-  final bluetoothService = BluetoothCommunicationService();
-  Get.put(bluetoothService);
+  // Initialize the entities
+  final socketConnection = SocketConnection();
+  Get.put(socketConnection);
   // Initialize the use cases
-  Get.put(SendMessage(bluetoothService));
-  Get.put(ConnectToDevice(bluetoothService));
-  Get.put(ReceiveMessage(bluetoothService)); // Añadir esta línea
+  Get.put(SendMessage(socketConnection));
+  Get.put(ReceiveMessage(socketConnection));
   // Initialize the controllers
-  Get.put(SetupController(Get.find<ConnectToDevice>(), Get.find<SendMessage>(), bluetoothService, Get.find<ReceiveMessage>()));
+  Get.put(SetupController(Get.find<SendMessage>(), Get.find<ReceiveMessage>()));
   runApp(MyApp());
 }
 
 Future<void> requestPermissions() async {
   await [
-    Permission.bluetooth,
-    Permission.bluetoothScan,
-    Permission.bluetoothConnect,
     Permission.location,
   ].request();
 }

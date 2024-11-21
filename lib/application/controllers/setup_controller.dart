@@ -1,94 +1,35 @@
 // lib/application/controllers/setup_controller.dart
-import 'package:arg_osci_app/domain/use_cases/receive_message.dart';
 import 'package:get/get.dart';
-import '../../domain/use_cases/ble_connect_to_device.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 import '../../domain/use_cases/send_message.dart';
-import '../../domain/entities/bluetooth_connection.dart';
-import '../../application/services/bluetooth_communication_service.dart';
+import '../../domain/use_cases/receive_message.dart';
 
 class SetupController extends GetxController {
-  final ConnectToDevice connectToDevice;
   final SendMessage sendMessage;
-  final BluetoothCommunicationService bluetoothService;
   final ReceiveMessage receiveMessage;
-  var selectedDevice = Rx<BluetoothConnection?>(null);
-  var devices = <BluetoothConnection>[].obs;
-  final _isScanning = false.obs;
-  List<int>? aesKey; // Variable para almacenar la clave AES
+  final NetworkInfo _networkInfo = NetworkInfo();
+  var availableNetworks = <String>[].obs;
 
-  SetupController(this.connectToDevice, this.sendMessage, this.bluetoothService, this.receiveMessage);
+  SetupController(this.sendMessage, this.receiveMessage);
 
-  bool get isScanning => _isScanning.value;
-
-  Future<void> startScan() async {
-    devices.clear();
-    _isScanning.value = true;
-    devices.value = await bluetoothService.startScan();
-    _isScanning.value = false;
+  Future<void> connectToLocalAP() async {
+    await sendMessage.call('Connect to Local AP');
   }
 
-  void stopScan() {
-    bluetoothService.stopScan();
-    _isScanning.value = false;
+  Future<void> handleExternalAPSelection() async {
+    sendMessage.call("Ext AP");
+    String availableWifi = await receiveMessage.call();
+    availableNetworks.value = availableWifi.split(','); // Assuming the networks are comma-separated
   }
 
-  void selectDevice(BluetoothConnection connection) {
-    selectedDevice.value = connection;
-    connect();
-  }
-
-  Future<void> connect() async {
-    final connection = selectedDevice.value;
-    if (connection != null) {
-      await connectToDevice.execute(connection);
-    } else {
-      Get.snackbar('Error', 'No device selected');
+  Future<void> connectToExternalAP(String ssid, String password) async {
+    sendMessage.call("SSID: $ssid, Password: $password");
+    String recIp = await receiveMessage.call();
+    String recPort = await receiveMessage.call();
+    Get.snackbar('AP Mode', 'External AP selected, change to the selected network');
+    while (await _networkInfo.getWifiName() != ssid) {
+      await Future.delayed(Duration(seconds: 1));
     }
-  }
-
-  Future<void> sendMessageToDevice(String message) async {
-    final connection = selectedDevice.value;
-    if (connection != null) {
-      await sendMessage.execute(connection, message);
-    } else {
-      Get.snackbar('Error', 'No device selected');
-    }
-  }
-
-  Future<bool> runRecognition() async {
-    try {
-      final connection = selectedDevice.value;
-      if (connection != null) {
-        await sendMessageToDevice('ack');
-        final message = await receiveMessage.execute(connection);
-        if (message == 'ack') {
-          Get.snackbar('Nice', 'Recognition successful');
-          return true;
-        } else {
-          Get.snackbar('Error', 'Received ack = $message');
-        }
-      } else {
-        Get.snackbar('Error', 'No device selected');
-      }
-    } catch (e) {
-      Get.snackbar('Error', 'An error occurred: $e');
-    }
-    return false;
-  }
-
-  Future<String?> setupSecureConnection() async {
-    final connection = selectedDevice.value;
-    if (connection != null) {
-      String publicKey = await bluetoothService.receivePublicKey(connection);
-      aesKey = generateAESKey(); // Generar y almacenar la clave AES
-      await bluetoothService.sendEncryptedAESKey(connection, publicKey, aesKey!);
-      final decryptedMessage = await bluetoothService.receiveAndDecryptMessage(connection, aesKey!);
-      if (decryptedMessage == 'Ready') {
-        return 'Ready';
-      }
-    } else {
-      Get.snackbar('Error', 'No device selected');
-    }
-    return null;
+    await sendMessage.call('Connect to External AP');
   }
 }

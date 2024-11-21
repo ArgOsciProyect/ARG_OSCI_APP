@@ -1,19 +1,12 @@
-import 'package:arg_osci_app/application/services/bluetooth_communication_service.dart';
-import '../entities/bluetooth_connection.dart';
-
+// lib/domain/use_cases/receive_message.dart
+import '../entities/socket_connection.dart';
 
 class ReceiveMessage {
-  final BluetoothCommunicationService bluetoothService;
+  final SocketConnection socketConnection;
 
-  ReceiveMessage(this.bluetoothService);
+  ReceiveMessage(this.socketConnection);
 
-  Future<String> execute(BluetoothConnection connection) async {
-    try {
-      final message = await bluetoothService.receiveMessage(connection);
-      return message;
-    } catch (e) {
-      throw Exception('Failed to receive message: $e');
-    }
+  Future<String> call() async {
+    return await socketConnection.receiveMessage();
   }
-
 }
