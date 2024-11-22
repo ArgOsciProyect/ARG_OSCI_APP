@@ -1,11 +1,11 @@
-// lib/presentation/widgets/ap_selection_dialog.dart
+// lib/features/socket/widgets/ap_selection_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../application/controllers/setup_controller.dart';
+import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
 
 void showAPSelectionDialog(BuildContext context) {
-  final SetupController controller = Get.find<SetupController>();
+  final SetupProvider controller = Get.find<SetupProvider>();
   controller.connectToLocalAP().then((_) {
     Get.dialog(
       AlertDialog(

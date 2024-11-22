@@ -2,24 +2,19 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'config/app_theme.dart';
-import 'presentation/screens/setup_screen.dart';
-import 'domain/entities/socket_connection.dart';
-import 'domain/use_cases/send_message.dart';
-import 'domain/use_cases/receive_message.dart';
-import 'application/controllers/setup_controller.dart';
+import 'features/socket/screens/setup_screen.dart';
+import 'features/socket/domain/services/socket_service.dart';
+import 'features/socket/providers/setup_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await requestPermissions();
-  // Initialize the entities
-  final socketConnection = SocketConnection();
-  Get.put(socketConnection);
-  // Initialize the use cases
-  Get.put(SendMessage(socketConnection));
-  Get.put(ReceiveMessage(socketConnection));
-  // Initialize the controllers
-  Get.put(SetupController(Get.find<SendMessage>(), Get.find<ReceiveMessage>()));
+  // Initialize the services
+  final socketService = SocketService();
+  Get.put(socketService);
+  // Initialize the providers
+  Get.put(SetupProvider(socketService));
   runApp(MyApp());
 }
 
