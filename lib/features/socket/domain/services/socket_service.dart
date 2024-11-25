@@ -29,8 +29,8 @@ class SocketService implements SocketRepository {
   @override
   Future<void> sendMessage(String message) async {
     if (_socket != null) {
-      String nulledMessage = message;
-      _socket!.write(nulledMessage);
+      String nulledMessage = message + '\0';
+      _socket!.write(utf8.encode(nulledMessage));
       await _socket!.flush();
     } else {
       throw Exception('Socket is not connected');

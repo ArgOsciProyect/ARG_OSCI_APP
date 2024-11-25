@@ -34,6 +34,7 @@ dependencies:
   network_info_plus: ^6.1.1
   socket_io_client: ^3.0.1
   permission_handler: ^11.3.1
+  http: 1.2.2
 
 
 dev_dependencies:

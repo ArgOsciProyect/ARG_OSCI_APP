@@ -1,4 +1,4 @@
-// lib/features/socket/widgets/ap_selection_dialog.dart
+// lib/features/setup/widgets/ap_selection_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/setup_provider.dart';
@@ -16,6 +16,7 @@ void showAPSelectionDialog(BuildContext context) {
             onPressed: () {
               // Handle Local AP selection
               Get.back();
+              controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
             },
             child: Text('Local AP'),
@@ -24,6 +25,7 @@ void showAPSelectionDialog(BuildContext context) {
             onPressed: () {
               // Handle External AP selection
               Get.back();
+              controller.handleModeSelection('External AP');
               showWiFiNetworkDialog(context);
             },
             child: Text('External AP'),
