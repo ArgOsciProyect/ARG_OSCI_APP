@@ -86,11 +86,15 @@ class SetupService implements SetupRepository {
     await waitForNetworkChange(ssid);
     print("Connected to $ssid");
     await Future.delayed(Duration(seconds: 3));
-    initializeGlobalHttpService('http://$extIp');
-    dynamic test = globalHttpService!.get("/test");
-    print(test['Test']);
-    print("http initialized");
+    initializeGlobalHttpService('http://$extIp:80');
+    
+    // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
+    final response = await globalHttpService!.get("/test");
+    print(response);
+
     initializeGlobalSocketService(extIp, extPort);
+    dynamic rec = await globalSocketService.receiveMessage();
+    print(rec);
   }
 
   Future<void> waitForNetworkChange(String ssid) async {

@@ -4,7 +4,28 @@ import '../providers/setup_provider.dart';
 
 Future<void> showWiFiNetworkDialog(BuildContext context) async {
   final SetupProvider controller = Get.find<SetupProvider>();
+
+  // Mostrar diálogo de espera
+  Get.dialog(
+    AlertDialog(
+      title: Text('Scanning for WiFi Networks'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Please wait while scanning for available WiFi networks...'),
+          SizedBox(height: 20),
+          CircularProgressIndicator(),
+        ],
+      ),
+    ),
+    barrierDismissible: false,
+  );
+
   await controller.handleExternalAPSelection();
+
+  // Cerrar el diálogo de espera
+  Get.back();
+
   if (!context.mounted) return;
   Get.dialog(
     AlertDialog(

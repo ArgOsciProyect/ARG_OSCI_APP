@@ -13,7 +13,6 @@ class HttpService implements HttpRepository {
   Future<dynamic> get(String endpoint) async {
     try {
       final response = await http.get(Uri.parse('${config.baseUrl}$endpoint'));
-      print(response.body);  
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
@@ -26,6 +25,7 @@ class HttpService implements HttpRepository {
 
   @override
   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
+    print(body);
     try {
       final response = await http.post(
         Uri.parse('${config.baseUrl}$endpoint'),
