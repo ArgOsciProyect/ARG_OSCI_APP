@@ -13,7 +13,7 @@ class HttpService implements HttpRepository {
   Future<dynamic> get(String endpoint) async {
     try {
       final response = await http.get(Uri.parse('${config.baseUrl}$endpoint'));
-
+      print(response.body);  
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {

@@ -15,7 +15,7 @@ void main() async {
 
   // Initialize the global services
   final globalSocketService = SocketService();
-  final setupService = SetupService(globalSocketService, HttpConfig('http://192.168.4.1'));
+  final setupService = SetupService(globalSocketService, HttpConfig('http://192.168.4.1:81'));
   Get.put(globalSocketService);
   Get.put(setupService);
 

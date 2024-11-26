@@ -11,7 +11,7 @@ class SocketService implements SocketRepository {
 
   @override
   Future<void> connect(SocketConnection connection) async {
-    _socket = await Socket.connect(connection.ip, connection.port);
+    _socket = await Socket.connect(connection.ip, connection.port, timeout: Duration(seconds: 5));
     _socket!.listen(
       (data) {
         final message = utf8.decode(data);

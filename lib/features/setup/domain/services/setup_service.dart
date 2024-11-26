@@ -40,6 +40,13 @@ class SetupService implements SetupRepository {
     print("port recibido: $extPort");
   }
 
+  //@override
+  //Future<List<String>> scanForWiFiNetworks() async {
+  //  final response = await _privateHttpService!.get('/scan_wifi');
+  //  final List<dynamic> networks = response['networks'];
+  //  return networks.map((item) => item['SSID'] as String).toList();
+  //}
+
   @override
   Future<List<String>> scanForWiFiNetworks() async {
     final response = await _privateHttpService!.get('/scan_wifi');
@@ -60,29 +67,34 @@ class SetupService implements SetupRepository {
     while (await _networkInfo.getWifiName() != '"ESP32_AP"') {
       await Future.delayed(Duration(seconds: 1));
     }
-    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1'));
+    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'));
   }
 
   Future<void> selectMode(String mode) async {
-    final response = await _privateHttpService!.post('/select_mode', {'mode': mode});
+    final response = await _privateHttpService!.get('/internal_mode');
     if (mode == 'External AP') {
       // Handle External AP mode
     } else if (mode == 'Internal AP') {
       final ip = response['IP'];
       final port = response['Port'];
-      initializeGlobalHttpService('http://$ip:$port');
+      initializeGlobalHttpService('http://$ip');
       initializeGlobalSocketService(ip, int.parse(port));
     }
   }
 
   Future<void> handleNetworkChangeAndConnect(String ssid) async {
     await waitForNetworkChange(ssid);
-    initializeGlobalHttpService('http://$extIp:$extPort');
+    print("Connected to $ssid");
+    await Future.delayed(Duration(seconds: 3));
+    initializeGlobalHttpService('http://$extIp');
+    dynamic test = globalHttpService!.get("/test");
+    print(test['Test']);
+    print("http initialized");
     initializeGlobalSocketService(extIp, extPort);
   }
 
   Future<void> waitForNetworkChange(String ssid) async {
-    while (await _networkInfo.getWifiName() != ssid) {
+    while (await _networkInfo.getWifiName() != '"' + ssid + '"') {
       await Future.delayed(Duration(seconds: 1));
     }
   }
