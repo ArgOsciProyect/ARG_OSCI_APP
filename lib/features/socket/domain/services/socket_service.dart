@@ -51,4 +51,8 @@ class SocketService implements SocketRepository {
     await _socket?.close();
     await _controller.close();
   }
+
+  // Getters and setters
+  set socket(Socket? socket) => _socket = socket;
+  StreamController<String> get controller => _controller;
 }

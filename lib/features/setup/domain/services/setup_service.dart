@@ -26,8 +26,8 @@ class SetupService implements SetupRepository {
     globalHttpService = HttpService(HttpConfig(baseUrl));
   }
 
-  void initializeGlobalSocketService(String ip, int port) {
-    globalSocketService.connect(SocketConnection(ip, port));
+  void initializeGlobalSocketService(String ip, int port) async {
+    await globalSocketService.connect(SocketConnection(ip, port));
   }
 
   @override
