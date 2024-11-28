@@ -12,7 +12,6 @@ class SetupService implements SetupRepository {
   HttpService? globalHttpService;
   final HttpConfig httpConfig;
   final NetworkInfo _networkInfo = NetworkInfo();
-
   // Private instances
   HttpService? _privateHttpService;
   late dynamic extIp;
@@ -26,26 +25,18 @@ class SetupService implements SetupRepository {
     globalHttpService = HttpService(HttpConfig(baseUrl));
   }
 
-  void initializeGlobalSocketService(String ip, int port) async {
+  Future<void> initializeGlobalSocketService(String ip, int port) async {
     await globalSocketService.connect(SocketConnection(ip, port));
   }
 
   @override
   Future<void> connectToWiFi(WiFiCredentials credentials) async {
     final response = await _privateHttpService!.post('/connect_wifi', credentials.toJson());
-
     extIp = response['IP'];
     extPort = response['Port'];
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
   }
-
-  //@override
-  //Future<List<String>> scanForWiFiNetworks() async {
-  //  final response = await _privateHttpService!.get('/scan_wifi');
-  //  final List<dynamic> networks = response['networks'];
-  //  return networks.map((item) => item['SSID'] as String).toList();
-  //}
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
@@ -78,7 +69,7 @@ class SetupService implements SetupRepository {
       final ip = response['IP'];
       final port = response['Port'];
       initializeGlobalHttpService('http://$ip');
-      initializeGlobalSocketService(ip, int.parse(port));
+      initializeGlobalSocketService(ip, port);
     }
   }
 
@@ -87,14 +78,16 @@ class SetupService implements SetupRepository {
     print("Connected to $ssid");
     await Future.delayed(Duration(seconds: 3));
     initializeGlobalHttpService('http://$extIp:80');
-    
+
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
     final response = await globalHttpService!.get("/test");
     print(response);
 
-    initializeGlobalSocketService(extIp, extPort);
-    dynamic rec = await globalSocketService.receiveMessage();
-    print(rec);
+    await initializeGlobalSocketService(extIp, extPort); // Esperar a que la conexión del socket se complete
+
+    globalSocketService.messages.listen((message) {
+      print("Received: $message");
+    });
   }
 
   Future<void> waitForNetworkChange(String ssid) async {

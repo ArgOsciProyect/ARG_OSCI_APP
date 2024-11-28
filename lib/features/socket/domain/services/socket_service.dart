@@ -7,11 +7,12 @@ import '../repository/socket_repository.dart';
 
 class SocketService implements SocketRepository {
   Socket? _socket;
-  final _controller = StreamController<String>();
+  final _controller = StreamController<String>.broadcast();
 
   @override
   Future<void> connect(SocketConnection connection) async {
     _socket = await Socket.connect(connection.ip, connection.port, timeout: Duration(seconds: 5));
+    print("conected");
     _socket!.listen(
       (data) {
         final message = utf8.decode(data);
@@ -45,6 +46,8 @@ class SocketService implements SocketRepository {
       throw Exception('Socket is not connected');
     }
   }
+
+  Stream<String> get messages => _controller.stream;
 
   @override
   Future<void> close() async {
