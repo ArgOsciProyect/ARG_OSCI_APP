@@ -1,17 +1,15 @@
-// lib/features/socket/domain/services/socket_service_test.dart
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
-import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
+import '../domain/services/socket_service.dart';
+import '../domain/models/socket_connection.dart';
 
 class MockSocket extends Mock implements Socket {}
 
 void main() {
   late SocketService socketService;
+  // ignore: unused_local_variable
   late MockSocket mockSocket;
 
   setUp(() {
@@ -19,60 +17,70 @@ void main() {
     mockSocket = MockSocket();
   });
 
-  test('connect should establish a connection', () async {
+  test('Se conecta exitosamente al servidor', () async {
+    final server = await ServerSocket.bind('127.0.0.1', 8080);
     final connection = SocketConnection('127.0.0.1', 8080);
-    when(Socket.connect(connection.ip, connection.port, timeout: anyNamed('timeout')))
-        .thenAnswer((_) async => mockSocket);
-
+  
     await socketService.connect(connection);
-
-    verify(Socket.connect(connection.ip, connection.port, timeout: anyNamed('timeout'))).called(1);
+  
+    try {
+      socketService.listen();
+      expect(true, isTrue); // Si no se lanza ninguna excepción, el test pasa
+    } catch (e) {
+      expect(e, isNull); // Si se lanza una excepción, el test falla
+    }
+  
+    expect(socketService.socket, isNotNull);
+  
+    await server.close();
   });
 
-  test('sendMessage should send a message', () async {
-    final connection = SocketConnection('127.0.0.1', 8080);
-    when(Socket.connect(connection.ip, connection.port, timeout: anyNamed('timeout')))
-        .thenAnswer((_) async => mockSocket);
-    await socketService.connect(connection);
-    socketService.socket = mockSocket;
+  test('Falla al conectarse con un puerto cerrado', () async {
+    final connection = SocketConnection('127.0.0.1',9999);
 
-    await socketService.sendMessage('Hello');
-
-    verify(mockSocket.write(utf8.encode('Hello\0'))).called(1);
-    verify(mockSocket.flush()).called(1);
+    expect(
+      () async => await socketService.connect(connection),
+      throwsA(isA<SocketException>()),
+    );
   });
 
-  test('receiveMessage should receive a message', () async {
+  test('Envía un mensaje correctamente', () async {
+    final server = await ServerSocket.bind('127.0.0.1', 8080);
+    server.listen((client) {
+      client.listen((data) {
+        final message = utf8.decode(data);
+        expect(message, equals(utf8.encode('Hello World\0').toString()));
+      });
+    });
+  
     final connection = SocketConnection('127.0.0.1', 8080);
-    when(Socket.connect(connection.ip, connection.port, timeout: anyNamed('timeout')))
-        .thenAnswer((_) async => mockSocket);
     await socketService.connect(connection);
-    socketService.socket = mockSocket;
+    socketService.listen();
+    await socketService.sendMessage('Hello World');
+  
+    await server.close();
+  });
 
-    when(mockSocket.listen(any, onError: anyNamed('onError'), onDone: anyNamed('onDone')))
-        .thenAnswer((invocation) {
-      final onData = invocation.positionalArguments[0] as void Function(Uint8List);
-      onData(Uint8List.fromList(utf8.encode('Hello')));
-      return StreamSubscriptionMock();
+  test('Recibe mensajes correctamente', () async {
+    final server = await ServerSocket.bind('127.0.0.1', 8080);
+    server.listen((client) {
+      client.write('Message from server');
     });
 
+    final connection = SocketConnection('127.0.0.1', 8080);
+    await socketService.connect(connection);
+    socketService.listen();
     final message = await socketService.receiveMessage();
 
-    expect(message, 'Hello');
+    expect(message, equals('Message from server'));
+
+    await server.close();
   });
 
-  test('close should close the socket and controller', () async {
-    final connection = SocketConnection('127.0.0.1', 8080);
-    when(Socket.connect(connection.ip, connection.port, timeout: anyNamed('timeout')))
-        .thenAnswer((_) async => mockSocket);
-    await socketService.connect(connection);
-    socketService.socket = mockSocket;
-
+  test('Cierra el socket y el stream correctamente', () async {
     await socketService.close();
 
-    verify(mockSocket.close()).called(1);
-    expect(socketService.controller.isClosed, true);
+    expect(socketService.socket, isNull);
+    expect(socketService.controller.isClosed, isTrue);
   });
 }
-
-class StreamSubscriptionMock extends Mock implements StreamSubscription<Uint8List> {}

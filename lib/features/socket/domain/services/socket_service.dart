@@ -13,18 +13,26 @@ class SocketService implements SocketRepository {
   Future<void> connect(SocketConnection connection) async {
     _socket = await Socket.connect(connection.ip, connection.port, timeout: Duration(seconds: 5));
     print("conected");
-    _socket!.listen(
-      (data) {
-        final message = utf8.decode(data);
-        _controller.add(message);
-      },
-      onError: (error) {
-        _controller.addError(error);
-      },
-      onDone: () {
-        _controller.close();
-      },
-    );
+  }
+
+  @override
+  void listen() {
+    if (_socket != null) {
+      _socket!.listen(
+        (data) {
+          final message = utf8.decode(data);
+          _controller.add(message);
+        },
+        onError: (error) {
+          _controller.addError(error);
+        },
+        onDone: () {
+          _controller.close();
+        },
+      );
+    } else {
+      throw Exception('Socket is not connected');
+    }
   }
 
   @override
@@ -56,6 +64,7 @@ class SocketService implements SocketRepository {
   }
 
   // Getters and setters
+  Socket? get socket => _socket;
   set socket(Socket? socket) => _socket = socket;
   StreamController<String> get controller => _controller;
 }

@@ -27,6 +27,7 @@ class SetupService implements SetupRepository {
 
   Future<void> initializeGlobalSocketService(String ip, int port) async {
     await globalSocketService.connect(SocketConnection(ip, port));
+    globalSocketService.listen();
   }
 
   @override
@@ -36,7 +37,6 @@ class SetupService implements SetupRepository {
     extPort = response['Port'];
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
-    
   }
 
   @override

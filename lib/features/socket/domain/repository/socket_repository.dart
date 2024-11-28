@@ -3,6 +3,7 @@ import '../models/socket_connection.dart';
 
 abstract class SocketRepository {
   Future<void> connect(SocketConnection connection);
+  void listen();
   Future<void> sendMessage(String message);
   Future<String> receiveMessage();
   Future<void> close();
