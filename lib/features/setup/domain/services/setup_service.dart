@@ -36,6 +36,7 @@ class SetupService implements SetupRepository {
     extPort = response['Port'];
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
+    
   }
 
   @override
