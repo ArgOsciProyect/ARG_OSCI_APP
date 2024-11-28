@@ -6,13 +6,15 @@ import '../models/http_config.dart';
 
 class HttpService implements HttpRepository {
   final HttpConfig config;
+  final http.Client client;
 
-  HttpService(this.config);
+  HttpService(this.config, {http.Client? client})
+      : client = client ?? http.Client();
 
   @override
   Future<dynamic> get(String endpoint) async {
     try {
-      final response = await http.get(Uri.parse('${config.baseUrl}$endpoint'));
+      final response = await client.get(Uri.parse('${config.baseUrl}$endpoint'));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
@@ -25,16 +27,12 @@ class HttpService implements HttpRepository {
 
   @override
   Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
-    print(body);
     try {
-      final response = await http.post(
+      final response = await client.post(
         Uri.parse('${config.baseUrl}$endpoint'),
-        headers: <String, String>{
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
-
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
