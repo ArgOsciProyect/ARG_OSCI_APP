@@ -30,9 +30,6 @@ jobs:
     - name: Flutter doctor
       run: flutter doctor
 
-    - name: Disable Flutter telemetry
-      run: flutter --disable-telemetry
-
     - name: Cache Flutter dependencies
       uses: actions/cache@v3
       with:
