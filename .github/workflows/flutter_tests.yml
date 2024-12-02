@@ -37,6 +37,8 @@ jobs:
 
     - name: Install dependencies
       run: flutter pub get
+      working-directory: ./ # Cambia esto al directorio donde se encuentra tu proyecto Flutter
 
     - name: Run tests
       run: flutter test
+      working-directory: ./ # Cambia esto al directorio donde se encuentra tu proyecto Flutter
