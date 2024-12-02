@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
-import '../domain/services/socket_service.dart';
-import '../domain/models/socket_connection.dart';
+import '../lib/features/socket/domain/services/socket_service.dart';
+import '../lib/features/socket/domain/models/socket_connection.dart';
 
 class MockSocket extends Mock implements Socket {}
 
