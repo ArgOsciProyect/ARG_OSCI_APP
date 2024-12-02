@@ -16,10 +16,32 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Cache Flutter SDK
+      uses: actions/cache@v3
+      id: flutter-cache
+      with:
+        path: ~/.flutter
+        key: ${{ runner.os }}-flutter-sdk-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/flutter_version') }}
+        restore-keys: |
+          ${{ runner.os }}-flutter-sdk-
+
     - name: Set up Flutter
+      if: steps.flutter-cache.outputs.cache-hit != 'true'
       uses: subosito/flutter-action@v2
       with:
         channel: stable
+        flutter-version: 'latest'
+
+    - name: Cache Flutter dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.pub-cache
+          ${{ github.workspace }}/.flutter-plugins
+          ${{ github.workspace }}/.flutter-plugins-dependencies
+        key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-flutter-deps-
 
     - name: Dart version
       run: dart --version
@@ -29,17 +51,6 @@ jobs:
 
     - name: Flutter doctor
       run: flutter doctor
-
-    - name: Cache Flutter dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pub-cache
-          ${{ github.workspace }}/.flutter-plugins
-          ${{ github.workspace }}/.flutter-plugins-dependencies
-        key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-
 
     - name: Install dependencies
       run: flutter pub get
