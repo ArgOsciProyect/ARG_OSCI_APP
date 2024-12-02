@@ -1,4 +1,7 @@
 // lib/features/setup/domain/services/setup_service.dart
+import 'package:encrypt/encrypt.dart';
+import 'package:pointycastle/asymmetric/api.dart';
+import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../../../socket/domain/services/socket_service.dart';
@@ -7,6 +10,9 @@ import '../../../http/domain/services/http_service.dart';
 import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
 import 'package:http/http.dart' as http;
+
+RSAPublicKey? _publicKey;
+
 
 class SetupService implements SetupRepository {
   final SocketService globalSocketService;
@@ -17,6 +23,7 @@ class SetupService implements SetupRepository {
   HttpService? _privateHttpService;
   late dynamic extIp;
   late dynamic extPort;
+  late dynamic _pubKey;
 
   SetupService(this.globalSocketService, this.httpConfig, {http.Client? client}) {
     _privateHttpService = HttpService(httpConfig, client: client);
@@ -42,9 +49,22 @@ class SetupService implements SetupRepository {
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
+    _pubKey = await _privateHttpService!.get('/get_public_key');
+    print(_pubKey["PublicKey"]);
+    RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
+    _publicKey = key as RSAPublicKey;
     final response = await _privateHttpService!.get('/scan_wifi');
     return (response as List).map((item) => item['SSID'] as String).toList();
   }
+
+  String encriptWithPublicKey(String message) {
+      if (_pubKey == null) {
+        throw Exception('Public key is not set');
+      }
+      final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
+      final encrypted = encrypter.encrypt(message);
+      return encrypted.base64;
+  } 
 
   @override
   Future<void> sendMessage(String message) async {

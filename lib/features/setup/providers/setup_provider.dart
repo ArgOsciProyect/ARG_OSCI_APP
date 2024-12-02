@@ -22,6 +22,8 @@ class SetupProvider extends GetxController {
   }
 
   Future<void> connectToExternalAP(String ssid, String password) async {
+    password = setupService.encriptWithPublicKey(password);
+    ssid = setupService.encriptWithPublicKey(ssid);
     await setupService.connectToWiFi(WiFiCredentials(ssid, password));
   }
 
