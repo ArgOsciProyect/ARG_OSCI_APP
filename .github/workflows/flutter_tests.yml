@@ -19,7 +19,16 @@ jobs:
     - name: Set up Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.27.0'
+        channel: stable
+
+    - name: Dart version
+      run: dart --version
+
+    - name: Flutter version
+      run: flutter --version
+
+    - name: Flutter doctor
+      run: flutter doctor
 
     - name: Disable Flutter telemetry
       run: flutter --disable-telemetry
@@ -37,8 +46,6 @@ jobs:
 
     - name: Install dependencies
       run: flutter pub get
-      working-directory: ./ # Cambia esto al directorio donde se encuentra tu proyecto Flutter
 
     - name: Run tests
       run: flutter test
-      working-directory: ./ # Cambia esto al directorio donde se encuentra tu proyecto Flutter
