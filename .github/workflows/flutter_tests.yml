@@ -42,9 +42,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-flutter-deps-
 
-    - name: Dart version
-      run: dart --version
-
     - name: Flutter version
       run: flutter --version
 
