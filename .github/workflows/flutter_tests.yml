@@ -16,15 +16,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Cache Flutter SDK
-      uses: actions/cache@v3
-      id: flutter-cache
-      with:
-        path: ~/.flutter
-        key: ${{ runner.os }}-flutter-sdk-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/flutter_version') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-sdk-
-
     - name: Set up Flutter
       if: steps.flutter-cache.outputs.cache-hit != 'true'
       uses: subosito/flutter-action@v2
@@ -41,6 +32,9 @@ jobs:
         key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.yaml') }}
         restore-keys: |
           ${{ runner.os }}-flutter-deps-
+
+    - name: Dart version
+      run: dart --version
 
     - name: Flutter version
       run: flutter --version
