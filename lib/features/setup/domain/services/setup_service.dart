@@ -11,13 +11,11 @@ import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
 import 'package:http/http.dart' as http;
 
-RSAPublicKey? _publicKey;
-
 
 class SetupService implements SetupRepository {
-  final SocketService globalSocketService;
-  HttpService? globalHttpService;
-  final HttpConfig httpConfig;
+  SocketService globalSocketService;
+  HttpService globalHttpService;
+  RSAPublicKey? _publicKey;
   final NetworkInfo _networkInfo = NetworkInfo();
   // Private instances
   HttpService? _privateHttpService;
@@ -25,8 +23,8 @@ class SetupService implements SetupRepository {
   late dynamic extPort;
   late dynamic _pubKey;
 
-  SetupService(this.globalSocketService, this.httpConfig, {http.Client? client}) {
-    _privateHttpService = HttpService(httpConfig, client: client);
+  SetupService(this.globalSocketService, this.globalHttpService) {
+    _privateHttpService = globalHttpService;
   }
 
   void initializeGlobalHttpService(String baseUrl, {http.Client? client}) {
@@ -102,14 +100,10 @@ class SetupService implements SetupRepository {
     initializeGlobalHttpService('http://$extIp:80', client: client);
 
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
-    final response = await globalHttpService!.get("/test");
+    final response = await globalHttpService.get("/test");
     print(response);
 
     await initializeGlobalSocketService(extIp, extPort); // Esperar a que la conexión del socket se complete
-
-    globalSocketService.messages.listen((message) {
-      print("Received: $message");
-    });
   }
 
   Future<void> waitForNetworkChange(String ssid) async {

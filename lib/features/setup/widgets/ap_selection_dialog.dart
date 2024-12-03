@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
+import '../../graph/screens/graph_screen.dart';
+import '../../data_acquisition/domain/services/data_acquisition_service.dart';
 
-void showAPSelectionDialog(BuildContext context) {
+Future<void> showAPSelectionDialog(BuildContext context) async {
   final SetupProvider controller = Get.find<SetupProvider>();
-  
+
   // Mostrar diálogo de espera
   Get.dialog(
     AlertDialog(
@@ -32,20 +34,27 @@ void showAPSelectionDialog(BuildContext context) {
         content: Text('Choose your preferred AP mode.'),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               // Handle Local AP selection
               Get.back();
-              controller.handleModeSelection('Internal AP');
+              await controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
+
+              // Iniciar la adquisición de datos
+              final dataAcquisitionService = Get.find<DataAcquisitionService>();
+              dataAcquisitionService.fetchData();
+
+              // Navegar a GraphScreen
+              Get.to(() => GraphScreen());
             },
             child: Text('Local AP'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               // Handle External AP selection
               Get.back();
-              controller.handleModeSelection('External AP');
-              showWiFiNetworkDialog(context);
+              await controller.handleModeSelection('External AP');
+              await showWiFiNetworkDialog(context);
             },
             child: Text('External AP'),
           ),

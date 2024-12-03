@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'config/app_theme.dart';
 import 'features/setup/screens/setup_screen.dart';
+import 'features/graph/screens/graph_screen.dart';
 import 'config/initializer.dart'; // Import the Initializer
 import 'package:permission_handler/permission_handler.dart';
 
@@ -31,6 +32,10 @@ class MyApp extends StatelessWidget {
       title: 'ARG_OSCI',
       theme: appTheme,
       home: SetupScreen(),
+      getPages: [
+        GetPage(name: '/', page: () => SetupScreen()),
+        GetPage(name: '/graph', page: () => GraphScreen()),
+      ],
     );
   }
 }

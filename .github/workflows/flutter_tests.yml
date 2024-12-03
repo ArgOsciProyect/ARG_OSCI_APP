@@ -3,7 +3,7 @@ name: Flutter Test
 on:
   push:
     branches:
-      - '**'
+      - develop
   pull_request:
     branches:
       - '**'
@@ -16,14 +16,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Cache Flutter SDK
-      uses: actions/cache@v3
-      id: flutter-cache
+    - name: Cache Flutter dependencies
+      uses: actions/cache@v1
       with:
-        path: ~/.flutter
-        key: ${{ runner.os }}-flutter-sdk-${{ hashFiles('**/pubspec.yaml') }}-${{ hashFiles('**/flutter_version') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-sdk-
+        path: /opt/hostedtoolcache/flutter
+        key: ${{ runner.OS }}-flutter-install-cache-${{ env.flutter_version }}
 
     - name: Set up Flutter
       if: steps.flutter-cache.outputs.cache-hit != 'true'
@@ -31,17 +28,6 @@ jobs:
       with:
         channel: stable
         
-    - name: Cache Flutter dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pub-cache
-          ${{ github.workspace }}/.flutter-plugins
-          ${{ github.workspace }}/.flutter-plugins-dependencies
-        key: ${{ runner.os }}-flutter-deps-${{ hashFiles('**/pubspec.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-deps-
-
     - name: Dart version
       run: dart --version
 

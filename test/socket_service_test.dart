@@ -83,4 +83,33 @@ void main() {
     expect(socketService.socket, isNull);
     expect(socketService.controller.isClosed, isTrue);
   });
+
+  test('Suscribe y desuscribe correctamente', () async {
+    final server = await ServerSocket.bind('127.0.0.1', 8080);
+    final connection = SocketConnection('127.0.0.1', 8080);
+
+    await socketService.connect(connection);
+    socketService.listen();
+
+    // Suscribirse al stream de datos
+    final subscription = socketService.subscribe((data) {
+      expect(data, equals('Message from server'));
+    });
+
+    // Enviar un mensaje desde el servidor
+    server.listen((client) {
+      client.write('Message from server');
+    });
+
+    // Esperar un momento para que el mensaje sea recibido
+    await Future.delayed(Duration(seconds: 1));
+
+    // Desuscribirse del stream de datos
+    socketService.unsubscribe(subscription);
+
+    // Esperar un momento para asegurarse de que no se recibe el mensaje
+    await Future.delayed(Duration(seconds: 1));
+
+    await server.close();
+  });
 }
