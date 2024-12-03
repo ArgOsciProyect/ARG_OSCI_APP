@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'config/app_theme.dart';
 import 'features/setup/screens/setup_screen.dart';
 import 'features/graph/screens/graph_screen.dart';
+import 'features/graph/screens/mode_selection_screen.dart';
 import 'config/initializer.dart'; // Import the Initializer
 import 'package:permission_handler/permission_handler.dart';
 
@@ -34,7 +35,8 @@ class MyApp extends StatelessWidget {
       home: SetupScreen(),
       getPages: [
         GetPage(name: '/', page: () => SetupScreen()),
-        GetPage(name: '/graph', page: () => GraphScreen()),
+        GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
+        GetPage(name: '/graph', page: () => GraphScreen(mode: 'Oscilloscope')),
       ],
     );
   }

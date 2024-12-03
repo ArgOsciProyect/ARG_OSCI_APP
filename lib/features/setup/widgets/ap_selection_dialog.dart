@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
-import '../../graph/screens/graph_screen.dart';
-import '../../data_acquisition/domain/services/data_acquisition_service.dart';
+import '../../graph/screens/mode_selection_screen.dart';
 
 Future<void> showAPSelectionDialog(BuildContext context) async {
   final SetupProvider controller = Get.find<SetupProvider>();
@@ -24,8 +23,9 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
     barrierDismissible: false,
   );
 
-  controller.connectToLocalAP().then((_) {
-    // Cerrar el diálogo de espera
+  try {
+    await controller.connectToLocalAP();
+    // Cerrar el diálogo de espera después de la conexión
     Get.back();
 
     Get.dialog(
@@ -40,12 +40,8 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
               await controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
 
-              // Iniciar la adquisición de datos
-              final dataAcquisitionService = Get.find<DataAcquisitionService>();
-              dataAcquisitionService.fetchData();
-
-              // Navegar a GraphScreen
-              Get.to(() => GraphScreen());
+              // Navegar a la pantalla de selección de modo
+              Get.to(() => ModeSelectionScreen());
             },
             child: Text('Local AP'),
           ),
@@ -61,5 +57,9 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
         ],
       ),
     );
-  });
+  } catch (e) {
+    // Manejar errores de conexión
+    Get.back();
+    Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
+  }
 }

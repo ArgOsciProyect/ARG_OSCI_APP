@@ -88,6 +88,8 @@ class SetupService implements SetupRepository {
     } else if (mode == 'Internal AP') {
       final ip = response['IP'];
       final port = response['Port'];
+      print("ip recibido: $ip");
+      print("port recibido: $port");
       initializeGlobalHttpService('http://$ip', client: client);
       initializeGlobalSocketService(ip, port);
     }

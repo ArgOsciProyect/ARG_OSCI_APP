@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/setup_provider.dart';
-import '../../graph/screens/graph_screen.dart';
-import '../../data_acquisition/domain/services/data_acquisition_service.dart';
+import '../../graph/screens/mode_selection_screen.dart';
 
 Future<void> showWiFiNetworkDialog(BuildContext context) async {
   final SetupProvider controller = Get.find<SetupProvider>();
@@ -105,12 +104,8 @@ Future<void> askForPassword(BuildContext context, String ssid) async {
       // Cerrar el diálogo de espera
       Get.back();
 
-      // Iniciar la adquisición de datos
-      final dataAcquisitionService = Get.find<DataAcquisitionService>();
-      dataAcquisitionService.fetchData();
-
-      // Navegar a GraphScreen
-      Get.to(() => GraphScreen());
+      // Navegar a la pantalla de selección de modo
+      Get.to(() => ModeSelectionScreen());
     }
   });
 }

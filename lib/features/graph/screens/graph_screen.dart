@@ -6,14 +6,21 @@ import '../../data_acquisition/domain/services/data_acquisition_service.dart';
 import '../widgets/line_chart.dart';
 
 class GraphScreen extends StatelessWidget {
-  const GraphScreen({super.key});
+  final String mode;
+
+  const GraphScreen({required this.mode, super.key});
 
   @override
   Widget build(BuildContext context) {
     final DataAcquisitionService dataAcquisitionService = Get.find<DataAcquisitionService>();
 
+    if (mode == 'Oscilloscope') {
+      // Iniciar la adquisición de datos en modo Oscilloscope
+      dataAcquisitionService.fetchData();
+    }
+
     return Scaffold(
-      appBar: AppBar(title: Text('Graph')),
+      appBar: AppBar(title: Text('Graph - $mode Mode')),
       body: Center(
         child: StreamBuilder<List<DataPoint>>(
           stream: dataAcquisitionService.dataPointsStream,

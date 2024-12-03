@@ -16,7 +16,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // FIFO para almacenar los datos recibidos
   final List<int> _fifo = [];
-  final int _fifoSize = 1024; // Tamaño máximo de la FIFO
+  final int _fifoSize = 25000; // Tamaño máximo de la FIFO
 
   // StreamController para enviar los DataPoints al graficador
   final StreamController<List<DataPoint>> _dataPointsController = StreamController<List<DataPoint>>.broadcast();
