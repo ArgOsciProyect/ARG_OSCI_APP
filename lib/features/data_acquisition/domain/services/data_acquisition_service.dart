@@ -16,19 +16,25 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // FIFO para almacenar los datos recibidos
   final List<int> _fifo = [];
-  final int _fifoSize = 25000; // Tamaño máximo de la FIFO
+  final int _fifoSize = 8192 * 4; // Tamaño máximo de la FIFO
 
   // StreamController para enviar los DataPoints al graficador
   final StreamController<List<DataPoint>> _dataPointsController = StreamController<List<DataPoint>>.broadcast();
+  final StreamController<double> _frequencyController = StreamController<double>.broadcast();
+  final StreamController<double> _maxValueController = StreamController<double>.broadcast();
+
+  StreamSubscription<List<int>>? _subscription;
 
   DataAcquisitionService(this.socketService, this.httpService);
 
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
+  Stream<double> get frequencyStream => _frequencyController.stream;
+  Stream<double> get maxValueStream => _maxValueController.stream;
 
   @override
   Future<void> fetchData() async {
     // Suscribirse al stream de datos del socket
-    final subscription = socketService.subscribe((data) {
+    _subscription = socketService.subscribe((data) {
       // Agregar los datos recibidos a la FIFO
       _fifo.addAll(data);
 
@@ -40,11 +46,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Parsear los datos de la FIFO y enviar los DataPoints al graficador
       final parsedDataPoints = parseData(_fifo);
       _dataPointsController.add(parsedDataPoints);
-    });
 
-    // Mantener la adquisición de datos en ejecución
-    await Future.delayed(Duration(days: 365));
-    socketService.unsubscribe(subscription);
+      // Calcular la frecuencia y el valor máximo cada 10,000 muestras
+      if (_fifo.length >= 10000) {
+        final frequency = calculateFrequencyWithMax(parsedDataPoints);
+        final maxValue = parsedDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+        _frequencyController.add(frequency);
+        _maxValueController.add(maxValue);
+      }
+    });
+  }
+
+  Future<void> stopData() async {
+    // Desuscribirse del stream de datos
+    await _subscription?.cancel();
+    _subscription = null;
   }
 
   List<DataPoint> parseData(List<int> data) {
@@ -68,5 +84,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
 
     return dataPoints;
+  }
+
+  double calculateFrequencyWithMax(List<DataPoint> dataPoints) {
+    // Implementar la lógica para calcular la frecuencia de la señal
+    // Aquí puedes usar FFT o cualquier otro método adecuado
+    // Por simplicidad, devolvemos un valor fijo
+    return 50.0; // Ejemplo de frecuencia fija
   }
 }
