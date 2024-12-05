@@ -6,13 +6,21 @@ import '../repository/data_acquisition_repository.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../http/domain/services/http_service.dart';
 
+enum TriggerMode { automatic, manual }
+enum TriggerEdge { positive, negative }
+
 class DataAcquisitionService implements DataAcquisitionRepository {
   final SocketService socketService;
   final HttpService httpService;
 
   // Constantes de escala y distancia (hardcodeadas por ahora)
   double scale = 1.0;
-  double distance = 1.0;
+  double distance = 1/2000000; // Representa la distancia en microsegundos entre cada dato
+
+  // Variables de trigger
+  double triggerLevel = 0.0;
+  TriggerMode triggerMode = TriggerMode.automatic;
+  TriggerEdge triggerEdge = TriggerEdge.positive;
 
   // FIFO para almacenar los datos recibidos
   final List<int> _fifo = [];
@@ -45,12 +53,17 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       // Parsear los datos de la FIFO y enviar los DataPoints al graficador
       final parsedDataPoints = parseData(_fifo);
-      _dataPointsController.add(parsedDataPoints);
+
+      // Aplicar el trigger y obtener los datos a partir del punto de trigger
+      final triggeredDataPoints = applyTrigger(parsedDataPoints);
+      if (triggeredDataPoints.isNotEmpty) {
+        _dataPointsController.add(triggeredDataPoints);
+      }
 
       // Calcular la frecuencia y el valor máximo cada 10,000 muestras
       if (_fifo.length >= 10000) {
-        final frequency = calculateFrequencyWithMax(parsedDataPoints);
-        final maxValue = parsedDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+        final frequency = calculateFrequencyWithMax(triggeredDataPoints);
+        final maxValue = triggeredDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
         _frequencyController.add(frequency);
         _maxValueController.add(maxValue);
       }
@@ -86,10 +99,55 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return dataPoints;
   }
 
+  List<DataPoint> applyTrigger(List<DataPoint> dataPoints) {
+    double triggerValue = triggerLevel;
+    if (triggerMode == TriggerMode.automatic) {
+      triggerValue = dataPoints.map((e) => e.y).reduce((a, b) => a + b) / dataPoints.length;
+    }
+
+    for (int i = 1; i < dataPoints.length; i++) {
+      bool triggerCondition = triggerEdge == TriggerEdge.positive
+          ? dataPoints[i - 1].y < triggerValue && dataPoints[i].y >= triggerValue
+          : dataPoints[i - 1].y > triggerValue && dataPoints[i].y <= triggerValue;
+
+      if (triggerCondition) {
+        // Desplazar todos los puntos a la izquierda para que el trigger sea el valor en el punto 0 del eje x
+        List<DataPoint> triggeredDataPoints = dataPoints.sublist(i);
+        double triggerX = triggeredDataPoints[0].x;
+        for (var point in triggeredDataPoints) {
+          point.x -= triggerX;
+        }
+        return triggeredDataPoints;
+      }
+    }
+    return [];
+  }
+
   double calculateFrequencyWithMax(List<DataPoint> dataPoints) {
     // Implementar la lógica para calcular la frecuencia de la señal
     // Aquí puedes usar FFT o cualquier otro método adecuado
     // Por simplicidad, devolvemos un valor fijo
-    return 50.0; // Ejemplo de frecuencia fija
+    return 1000.0; // Ejemplo de frecuencia fija
+  }
+
+  List<double> autoset(List<DataPoint> dataPoints, double valueScale, double timeScale, double chartHeight, double chartWidth) {
+    // Configurar el trigger en la media
+    List<double> result = [];
+    triggerMode = TriggerMode.automatic;
+
+    // Calcular la frecuencia y ajustar la señal en términos de amplitud
+    final frequency = calculateFrequencyWithMax(dataPoints);
+    print("frequency: $frequency");
+    final maxValue = dataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b) / scale;
+    print("maxValue: $maxValue");
+
+    // Ajustar la escala de tiempo y valor
+    double samplesForPeriod = (1/distance)/frequency;
+    print("samplesForPeriod: $samplesForPeriod");
+    double timeScaleSend = chartWidth/samplesForPeriod; // Mostrar 3 periodos en pantalla
+    double valueScaleSend = chartHeight/maxValue; // Ajustar la señal en términos de amplitud
+    result.add(timeScaleSend);
+    result.add(valueScaleSend);
+    return result;
   }
 }

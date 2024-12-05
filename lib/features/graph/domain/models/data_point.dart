@@ -1,6 +1,6 @@
 // lib/features/data_acquisition/domain/models/data_point.dart
 class DataPoint {
-  final double x;
+  double x;
   final double y;
 
   DataPoint(this.x, this.y);

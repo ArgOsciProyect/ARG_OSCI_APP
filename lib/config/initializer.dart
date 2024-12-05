@@ -5,7 +5,8 @@ import '../features/socket/domain/services/socket_service.dart';
 import '../features/setup/domain/services/setup_service.dart';
 import '../features/setup/providers/setup_provider.dart';
 import '../features/http/domain/models/http_config.dart';
-import '../features/data_acquisition/domain/services/data_acquisition_service.dart';
+import '../features/graph/domain/services/data_acquisition_service.dart';
+import '../features/graph/providers/graph_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
@@ -25,5 +26,6 @@ class Initializer {
 
     // Initialize the providers
     Get.put(SetupProvider(setupService));
+    Get.put(GraphProvider(dataAcquisitionService)); // Register GraphProvider
   }
 }

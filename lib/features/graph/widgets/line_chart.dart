@@ -1,8 +1,15 @@
 // lib/features/graph/widgets/line_chart.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../data_acquisition/domain/models/data_point.dart';
-import '../../data_acquisition/domain/services/data_acquisition_service.dart';
+import '../../graph/domain/models/data_point.dart';
+import '../../graph/providers/graph_provider.dart';
+
+late Size _size;
+// Mover el gráfico hacia arriba y a la derecha
+final double _offsetY = 30;
+final double _offsetX = 50;
+final double _sqrOffsetBot = 30;
+final double _sqrOffsetTop = 30;
 
 class LineChart extends StatefulWidget {
   final List<DataPoint> dataPoints;
@@ -18,26 +25,32 @@ class _LineChartState extends State<LineChart> {
   double valueScale = 1.0;
   double frequency = 1.0;
   double maxValue = 1.0;
+  double maxX = 1.0;
 
-  late DataAcquisitionService dataAcquisitionService;
+  late GraphProvider graphProvider;
 
   @override
   void initState() {
     super.initState();
-    dataAcquisitionService = Get.find<DataAcquisitionService>();
+    graphProvider = Get.find<GraphProvider>();
 
     // Suscribirse a los streams de frecuencia y valor máximo
-    dataAcquisitionService.frequencyStream.listen((newFrequency) {
+    graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
       setState(() {
         frequency = newFrequency;
       });
     });
 
-    dataAcquisitionService.maxValueStream.listen((newMaxValue) {
+    graphProvider.dataAcquisitionService.maxValueStream.listen((newMaxValue) {
       setState(() {
         maxValue = newMaxValue;
       });
     });
+
+    // Calcular el valor máximo de X
+    if (widget.dataPoints.isNotEmpty) {
+      maxX = widget.dataPoints.map((e) => e.x).reduce((a, b) => a > b ? a : b);
+    }
   }
 
   @override
@@ -45,14 +58,18 @@ class _LineChartState extends State<LineChart> {
     return Column(
       children: [
         Expanded(
-          child: Container(
-            height: 300,
-            width: double.infinity,
-            child: widget.dataPoints.isEmpty
-                ? Center(child: Text('No data'))
-                : CustomPaint(
-                    painter: LineChartPainter(widget.dataPoints, timeScale, valueScale),
-                  ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Container(
+                height: constraints.maxHeight,
+                width: constraints.maxWidth,
+                child: widget.dataPoints.isEmpty
+                    ? Center(child: Text('No data'))
+                    : CustomPaint(
+                        painter: LineChartPainter(widget.dataPoints, timeScale, valueScale, maxX),
+                      ),
+              );
+            },
           ),
         ),
         Row(
@@ -93,7 +110,18 @@ class _LineChartState extends State<LineChart> {
             IconButton(
               icon: Icon(Icons.autorenew),
               onPressed: () {
-                autoset();
+                print("Previous time scale: $timeScale");
+                print("Previous value scale: $valueScale");
+                print(_size.height);
+                print(_size.width);
+                final List<double> auto = graphProvider.autoset(valueScale, timeScale, _size.height - _offsetY * 2, _size.width - _offsetX * 2);
+                valueScale = auto[1];
+                timeScale = auto[0];
+                print("New time scale: $timeScale");
+                print("New value scale: $valueScale");
+                for( int i= 0; i<widget.dataPoints.length; i++){
+                  print("x: ${widget.dataPoints[i].x} y: ${widget.dataPoints[i].y}");
+                }
               },
             ),
           ],
@@ -101,26 +129,19 @@ class _LineChartState extends State<LineChart> {
       ],
     );
   }
-
-  void autoset() {
-    if (widget.dataPoints.isEmpty) return;
-
-    setState(() {
-      timeScale = 1 / frequency; // Ajustar el valor según la frecuencia
-      valueScale = maxValue; // Ajustar el valor según el valor máximo
-    });
-  }
 }
 
 class LineChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
   final double valueScale;
+  final double maxX;
 
-  LineChartPainter(this.dataPoints, this.timeScale, this.valueScale);
+  LineChartPainter(this.dataPoints, this.timeScale, this.valueScale, this.maxX);
 
   @override
   void paint(Canvas canvas, Size size) {
+    _size = size;
     final paint = Paint()
       ..color = Colors.blue
       ..strokeWidth = 2;
@@ -157,7 +178,7 @@ class LineChartPainter extends CustomPainter {
     );
 
     for (double i = 0; i <= size.width; i += size.width / 10) {
-      final x = i / timeScale;
+      final x = i / (2000000*timeScale);
       final xPos = i + offsetX;
       canvas.drawLine(Offset(xPos, offsetY), Offset(xPos, size.height - sqrOffsetBot), gridPaint);
 
@@ -188,7 +209,7 @@ class LineChartPainter extends CustomPainter {
       final p2 = Offset(dataPoints[i + 1].x * timeScale + offsetX, size.height - dataPoints[i + 1].y * valueScale - sqrOffsetBot);
 
       // Omitir los puntos que se salen del recuadro negro
-      if (p1.dy < offsetY || p1.dy > size.height - sqrOffsetBot || p2.dy < offsetY || p2.dy > size.height - sqrOffsetBot) {
+      if (p1.dy < offsetY || p1.dy > size.height - sqrOffsetBot || p2.dy < offsetY || p2.dy > size.height - sqrOffsetBot || p1.dx > size.width - offsetX || p2.dx > size.width - offsetX) {
         continue;
       }
 
