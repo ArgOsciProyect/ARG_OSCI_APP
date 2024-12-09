@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import '../lib/features/http/domain/services/http_service.dart';
-import '../lib/features/http/domain/models/http_config.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
+import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 
 void main() {
   late HttpService httpService;

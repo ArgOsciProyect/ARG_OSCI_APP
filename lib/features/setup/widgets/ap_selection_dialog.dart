@@ -6,7 +6,6 @@ import '../../graph/screens/mode_selection_screen.dart';
 
 Future<void> showAPSelectionDialog(BuildContext context) async {
   final SetupProvider controller = Get.find<SetupProvider>();
-
   // Mostrar diálogo de espera
   Get.dialog(
     AlertDialog(
@@ -50,6 +49,9 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
               // Handle External AP selection
               Get.back();
               await controller.handleModeSelection('External AP');
+              Get.snackbar('AP Mode', 'External AP selected.');
+
+              // Mostrar diálogo para seleccionar red WiFi externa
               await showWiFiNetworkDialog(context);
             },
             child: Text('External AP'),

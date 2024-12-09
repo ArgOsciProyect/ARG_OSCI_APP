@@ -15,8 +15,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // Constantes de escala y distancia (hardcodeadas por ahora)
   double scale = 1.0;
-  double distance = 1/2000000; // Representa la distancia en microsegundos entre cada dato
-
+  double distance = 1 / 2000000; // Representa la distancia en segundos entre cada dato
+  double _maxValue = 4094;
+  double _frequency = 1000;
   // Variables de trigger
   double triggerLevel = 0.0;
   TriggerMode triggerMode = TriggerMode.automatic;
@@ -24,7 +25,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // FIFO para almacenar los datos recibidos
   final List<int> _fifo = [];
-  final int _fifoSize = 8192 * 4; // Tamaño máximo de la FIFO
+  final int _fifoSize = 8192 * 8; // Tamaño máximo de la FIFO
 
   // StreamController para enviar los DataPoints al graficador
   final StreamController<List<DataPoint>> _dataPointsController = StreamController<List<DataPoint>>.broadcast();
@@ -35,10 +36,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   DataAcquisitionService(this.socketService, this.httpService);
 
+  @override
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
+  @override
   Stream<double> get frequencyStream => _frequencyController.stream;
+  @override
   Stream<double> get maxValueStream => _maxValueController.stream;
-
+  
   @override
   Future<void> fetchData() async {
     // Suscribirse al stream de datos del socket
@@ -60,22 +64,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _dataPointsController.add(triggeredDataPoints);
       }
 
-      // Calcular la frecuencia y el valor máximo cada 10,000 muestras
-      if (_fifo.length >= 10000) {
-        final frequency = calculateFrequencyWithMax(triggeredDataPoints);
-        final maxValue = triggeredDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-        _frequencyController.add(frequency);
-        _maxValueController.add(maxValue);
+      // Calcular la frecuencia y el valor máximo solo si triggeredDataPoints no está vacío
+      if (triggeredDataPoints.isNotEmpty && _fifo.length >= 10000) {
+        _frequency = calculateFrequencyWithMax(triggeredDataPoints);
+        _maxValue = triggeredDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
+        _frequencyController.add(_frequency);
+        _maxValueController.add(_maxValue);
       }
     });
   }
 
+  @override
   Future<void> stopData() async {
     // Desuscribirse del stream de datos
     await _subscription?.cancel();
     _subscription = null;
   }
 
+  @override
   List<DataPoint> parseData(List<int> data) {
     final List<DataPoint> dataPoints = [];
 
@@ -99,6 +105,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return dataPoints;
   }
 
+  @override
   List<DataPoint> applyTrigger(List<DataPoint> dataPoints) {
     double triggerValue = triggerLevel;
     if (triggerMode == TriggerMode.automatic) {
@@ -123,6 +130,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return [];
   }
 
+  @override
   double calculateFrequencyWithMax(List<DataPoint> dataPoints) {
     // Implementar la lógica para calcular la frecuencia de la señal
     // Aquí puedes usar FFT o cualquier otro método adecuado
@@ -130,24 +138,23 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return 1000.0; // Ejemplo de frecuencia fija
   }
 
-  List<double> autoset(List<DataPoint> dataPoints, double valueScale, double timeScale, double chartHeight, double chartWidth) {
-    // Configurar el trigger en la media
-    List<double> result = [];
+  // lib/features/data_acquisition/domain/services/data_acquisition_service.dart
+  
+  @override
+  List<double> autoset(List<DataPoint> dataPoints, double chartHeight, double chartWidth) {
+    // Configurar el trigger en automático
     triggerMode = TriggerMode.automatic;
-
-    // Calcular la frecuencia y ajustar la señal en términos de amplitud
-    final frequency = calculateFrequencyWithMax(dataPoints);
-    print("frequency: $frequency");
-    final maxValue = dataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b) / scale;
-    print("maxValue: $maxValue");
-
-    // Ajustar la escala de tiempo y valor
-    double samplesForPeriod = (1/distance)/frequency;
-    print("samplesForPeriod: $samplesForPeriod");
-    double timeScaleSend = chartWidth/samplesForPeriod; // Mostrar 3 periodos en pantalla
-    double valueScaleSend = chartHeight/maxValue; // Ajustar la señal en términos de amplitud
-    result.add(timeScaleSend);
-    result.add(valueScaleSend);
-    return result;
+  
+    // Usar la frecuencia actual para calcular el período
+    double period = 1 / _frequency; // Período en segundos
+    double totalTime = 3 * period; // Tiempo total para 3 períodos
+  
+    // Calcular timeScaleSend para que 3 períodos se ajusten al ancho del gráfico
+    double timeScaleSend = ((chartWidth) / totalTime); // píxeles por segundo
+  
+    // Calcular valueScaleSend para que el valor máximo se ajuste al alto del gráfico
+    double valueScaleSend = chartHeight / _maxValue; // píxeles por unidad de valor
+  
+    return [timeScaleSend, valueScaleSend];
   }
 }

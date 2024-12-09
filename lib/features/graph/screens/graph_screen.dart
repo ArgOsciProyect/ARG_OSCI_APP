@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../graph/providers/graph_provider.dart';
-import '../../graph/domain/services/data_acquisition_service.dart';
+import '../../graph/domain/services/data_acquisition_service.dart'; // Importar TriggerEdge y TriggerMode
 import '../widgets/line_chart.dart';
 
 class GraphScreen extends StatefulWidget {
@@ -22,7 +22,7 @@ class _GraphScreenState extends State<GraphScreen> {
   void initState() {
     super.initState();
     graphProvider = Get.find<GraphProvider>();
-    triggerLevelController = TextEditingController(text: graphProvider.dataAcquisitionService.triggerLevel.toString());
+    triggerLevelController = TextEditingController(text: graphProvider.triggerLevel.value.toString());
 
     if (widget.mode == 'Oscilloscope') {
       // Iniciar la adquisición de datos en modo Oscilloscope
@@ -66,11 +66,11 @@ class _GraphScreenState extends State<GraphScreen> {
                   Text('Trigger Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   SizedBox(height: 10),
                   DropdownButton<TriggerMode>(
-                    value: graphProvider.dataAcquisitionService.triggerMode,
+                    value: graphProvider.triggerMode.value,
                     onChanged: (TriggerMode? newValue) {
-                      setState(() {
-                        graphProvider.dataAcquisitionService.triggerMode = newValue!;
-                      });
+                      if (newValue != null) {
+                        graphProvider.setTriggerMode(newValue);
+                      }
                     },
                     items: TriggerMode.values.map((TriggerMode mode) {
                       return DropdownMenuItem<TriggerMode>(
@@ -79,15 +79,13 @@ class _GraphScreenState extends State<GraphScreen> {
                       );
                     }).toList(),
                   ),
-                  if (graphProvider.dataAcquisitionService.triggerMode == TriggerMode.manual) ...[
+                  if (graphProvider.triggerMode.value == TriggerMode.manual) ...[
                     TextField(
                       controller: triggerLevelController,
                       decoration: InputDecoration(labelText: 'Trigger Level'),
                       keyboardType: TextInputType.number,
                       onChanged: (value) {
-                        setState(() {
-                          graphProvider.dataAcquisitionService.triggerLevel = double.parse(value) / graphProvider.dataAcquisitionService.scale;
-                        });
+                        graphProvider.setTriggerLevel(double.parse(value));
                       },
                     ),
                     Row(
@@ -95,30 +93,26 @@ class _GraphScreenState extends State<GraphScreen> {
                         IconButton(
                           icon: Icon(Icons.add),
                           onPressed: () {
-                            setState(() {
-                              graphProvider.dataAcquisitionService.triggerLevel += 0.1 / graphProvider.dataAcquisitionService.scale;
-                              triggerLevelController.text = (graphProvider.dataAcquisitionService.triggerLevel * graphProvider.dataAcquisitionService.scale).toStringAsFixed(2);
-                            });
+                            graphProvider.setTriggerLevel(graphProvider.triggerLevel.value + 0.1);
+                            triggerLevelController.text = graphProvider.triggerLevel.value.toStringAsFixed(2);
                           },
                         ),
                         IconButton(
                           icon: Icon(Icons.remove),
                           onPressed: () {
-                            setState(() {
-                              graphProvider.dataAcquisitionService.triggerLevel -= 0.1 / graphProvider.dataAcquisitionService.scale;
-                              triggerLevelController.text = (graphProvider.dataAcquisitionService.triggerLevel * graphProvider.dataAcquisitionService.scale).toStringAsFixed(2);
-                            });
+                            graphProvider.setTriggerLevel(graphProvider.triggerLevel.value - 0.1);
+                            triggerLevelController.text = graphProvider.triggerLevel.value.toStringAsFixed(2);
                           },
                         ),
                       ],
                     ),
                   ],
                   DropdownButton<TriggerEdge>(
-                    value: graphProvider.dataAcquisitionService.triggerEdge,
+                    value: graphProvider.triggerEdge.value,
                     onChanged: (TriggerEdge? newValue) {
-                      setState(() {
-                        graphProvider.dataAcquisitionService.triggerEdge = newValue!;
-                      });
+                      if (newValue != null) {
+                        graphProvider.setTriggerEdge(newValue);
+                      }
                     },
                     items: TriggerEdge.values.map((TriggerEdge edge) {
                       return DropdownMenuItem<TriggerEdge>(

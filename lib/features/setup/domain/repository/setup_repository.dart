@@ -6,4 +6,8 @@ abstract class SetupRepository {
   Future<List<String>> scanForWiFiNetworks();
   Future<void> sendMessage(String message);
   Future<String> receiveMessage();
+  Future<void> connectToLocalAP();
+  Future<void> selectMode(String mode);
+  Future<void> handleNetworkChangeAndConnect(String ssid);
+  Future<void> waitForNetworkChange(String ssid);
 }

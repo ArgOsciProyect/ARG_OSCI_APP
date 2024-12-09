@@ -82,6 +82,7 @@ class SocketService implements SocketRepository {
     await _controller.close();
   }
 
+  @override
   Stream<List<int>> get data => _controller.stream;
 
   // Getters and setters

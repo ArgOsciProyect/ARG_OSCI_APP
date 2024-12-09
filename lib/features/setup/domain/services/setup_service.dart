@@ -74,6 +74,7 @@ class SetupService implements SetupRepository {
     return await globalSocketService.receiveMessage();
   }
 
+  @override
   Future<void> connectToLocalAP({http.Client? client}) async {
     while (await _networkInfo.getWifiName() != '"ESP32_AP"') {
       await Future.delayed(Duration(seconds: 1));
@@ -81,6 +82,7 @@ class SetupService implements SetupRepository {
     _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'), client: client);
   }
 
+  @override
   Future<void> selectMode(String mode, {http.Client? client}) async {
     final response = await _privateHttpService!.get('/internal_mode');
     if (mode == 'External AP') {
@@ -95,6 +97,7 @@ class SetupService implements SetupRepository {
     }
   }
 
+  @override
   Future<void> handleNetworkChangeAndConnect(String ssid, {http.Client? client}) async {
     await waitForNetworkChange(ssid);
     print("Connected to $ssid");
@@ -108,6 +111,7 @@ class SetupService implements SetupRepository {
     await initializeGlobalSocketService(extIp, extPort); // Esperar a que la conexión del socket se complete
   }
 
+  @override
   Future<void> waitForNetworkChange(String ssid) async {
     while (await _networkInfo.getWifiName() != '"' + ssid + '"') {
       await Future.delayed(Duration(seconds: 1));

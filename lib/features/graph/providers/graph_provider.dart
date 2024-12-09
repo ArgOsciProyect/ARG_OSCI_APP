@@ -8,6 +8,9 @@ class GraphProvider extends GetxController {
   var dataPoints = <DataPoint>[].obs;
   var frequency = 1.0.obs;
   var maxValue = 1.0.obs;
+  var triggerLevel = 0.0.obs;
+  var triggerMode = TriggerMode.automatic.obs;
+  var triggerEdge = TriggerEdge.positive.obs;
 
   GraphProvider(this.dataAcquisitionService);
 
@@ -28,7 +31,22 @@ class GraphProvider extends GetxController {
     await dataAcquisitionService.stopData();
   }
 
-  List<double> autoset(double valueScale, double timeScale, double chartHeight, double chartWidth) {
-    return dataAcquisitionService.autoset(dataPoints, valueScale, timeScale, chartHeight, chartWidth);
+  List<double> autoset(double chartHeight, double chartWidth) {
+    return dataAcquisitionService.autoset(dataPoints, chartHeight, chartWidth);
+  }
+
+  void setTriggerLevel(double level) {
+    triggerLevel.value = level;
+    dataAcquisitionService.triggerLevel = level;
+  }
+
+  void setTriggerMode(TriggerMode mode) {
+    triggerMode.value = mode;
+    dataAcquisitionService.triggerMode = mode;
+  }
+
+  void setTriggerEdge(TriggerEdge edge) {
+    triggerEdge.value = edge;
+    dataAcquisitionService.triggerEdge = edge;
   }
 }
