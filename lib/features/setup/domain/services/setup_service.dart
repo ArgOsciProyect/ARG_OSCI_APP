@@ -10,6 +10,7 @@ import '../../../http/domain/services/http_service.dart';
 import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
 import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class SetupService implements SetupRepository {
   SocketService globalSocketService;
@@ -74,14 +75,6 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> connectToLocalAP({http.Client? client}) async {
-    while (await _networkInfo.getWifiName() != '"ESP32_AP"') {
-      await Future.delayed(Duration(seconds: 1));
-    }
-    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'), client: client);
-  }
-
-  @override
   Future<void> selectMode(String mode, {http.Client? client}) async {
     final response = await _privateHttpService!.get('/internal_mode');
     if (mode == 'External AP') {
@@ -111,9 +104,36 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> waitForNetworkChange(String ssid) async {
-    while (await _networkInfo.getWifiName() != '"' + ssid + '"') {
+  Future<void> connectToLocalAP({http.Client? client}) async {
+    String? wifiName = await _networkInfo.getWifiName();
+    if (Platform.isAndroid && wifiName != null) {
+      wifiName = wifiName.replaceAll('"', '');
+    }
+    while (wifiName != 'ESP32_AP') {
       await Future.delayed(Duration(seconds: 1));
+      wifiName = await _networkInfo.getWifiName();
+      if (Platform.isAndroid && wifiName != null) {
+        wifiName = wifiName.replaceAll('"', '');
+      }
+      print(wifiName);
+    }
+    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'), client: client);
+  }
+  
+  @override
+  Future<void> waitForNetworkChange(String ssid) async {
+    String? wifiName = await _networkInfo.getWifiName();
+    print(wifiName);
+    if (Platform.isAndroid && wifiName != null) {
+      wifiName = wifiName.replaceAll('"', '');
+    }
+    while (wifiName != ssid) {
+      await Future.delayed(Duration(seconds: 1));
+      wifiName = await _networkInfo.getWifiName();
+      if (Platform.isAndroid && wifiName != null) {
+        wifiName = wifiName.replaceAll('"', '');
+      }
     }
   }
+
 }
