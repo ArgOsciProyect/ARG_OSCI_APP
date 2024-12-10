@@ -11,7 +11,6 @@ import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
 import 'package:http/http.dart' as http;
 
-
 class SetupService implements SetupRepository {
   SocketService globalSocketService;
   HttpService globalHttpService;
@@ -22,6 +21,7 @@ class SetupService implements SetupRepository {
   late dynamic extIp;
   late dynamic extPort;
   late dynamic _pubKey;
+  RSAPublicKey? _publicKey;
 
   SetupService(this.globalSocketService, this.globalHttpService) {
     _privateHttpService = globalHttpService;
@@ -56,7 +56,7 @@ class SetupService implements SetupRepository {
   }
 
   String encriptWithPublicKey(String message) {
-      if (_pubKey == null) {
+      if (_publicKey == null) {
         throw Exception('Public key is not set');
       }
       final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
