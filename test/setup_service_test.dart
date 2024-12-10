@@ -7,9 +7,11 @@ import 'package:mockito/mockito.dart';
 import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
 import 'package:arg_osci_app/features/setup/domain/models/wifi_credentials.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:encrypt/encrypt.dart';
+
 
 
 
@@ -30,8 +32,8 @@ void main() {
     mockSocketService = MockSocketService();
 
     setupService = SetupService(
-      mockSocketService, // Puedes pasar un mock para el SocketService si es necesario
-      HttpConfig(baseUrl),
+      mockSocketService,
+      HttpService(HttpConfig(baseUrl))
     );
   });
 
@@ -49,8 +51,7 @@ void main() {
     // Configurar el servicio con el cliente HTTP mockeado
     setupService = SetupService(
       mockSocketService,
-      HttpConfig(baseUrl),
-      client: client,
+      HttpService(HttpConfig(baseUrl), client: client)
     );
 
     final credentials = WiFiCredentials('testSSID', 'testPassword');
@@ -82,8 +83,7 @@ void main() {
 
     setupService = SetupService(
       mockSocketService,
-      HttpConfig(baseUrl),
-      client: client,
+      HttpService(HttpConfig(baseUrl), client: client)
     );
 
     final ssids = await setupService.scanForWiFiNetworks();
@@ -117,8 +117,7 @@ void main() {
 
     setupService = SetupService(
       mockSocketService,
-      HttpConfig(baseUrl),
-      client: client,
+      HttpService(HttpConfig(baseUrl), client: client)
     );
 
     // Obtener la clave pública

@@ -93,7 +93,7 @@ void main() {
 
     // Suscribirse al stream de datos
     final subscription = socketService.subscribe((data) {
-      expect(data, equals('Message from server'));
+      expect(utf8.decode(data), equals('Message from server'));
     });
 
     // Enviar un mensaje desde el servidor

@@ -2,6 +2,7 @@
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/domain/services/data_acquisition_service.dart';
+import '../../graph/domain/models/trigger_data.dart';
 
 class GraphProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
@@ -11,6 +12,9 @@ class GraphProvider extends GetxController {
   var triggerLevel = 0.0.obs;
   var triggerMode = TriggerMode.automatic.obs;
   var triggerEdge = TriggerEdge.positive.obs;
+  var timeScale = 1.0.obs;
+  var valueScale = 1.0.obs;
+  var maxX = 1.0.obs;
 
   GraphProvider(this.dataAcquisitionService);
 
@@ -48,5 +52,13 @@ class GraphProvider extends GetxController {
   void setTriggerEdge(TriggerEdge edge) {
     triggerEdge.value = edge;
     dataAcquisitionService.triggerEdge = edge;
+  }
+
+  void setTimeScale(double scale) {
+    timeScale.value = scale;
+  }
+
+  void setValueScale(double scale) {
+    valueScale.value = scale;
   }
 }

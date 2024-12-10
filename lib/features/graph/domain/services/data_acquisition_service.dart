@@ -3,11 +3,9 @@ import 'dart:async';
 import 'dart:typed_data';
 import '../models/data_point.dart';
 import '../repository/data_acquisition_repository.dart';
-import '../../../socket/domain/services/socket_service.dart';
 import '../../../http/domain/services/http_service.dart';
-
-enum TriggerMode { automatic, manual }
-enum TriggerEdge { positive, negative }
+import '../../../socket/domain/services/socket_service.dart';
+import '../models/trigger_data.dart';
 
 class DataAcquisitionService implements DataAcquisitionRepository {
   final SocketService socketService;

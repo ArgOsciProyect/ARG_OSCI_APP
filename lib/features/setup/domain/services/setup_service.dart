@@ -21,7 +21,6 @@ class SetupService implements SetupRepository {
   late dynamic extIp;
   late dynamic extPort;
   late dynamic _pubKey;
-  RSAPublicKey? _publicKey;
 
   SetupService(this.globalSocketService, this.globalHttpService) {
     _privateHttpService = globalHttpService;
