@@ -1,31 +1,36 @@
 // lib/config/initializer.dart
-import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:get/get.dart';
-import '../features/socket/domain/services/socket_service.dart';
+import '../features/http/domain/models/http_config.dart';
+import '../features/socket/domain/models/socket_connection.dart';
 import '../features/setup/domain/services/setup_service.dart';
 import '../features/setup/providers/setup_provider.dart';
-import '../features/http/domain/models/http_config.dart';
 import '../features/graph/domain/services/data_acquisition_service.dart';
 import '../features/graph/providers/graph_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
-    // Initialize the global services
-    final SocketService globalSocketService = SocketService();
-    final HttpService globalHttpService = HttpService(HttpConfig('http://192.168.4.1:81'));
-    final setupService = SetupService(globalSocketService, globalHttpService);
+    // Initialize global configurations
+    final globalHttpConfig = HttpConfig('http://192.168.4.1:81');
+    final globalSocketConnection = SocketConnection('192.168.4.1', 8080);
 
-    // Register services with GetX
-    Get.put(globalSocketService);
-    Get.put(setupService);
-    Get.put(globalHttpService);
+    // Register core configurations
+    Get.put<HttpConfig>(globalHttpConfig);
+    Get.put<SocketConnection>(globalSocketConnection);
 
-    // Initialize the data acquisition service with the global services
-    final dataAcquisitionService = DataAcquisitionService(globalSocketService, globalHttpService);
-    Get.put(dataAcquisitionService);
+    // Initialize and register DataAcquisitionService
+    final dataAcquisitionService = DataAcquisitionService(globalHttpConfig);
+    await dataAcquisitionService.initialize(); // Initialize configuration
+    Get.put<DataAcquisitionService>(dataAcquisitionService);
 
-    // Initialize the providers
-    Get.put(SetupProvider(setupService));
-    Get.put(GraphProvider(dataAcquisitionService)); // Register GraphProvider
+    // Initialize and register SetupService
+    final setupService = SetupService(globalSocketConnection, globalHttpConfig);
+    Get.put<SetupService>(setupService);
+
+    // Initialize providers
+    Get.put<SetupProvider>(SetupProvider(setupService));
+    Get.put<GraphProvider>(GraphProvider(
+      Get.find<DataAcquisitionService>(),
+      Get.find<SocketConnection>()
+    ));
   }
 }

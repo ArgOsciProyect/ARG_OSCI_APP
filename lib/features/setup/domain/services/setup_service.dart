@@ -5,40 +5,42 @@ import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../../../socket/domain/services/socket_service.dart';
-import '../../../http/domain/models/http_config.dart';
 import '../../../http/domain/services/http_service.dart';
+import '../../../http/domain/models/http_config.dart';
+import 'package:http/http.dart' as http;
 import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
-import 'package:http/http.dart' as http;
 import 'dart:io';
 
 class SetupService implements SetupRepository {
-  SocketService globalSocketService;
-  HttpService globalHttpService;
+  SocketConnection globalSocketConnection;
+  HttpConfig globalHttpConfig;
+  late SocketService localSocketService;
+  late HttpService localHttpService;
   RSAPublicKey? _publicKey;
   final NetworkInfo _networkInfo = NetworkInfo();
-  // Private instances
-  HttpService? _privateHttpService;
   late dynamic extIp;
   late dynamic extPort;
   late dynamic _pubKey;
 
-  SetupService(this.globalSocketService, this.globalHttpService) {
-    _privateHttpService = globalHttpService;
+  SetupService(this.globalSocketConnection, this.globalHttpConfig) {
+    localSocketService = SocketService();
+    localHttpService = HttpService(globalHttpConfig);
   }
 
-  void initializeGlobalHttpService(String baseUrl, {http.Client? client}) {
-    globalHttpService = HttpService(HttpConfig(baseUrl), client: client);
+  Future<void> initializeGlobalHttpConfig(String baseUrl, {http.Client? client}) async {
+    globalHttpConfig = HttpConfig(baseUrl, client : client);
+    localHttpService = HttpService(globalHttpConfig);
   }
 
-  Future<void> initializeGlobalSocketService(String ip, int port) async {
-    await globalSocketService.connect(SocketConnection(ip, port));
-    globalSocketService.listen();
+  Future<void> initializeGlobalSocketConnection(String ip, int port) async {
+    globalSocketConnection.updateConnection(ip, port);
+    localSocketService = SocketService();
   }
 
   @override
   Future<void> connectToWiFi(WiFiCredentials credentials) async {
-    final response = await _privateHttpService!.post('/connect_wifi', credentials.toJson());
+    final response = await localHttpService.post('/connect_wifi', credentials.toJson());
     extIp = response['IP'];
     extPort = response['Port'];
     print("ip recibido: $extIp");
@@ -47,36 +49,29 @@ class SetupService implements SetupRepository {
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
-    _pubKey = await _privateHttpService!.get('/get_public_key');
+    final publicKeyResponse = await localHttpService.get('/get_public_key');
+    _pubKey = publicKeyResponse;
     print(_pubKey["PublicKey"]);
     RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
     _publicKey = key as RSAPublicKey;
-    final response = await _privateHttpService!.get('/scan_wifi');
-    return (response as List).map((item) => item['SSID'] as String).toList();
+
+    final wifiResponse = await localHttpService.get('/scan_wifi');
+    final wifiData = wifiResponse as List;
+    return wifiData.map((item) => item['SSID'] as String).toList();
   }
 
   String encriptWithPublicKey(String message) {
-      if (_publicKey == null) {
-        throw Exception('Public key is not set');
-      }
-      final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
-      final encrypted = encrypter.encrypt(message);
-      return encrypted.base64;
-  } 
-
-  @override
-  Future<void> sendMessage(String message) async {
-    await globalSocketService.sendMessage(message);
-  }
-
-  @override
-  Future<String> receiveMessage() async {
-    return await globalSocketService.receiveMessage();
+    if (_publicKey == null) {
+      throw Exception('Public key is not set');
+    }
+    final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
+    final encrypted = encrypter.encrypt(message);
+    return encrypted.base64;
   }
 
   @override
   Future<void> selectMode(String mode, {http.Client? client}) async {
-    final response = await _privateHttpService!.get('/internal_mode');
+    final response = await localHttpService.get('/internal_mode');
     if (mode == 'External AP') {
       // Handle External AP mode
     } else if (mode == 'Internal AP') {
@@ -84,8 +79,8 @@ class SetupService implements SetupRepository {
       final port = response['Port'];
       print("ip recibido: $ip");
       print("port recibido: $port");
-      initializeGlobalHttpService('http://$ip', client: client);
-      initializeGlobalSocketService(ip, port);
+      await initializeGlobalHttpConfig('http://$ip', client: client);
+      await initializeGlobalSocketConnection(ip, port);
     }
   }
 
@@ -94,13 +89,13 @@ class SetupService implements SetupRepository {
     await waitForNetworkChange(ssid);
     print("Connected to $ssid");
     await Future.delayed(Duration(seconds: 3));
-    initializeGlobalHttpService('http://$extIp:80', client: client);
+    await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
-    final response = await globalHttpService.get("/test");
+    final response = await localHttpService.get('/test');
     print(response);
 
-    await initializeGlobalSocketService(extIp, extPort); // Esperar a que la conexión del socket se complete
+    await initializeGlobalSocketConnection(extIp, extPort); // Esperar a que la conexión del socket se complete
   }
 
   @override
@@ -117,9 +112,9 @@ class SetupService implements SetupRepository {
       }
       print(wifiName);
     }
-    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'), client: client);
+    await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
   }
-  
+
   @override
   Future<void> waitForNetworkChange(String ssid) async {
     String? wifiName = await _networkInfo.getWifiName();
@@ -135,5 +130,4 @@ class SetupService implements SetupRepository {
       }
     }
   }
-
 }

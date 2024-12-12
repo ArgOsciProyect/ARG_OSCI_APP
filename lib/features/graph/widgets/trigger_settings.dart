@@ -7,8 +7,8 @@ import '../domain/models/trigger_data.dart';
 class TriggerSettings extends StatelessWidget {
   final GraphProvider graphProvider;
   final TextEditingController triggerLevelController;
-
-  TriggerSettings({required this.graphProvider, required this.triggerLevelController, super.key});
+  
+  const TriggerSettings({required this.graphProvider, required this.triggerLevelController, super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -6,10 +6,10 @@ import '../../graph/providers/graph_provider.dart';
 
 late Size _size;
 // Mover el gráfico hacia arriba y a la derecha
-final double _offsetY = 30;
-final double _offsetX = 50;
-final double _sqrOffsetBot = 30;
-final double _sqrOffsetTop = 30;
+const double _offsetY = 30;
+const double _offsetX = 50;
+const double _sqrOffsetBot = 30;
+const double _sqrOffsetTop = 30;
 
 class LineChart extends StatefulWidget {
   final List<DataPoint> dataPoints;
@@ -163,10 +163,10 @@ class LineChartPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Mover el gráfico hacia arriba y a la derecha
-    final double offsetY = _offsetY;
-    final double offsetX = _offsetX;
-    final double sqrOffsetBot = _sqrOffsetBot;
-    final double sqrOffsetTop = _sqrOffsetTop;
+    const double offsetY = _offsetY;
+    const double offsetX = _offsetX;
+    const double sqrOffsetBot = _sqrOffsetBot;
+    const double sqrOffsetTop = _sqrOffsetTop;
 
     // Dibujar el fondo para las referencias de x e y
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, offsetY), backgroundPaint);
@@ -201,10 +201,10 @@ class LineChartPainter extends CustomPainter {
       canvas.drawLine(Offset(offsetX, yPos), Offset(size.width, yPos), gridPaint);
 
       // Calcular el valor del ADC para las etiquetas
-      double adcValue = MAX_ADC_VALUE - (MAX_ADC_VALUE * i / 10);
+      double adcValue = (MAX_ADC_VALUE - (MAX_ADC_VALUE * i / 10));
 
       textPainter.text = TextSpan(
-        text: adcValue.toInt().toString(),
+        text: adcValue.toStringAsFixed(1),
         style: TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();

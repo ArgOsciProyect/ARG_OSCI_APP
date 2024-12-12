@@ -1,7 +1,7 @@
 // lib/features/graph/screens/graph_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../graph/providers/graph_provider.dart';
+import '../providers/graph_provider.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/trigger_settings.dart';
 
@@ -12,30 +12,42 @@ class GraphScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final GraphProvider graphProvider = Get.find<GraphProvider>();
-    final TextEditingController triggerLevelController = TextEditingController(text: graphProvider.triggerLevel.value.toString());
+    final graphProvider = Get.find<GraphProvider>();
+    final triggerLevelController = TextEditingController(
+      text: graphProvider.triggerLevel.value.toString()
+    );
 
     if (mode == 'Oscilloscope') {
-      // Iniciar la adquisición de datos en modo Oscilloscope
       graphProvider.fetchData();
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('Graph - $mode Mode')),
+      appBar: AppBar(
+        title: Text('Graph - $mode Mode'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            graphProvider.stopData(); // Stop data acquisition when navigating back
+            Get.back();
+          },
+        ),
+      ),
       body: Row(
         children: [
           Expanded(
             child: Center(
               child: Obx(() {
-                if (graphProvider.dataPoints.isNotEmpty) {
-                  return LineChart(dataPoints: graphProvider.dataPoints);
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
+                final points = graphProvider.dataPoints.value;
+                return points.isEmpty
+                    ? const CircularProgressIndicator()
+                    : LineChart(dataPoints: points);
               }),
             ),
           ),
-          TriggerSettings(graphProvider: graphProvider, triggerLevelController: triggerLevelController),
+          TriggerSettings(
+            graphProvider: graphProvider,
+            triggerLevelController: triggerLevelController
+          ),
         ],
       ),
     );

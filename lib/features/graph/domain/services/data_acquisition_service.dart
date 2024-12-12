@@ -1,158 +1,321 @@
 // lib/features/data_acquisition/domain/services/data_acquisition_service.dart
 import 'dart:async';
+import 'dart:isolate';
 import 'dart:typed_data';
+import 'dart:collection';
+import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
+
 import '../models/data_point.dart';
 import '../repository/data_acquisition_repository.dart';
 import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
+import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
+import 'package:simple_kalman/simple_kalman.dart';
+
+
+// Message classes for isolate setup
+class SocketIsolateSetup {
+  final SendPort sendPort;
+  final String ip;
+  final int port;
+  SocketIsolateSetup(this.sendPort, this.ip, this.port);
+}
+
+class ProcessingIsolateSetup {
+  final SendPort sendPort;
+  final double scale;
+  final double distance;
+  final double triggerLevel;
+  final TriggerMode triggerMode;
+  final TriggerEdge triggerEdge;
+  
+  ProcessingIsolateSetup(this.sendPort, this.scale, this.distance, 
+      this.triggerLevel, this.triggerMode, this.triggerEdge);
+}
+
+class UpdateConfigMessage {
+  final double scale;
+  final double triggerLevel;
+  final TriggerMode triggerMode;
+  final TriggerEdge triggerEdge;
+
+  UpdateConfigMessage(this.scale, this.triggerLevel, this.triggerMode, this.triggerEdge);
+}
 
 class DataAcquisitionService implements DataAcquisitionRepository {
-  final SocketService socketService;
-  final HttpService httpService;
+  final HttpConfig httpConfig;
+  final _dataController = StreamController<List<DataPoint>>.broadcast();
+  final _frequencyController = StreamController<double>.broadcast();
+  final _maxValueController = StreamController<double>.broadcast();
+  late HttpService httpService;
 
-  // Constantes de escala y distancia (hardcodeadas por ahora)
+  // Configuration
   double scale = 1.0;
-  double distance = 1 / 2000000; // Representa la distancia en segundos entre cada dato
-  double _maxValue = 4094;
-  double _frequency = 1000;
-  // Variables de trigger
+  double distance = 1 / 2000000;
   double triggerLevel = 0.0;
   TriggerMode triggerMode = TriggerMode.automatic;
   TriggerEdge triggerEdge = TriggerEdge.positive;
 
-  // FIFO para almacenar los datos recibidos
-  final List<int> _fifo = [];
-  final int _fifoSize = 8192 * 8; // Tamaño máximo de la FIFO
-
-  // StreamController para enviar los DataPoints al graficador
-  final StreamController<List<DataPoint>> _dataPointsController = StreamController<List<DataPoint>>.broadcast();
-  final StreamController<double> _frequencyController = StreamController<double>.broadcast();
-  final StreamController<double> _maxValueController = StreamController<double>.broadcast();
-
-  StreamSubscription<List<int>>? _subscription;
-
-  DataAcquisitionService(this.socketService, this.httpService);
+  // Isolates
+  Isolate? _socketIsolate;
+  Isolate? _processingIsolate;
+  ReceivePort? _socketReceivePort;
+  ReceivePort? _processingReceivePort;
+  SendPort? _processingSendPort;
+  SendPort? _configSendPort;
 
   @override
-  Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
+  Stream<List<DataPoint>> get dataStream => _dataController.stream;
   @override
   Stream<double> get frequencyStream => _frequencyController.stream;
   @override
   Stream<double> get maxValueStream => _maxValueController.stream;
-  
+
+  DataAcquisitionService(this.httpConfig) {
+    httpService = HttpService(httpConfig);
+  }
+
   @override
-  Future<void> fetchData() async {
-    // Suscribirse al stream de datos del socket
-    _subscription = socketService.subscribe((data) {
-      // Agregar los datos recibidos a la FIFO
-      _fifo.addAll(data);
+  Future<void> initialize() async {
+    // Don't try to fetch config until services are ready
+    scale = 1.0;  // Use default values initially
+    distance = 1 / 1634000;
+  }
 
-      // Si la FIFO supera el tamaño máximo, descartar los datos más viejos
-      if (_fifo.length > _fifoSize) {
-        _fifo.removeRange(0, _fifo.length - _fifoSize);
+  static void _socketIsolateFunction(SocketIsolateSetup setup) async {
+    final socketService = SocketService();
+    final connection = SocketConnection(setup.ip, setup.port);
+  
+    while (true) {
+      try {
+        await _connectSocket(socketService, connection);
+        _listenToSocket(socketService, setup.sendPort);
+  
+        // Exit the loop if connection is successful
+        break;
+      } catch (e) {
+        print('Socket error: $e');
+        print('Retrying connection in 5 seconds...');
+        await Future.delayed(Duration(seconds: 5));
       }
+    }
+  }
+  
+  static Future<void> _connectSocket(SocketService socketService, SocketConnection connection) async {
+    await socketService.connect(connection);
+  }
+  
+  static void _listenToSocket(SocketService socketService, SendPort sendPort) {
+    socketService.listen();
+    socketService.subscribe((data) {
+      sendPort.send(data);
+    });
+  }
 
-      // Parsear los datos de la FIFO y enviar los DataPoints al graficador
-      final parsedDataPoints = parseData(_fifo);
-
-      // Aplicar el trigger y obtener los datos a partir del punto de trigger
-      final triggeredDataPoints = applyTrigger(parsedDataPoints);
-      if (triggeredDataPoints.isNotEmpty) {
-        _dataPointsController.add(triggeredDataPoints);
-      }
-
-      // Calcular la frecuencia y el valor máximo solo si triggeredDataPoints no está vacío
-      if (triggeredDataPoints.isNotEmpty && _fifo.length >= 10000) {
-        _frequency = calculateFrequencyWithMax(triggeredDataPoints);
-        _maxValue = triggeredDataPoints.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-        _frequencyController.add(_frequency);
-        _maxValueController.add(_maxValue);
+  static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
+    final receivePort = ReceivePort();
+    setup.sendPort.send(receivePort.sendPort);
+  
+    final queue = Queue<int>();
+    const processingChunkSize = 8192 * 4;
+    const maxQueueSize = 8192 * 32;
+  
+    double scale = setup.scale;
+    double triggerLevel = setup.triggerLevel;
+    TriggerMode triggerMode = setup.triggerMode;
+    TriggerEdge triggerEdge = setup.triggerEdge;
+  
+    receivePort.listen((message) {
+      if (message is List<int>) {
+        queue.addAll(message);
+  
+        while (queue.length > maxQueueSize) {
+          queue.removeFirst();
+        }
+  
+        while (queue.length >= processingChunkSize) {
+          final points = _processData(
+            queue,
+            processingChunkSize,
+            scale,
+            setup.distance,
+            triggerLevel,
+            triggerMode,
+            triggerEdge
+          );
+          setup.sendPort.send(points);
+        }
+      } else if (message is UpdateConfigMessage) {
+        scale = message.scale;
+        triggerLevel = message.triggerLevel;
+        triggerMode = message.triggerMode;
+        triggerEdge = message.triggerEdge;
       }
     });
   }
 
+  static List<DataPoint> _processData(
+    Queue<int> queue, 
+    int chunkSize,
+    double scale,
+    double distance,
+    double triggerLevel,
+    TriggerMode triggerMode,
+    TriggerEdge triggerEdge
+  ) {
+    final points = <DataPoint>[];
+    final filteredValues = <double>[];
+    var triggerActivated = false;
+    var triggerIndex = 0;
+    const windowSize = 5;
+    final kalman = SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.5);
+
+    for (var i = 0; i < chunkSize; i += 2) {
+      if (queue.length < 2) break;
+      
+      final bytes = [queue.removeFirst(), queue.removeFirst()];
+      final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
+          .getUint16(0, Endian.little);
+      final uint12Value = uint16Value & 0xFFF;
+  
+      final x = points.length * distance;
+      final y = uint12Value * scale;
+      
+      // Apply filtering and trigger logic
+      filteredValues.add(y);
+      if (filteredValues.length > windowSize) {
+        filteredValues.removeAt(0);
+      }
+  
+      if (!triggerActivated && points.isNotEmpty) {
+        final prevY = filteredValues.length > 1 ? 
+            filteredValues[filteredValues.length - 2] : y;
+        final currentY = filteredValues.last;
+        
+        final triggerCondition = triggerEdge == TriggerEdge.positive
+            ? prevY < triggerLevel && currentY >= triggerLevel
+            : prevY > triggerLevel && currentY <= triggerLevel;
+  
+        if (triggerCondition) {
+          triggerActivated = true;
+          triggerIndex = points.length;
+        }
+      }
+  
+      //points.add(DataPoint(x, kalman.filtered(y)));
+      points.add(DataPoint(x, y));
+    }
+    if (triggerActivated) {
+      final triggerX = points[triggerIndex].x;
+      return points.sublist(triggerIndex).map((point) {
+        return DataPoint(point.x - triggerX, point.y);
+      }).toList();
+    } else {
+      return points;
+    }
+  }
+
+  SendPort? _socketToProcessingSendPort;
+
+  @override
+  Future<void> fetchData(String ip, int port) async {
+    await stopData();
+
+    _processingReceivePort = ReceivePort();
+
+    // Start processing isolate first
+    _processingIsolate = await Isolate.spawn(
+      _processingIsolateFunction,
+      ProcessingIsolateSetup(
+        _processingReceivePort!.sendPort,
+        scale,
+        distance,
+        triggerLevel,
+        triggerMode,
+        triggerEdge
+      )
+    );
+
+    // Get processing SendPort and wait for it to be ready
+    final setupCompleter = Completer<SendPort>();
+    _processingReceivePort!.listen((message) {
+      if (message is SendPort) {
+        _socketToProcessingSendPort = message;
+        _configSendPort = message;
+        setupCompleter.complete(message);
+      } else if (message is List<DataPoint>) {
+        _dataController.add(message);
+        _updateMetrics(message);
+      }
+    });
+
+    _socketToProcessingSendPort = await setupCompleter.future;
+
+    // Start socket isolate with processing SendPort
+    _socketIsolate = await Isolate.spawn(
+      _socketIsolateFunction,
+      SocketIsolateSetup(_socketToProcessingSendPort!, ip, port)
+    );
+  }
+
+  void updateConfig() {
+    print("Updating config");
+    if (_configSendPort != null) {
+      _configSendPort!.send(UpdateConfigMessage(scale, triggerLevel, triggerMode, triggerEdge));
+    }
+  }
+
+  double _currentFrequency = 10000.0;
+  double _currentMaxValue = 4094.0;
+  
+  void _updateMetrics(List<DataPoint> points) {
+    if (points.isEmpty) return;
+    
+    _currentFrequency = _calculateFrequency(points);
+    _currentMaxValue = points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    
+    _frequencyController.add(_currentFrequency);
+    _maxValueController.add(_currentMaxValue);
+  }
+
+  double _calculateFrequency(List<DataPoint> points) {
+    // Implement actual frequency calculation
+    return 10000.0;
+  }
+
   @override
   Future<void> stopData() async {
-    // Desuscribirse del stream de datos
-    await _subscription?.cancel();
-    _subscription = null;
+    _socketIsolate?.kill();
+    _socketIsolate = null;
+    
+    _processingIsolate?.kill();
+    _processingIsolate = null;
+    
+    _processingReceivePort?.close();
+    _processingReceivePort = null;
+    
+    _socketToProcessingSendPort = null;
+    _configSendPort = null;
   }
 
   @override
-  List<DataPoint> parseData(List<int> data) {
-    final List<DataPoint> dataPoints = [];
-
-    // Verificar que los datos recibidos tengan la longitud esperada
-    if (data.length % 2 != 0) {
-      print('Datos recibidos con longitud incorrecta: ${data.length}');
-      return dataPoints;
-    }
-
-    // Parsear cada elemento de la lista de datos recibidos y convertirlos en DataPoint
-    for (int i = 0; i < data.length; i += 2) {
-      final uint16Value = ByteData.sublistView(Uint8List.fromList(data.sublist(i, i + 2))).getUint16(0, Endian.little);
-      final uint12Value = uint16Value & 0xFFF; // Extraer los primeros 12 bits
-
-      // Calcular los valores x e y aplicando la escala y la distancia
-      final x = (i ~/ 2) * distance;
-      final y = uint12Value * scale;
-      dataPoints.add(DataPoint(x, y));
-    }
-
-    return dataPoints;
+  void dispose() {
+    stopData();
+    _dataController.close();
+    _frequencyController.close();
+    _maxValueController.close();
   }
 
   @override
-  List<DataPoint> applyTrigger(List<DataPoint> dataPoints) {
-    double triggerValue = triggerLevel;
-    if (triggerMode == TriggerMode.automatic) {
-      triggerValue = dataPoints.map((e) => e.y).reduce((a, b) => a + b) / dataPoints.length;
-    }
-
-    for (int i = 1; i < dataPoints.length; i++) {
-      bool triggerCondition = triggerEdge == TriggerEdge.positive
-          ? dataPoints[i - 1].y < triggerValue && dataPoints[i].y >= triggerValue
-          : dataPoints[i - 1].y > triggerValue && dataPoints[i].y <= triggerValue;
-
-      if (triggerCondition) {
-        // Desplazar todos los puntos a la izquierda para que el trigger sea el valor en el punto 0 del eje x
-        List<DataPoint> triggeredDataPoints = dataPoints.sublist(i);
-        double triggerX = triggeredDataPoints[0].x;
-        for (var point in triggeredDataPoints) {
-          point.x -= triggerX;
-        }
-        return triggeredDataPoints;
-      }
-    }
-    return [];
-  }
-
-  @override
-  double calculateFrequencyWithMax(List<DataPoint> dataPoints) {
-    // Implementar la lógica para calcular la frecuencia de la señal
-    // Aquí puedes usar FFT o cualquier otro método adecuado
-    // Por simplicidad, devolvemos un valor fijo
-    return 1000.0; // Ejemplo de frecuencia fija
-  }
-
-  // lib/features/data_acquisition/domain/services/data_acquisition_service.dart
-  
-  @override
-  List<double> autoset(List<DataPoint> dataPoints, double chartHeight, double chartWidth) {
-    // Configurar el trigger en automático
+  List<double> autoset(double chartHeight, double chartWidth) {
     triggerMode = TriggerMode.automatic;
-  
-    // Usar la frecuencia actual para calcular el período
-    double period = 1 / _frequency; // Período en segundos
-    double totalTime = 3 * period; // Tiempo total para 3 períodos
-  
-    // Calcular timeScaleSend para que 3 períodos se ajusten al ancho del gráfico
-    double timeScaleSend = ((chartWidth) / totalTime); // píxeles por segundo
-  
-    // Calcular valueScaleSend para que el valor máximo se ajuste al alto del gráfico
-    double valueScaleSend = chartHeight / _maxValue; // píxeles por unidad de valor
-  
-    return [timeScaleSend, valueScaleSend];
+    final period = 1 / _currentFrequency;
+    final totalTime = 3 * period;
+    updateConfig(); // Send updated config to processing isolate
+    return [
+      chartWidth / totalTime,
+      chartHeight / _currentMaxValue
+    ];
   }
 }

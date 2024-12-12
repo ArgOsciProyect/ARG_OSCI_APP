@@ -9,10 +9,14 @@ class SocketService implements SocketRepository {
   Socket? _socket;
   final _controller = StreamController<List<int>>.broadcast();
   final List<StreamSubscription<List<int>>> _subscriptions = [];
+  dynamic ip;
+  dynamic port;
 
   @override
   Future<void> connect(SocketConnection connection) async {
-    _socket = await Socket.connect(connection.ip, connection.port, timeout: Duration(seconds: 5));
+    _socket = await Socket.connect(connection.ip.value, connection.port.value, timeout: Duration(seconds: 5));
+    ip = connection.ip.value;
+    port = connection.port.value;
     print("connected");
   }
 

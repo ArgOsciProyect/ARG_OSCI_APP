@@ -24,7 +24,7 @@ void main() {
     });
 
     // Inyectar el cliente HTTP falso en la instancia de HttpService
-    httpService = HttpService(HttpConfig(baseUrl), client: client);
+    httpService = HttpService(HttpConfig(baseUrl, client: client));
 
     final response = await httpService.get('/endpoint');
     expect(response, equals({'key': 'value'}));
@@ -35,7 +35,7 @@ void main() {
       return http.Response('Not Found', 404);
     });
 
-    httpService = HttpService(HttpConfig(baseUrl), client: client);
+    httpService = HttpService(HttpConfig(baseUrl, client: client));
 
     expect(
       () async => await httpService.get('/endpoint'),
@@ -51,7 +51,7 @@ void main() {
       return http.Response('Bad Request', 400);
     });
 
-    httpService = HttpService(HttpConfig(baseUrl), client: client);
+    httpService = HttpService(HttpConfig(baseUrl, client: client));
 
     final response = await httpService.post('/endpoint', {'key': 'value'});
     expect(response, equals({'success': true}));
@@ -62,7 +62,7 @@ void main() {
       return http.Response('Internal Server Error', 500);
     });
 
-    httpService = HttpService(HttpConfig(baseUrl), client: client);
+    httpService = HttpService(HttpConfig(baseUrl, client: client));
 
     expect(
       () async => await httpService.post('/endpoint', {'key': 'value'}),

@@ -4,8 +4,6 @@ import 'package:get/get.dart';
 import 'graph_screen.dart';
 
 class ModeSelectionScreen extends StatelessWidget {
-  const ModeSelectionScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,17 +14,15 @@ class ModeSelectionScreen extends StatelessWidget {
           children: [
             ElevatedButton(
               onPressed: () {
-                // Navegar a GraphScreen en modo Oscilloscope
                 Get.to(() => GraphScreen(mode: 'Oscilloscope'));
               },
               child: Text('Oscilloscope Mode'),
             ),
             ElevatedButton(
               onPressed: () {
-                // Aquí puedes agregar la lógica para el modo Spectrum Analyzer en el futuro
-                Get.snackbar('Mode Selection', 'Spectrum Analyzer mode is not implemented yet.');
+                Get.to(() => GraphScreen(mode: 'Other Mode'));
               },
-              child: Text('Spectrum Analyzer Mode'),
+              child: Text('Other Mode'),
             ),
           ],
         ),
