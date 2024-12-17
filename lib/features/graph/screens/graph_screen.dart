@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/graph_provider.dart';
 import '../widgets/line_chart.dart';
+import '../widgets/fft_chart.dart';
 import '../widgets/trigger_settings.dart';
 
 class GraphScreen extends StatelessWidget {
@@ -18,6 +19,9 @@ class GraphScreen extends StatelessWidget {
     );
 
     if (mode == 'Oscilloscope') {
+      graphProvider.fetchData();
+    }
+    else {
       graphProvider.fetchData();
     }
 
@@ -38,9 +42,13 @@ class GraphScreen extends StatelessWidget {
             child: Center(
               child: Obx(() {
                 final points = graphProvider.dataPoints.value;
-                return points.isEmpty
-                    ? const CircularProgressIndicator()
-                    : LineChart(dataPoints: points);
+                if (points.isEmpty) {
+                  return const CircularProgressIndicator();
+                } else {
+                  return mode == 'Oscilloscope'
+                      ? LineChart(dataPoints: points)
+                      : FFTChart(dataPoints: points);
+                }
               }),
             ),
           ),

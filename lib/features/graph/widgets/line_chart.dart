@@ -26,6 +26,7 @@ class _LineChartState extends State<LineChart> {
   double frequency = 1.0;
   double maxValue = 1.0;
   double maxX = 1.0;
+  double voltageScale = 1.0;
 
   late GraphProvider graphProvider;
 
@@ -34,7 +35,6 @@ class _LineChartState extends State<LineChart> {
     super.initState();
     graphProvider = Get.find<GraphProvider>();
 
-    // Suscribirse a los streams de frecuencia y valor máximo
     graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
       setState(() {
         frequency = newFrequency;
@@ -43,14 +43,11 @@ class _LineChartState extends State<LineChart> {
 
     graphProvider.dataAcquisitionService.maxValueStream.listen((newMaxValue) {
       setState(() {
-        maxValue = newMaxValue;
+        maxX = newMaxValue;
       });
     });
 
-    // Calcular el valor máximo de X
-    if (widget.dataPoints.isNotEmpty) {
-      maxX = widget.dataPoints.map((e) => e.x).reduce((a, b) => a > b ? a : b);
-    }
+    voltageScale = graphProvider.dataAcquisitionService.scale;
   }
 
   @override
@@ -66,7 +63,14 @@ class _LineChartState extends State<LineChart> {
                 child: widget.dataPoints.isEmpty
                     ? Center(child: Text('No data'))
                     : CustomPaint(
-                        painter: LineChartPainter(widget.dataPoints, timeScale, valueScale, maxX, graphProvider.dataAcquisitionService.distance),
+                        painter: LineChartPainter(
+                          widget.dataPoints,
+                          timeScale,
+                          valueScale,
+                          maxX,
+                          graphProvider.dataAcquisitionService.distance,
+                          voltageScale,
+                        ),
                       ),
               );
             },
@@ -80,7 +84,6 @@ class _LineChartState extends State<LineChart> {
               onPressed: () {
                 setState(() {
                   timeScale *= 0.9;
-                  print(timeScale);
                 });
               },
             ),
@@ -89,7 +92,6 @@ class _LineChartState extends State<LineChart> {
               onPressed: () {
                 setState(() {
                   timeScale *= 1.1;
-                  print(timeScale);
                 });
               },
             ),
@@ -112,15 +114,14 @@ class _LineChartState extends State<LineChart> {
             IconButton(
               icon: Icon(Icons.autorenew),
               onPressed: () {
-                print("Previous time scale: $timeScale");
-                print("Previous value scale: $valueScale");
-                print(_size.height);
-                print(_size.width);
-                final List<double> auto = graphProvider.autoset(_size.height - _offsetY * 2, _size.width - _offsetX);
-                valueScale = auto[1];
-                timeScale = auto[0];
-                print("New time scale: $timeScale");
-                print("New value scale: $valueScale");
+                final List<double> auto = graphProvider.autoset(
+                  _size.height - _offsetY * 2,
+                  _size.width - _offsetX,
+                );
+                setState(() {
+                  valueScale = auto[1];
+                  timeScale = auto[0];
+                });
               },
             ),
           ],
@@ -129,16 +130,16 @@ class _LineChartState extends State<LineChart> {
     );
   }
 }
-
 class LineChartPainter extends CustomPainter {
-  static const double MAX_ADC_VALUE = 4094.0; // Valor máximo del ADC de 12 bits
   final List<DataPoint> dataPoints;
   final double timeScale;
   final double valueScale;
   final double maxX;
   final double distance;
+  final double voltageScale;
 
-  LineChartPainter(this.dataPoints, this.timeScale, this.valueScale, this.maxX, this.distance);
+  LineChartPainter(this.dataPoints, this.timeScale, this.valueScale, 
+      this.maxX, this.distance, this.voltageScale);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -147,7 +148,6 @@ class LineChartPainter extends CustomPainter {
       ..color = Colors.blue
       ..strokeWidth = 2;
 
-    // Dibujar la grilla
     final gridPaint = Paint()
       ..color = Colors.grey
       ..strokeWidth = 0.5;
@@ -157,94 +157,107 @@ class LineChartPainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    // Color de fondo para las referencias
     final backgroundPaint = Paint()
       ..color = Colors.grey[200]!
       ..style = PaintingStyle.fill;
 
-    // Mover el gráfico hacia arriba y a la derecha
     const double offsetY = _offsetY;
     const double offsetX = _offsetX;
     const double sqrOffsetBot = _sqrOffsetBot;
-    const double sqrOffsetTop = _sqrOffsetTop;
 
-    // Dibujar el fondo para las referencias de x e y
+    // Drawing area dimensions
+    final drawingWidth = size.width - offsetX;
+    final drawingHeight = size.height - offsetY - sqrOffsetBot;
+
+    // Background
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, offsetY), backgroundPaint);
     canvas.drawRect(Rect.fromLTWH(0, offsetY, offsetX, size.height - offsetY), backgroundPaint);
 
-    // Dibujar la grilla y las referencias de x e y
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
-
-    // Dibujar etiquetas en el eje X
+ 
     for (int i = 0; i <= 10; i++) {
-      double xPos = offsetX + (size.width - offsetX) * i / 10;
-      canvas.drawLine(Offset(xPos, offsetY), Offset(xPos, size.height - sqrOffsetBot), gridPaint);
+      final x = offsetX + (drawingWidth * i / 10);
+      canvas.drawLine(
+        Offset(x, offsetY),
+        Offset(x, size.height - sqrOffsetBot),
+        gridPaint
+      );
 
-      // Calcular el tiempo en microsegundos para las etiquetas
-      double timeInSeconds = (xPos - offsetX) / timeScale;
-      double timeInUs = timeInSeconds * 1e6;
-
+      // Calcular el tiempo real en este punto
+      final timeValue = (x - offsetX) / timeScale * 1e6;  // en microsegundos
       textPainter.text = TextSpan(
-        text: timeInUs.toStringAsFixed(1) + " µs",
+        text: '${timeValue.toStringAsFixed(1)} µs',
         style: TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(xPos - textPainter.width / 2, size.height - sqrOffsetBot + 5));
+      textPainter.paint(
+        canvas,
+        Offset(x - textPainter.width / 2, size.height - sqrOffsetBot + 5)
+      );
     }
 
-    // Dibujar etiquetas en el eje Y
+    // Y axis grid and labels
+    // Usar la misma transformación que usamos para los puntos
     for (int i = 0; i <= 10; i++) {
-      double yPos = offsetY + (size.height - offsetY - sqrOffsetBot) * i / 10;
-      canvas.drawLine(Offset(offsetX, yPos), Offset(size.width, yPos), gridPaint);
+      final y = offsetY + (drawingHeight * i / 10);
+      canvas.drawLine(
+        Offset(offsetX, y),
+        Offset(size.width, y),
+        gridPaint
+      );
 
-      // Calcular el valor del ADC para las etiquetas
-      double adcValue = (MAX_ADC_VALUE - (MAX_ADC_VALUE * i / 10));
-
+      // Calcular el valor real en este punto usando la misma transformación
+      final value = ((size.height - y - sqrOffsetBot) / valueScale) * voltageScale;
       textPainter.text = TextSpan(
-        text: adcValue.toStringAsFixed(1),
+        text: '${value.toStringAsFixed(2)} V',
         style: TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(5, yPos - textPainter.height / 2));
+      textPainter.paint(
+        canvas,
+        Offset(5, y - textPainter.height / 2)
+      );
     }
 
-    // Dibujar las líneas de datos
-    for (int i = 0; i < dataPoints.length - 1; i++) {
-      var p1 = Offset(dataPoints[i].x * timeScale + offsetX, size.height - dataPoints[i].y * valueScale - sqrOffsetBot);
-      var p2 = Offset(dataPoints[i + 1].x * timeScale + offsetX, size.height - dataPoints[i + 1].y * valueScale - sqrOffsetBot);
+    // Draw data points
+    if (dataPoints.length > 1) {
+      for (int i = 0; i < dataPoints.length - 1; i++) {
+        var p1 = Offset(
+          dataPoints[i].x * timeScale + offsetX,
+          size.height - dataPoints[i].y * valueScale - sqrOffsetBot
+        );
+        var p2 = Offset(
+          dataPoints[i + 1].x * timeScale + offsetX,
+          size.height - dataPoints[i + 1].y * valueScale - sqrOffsetBot
+        );
 
-      // Recortar las líneas en los bordes del recuadro
-      if (p1.dy < offsetY) {
-        p1 = Offset(p1.dx, offsetY);
-      } else if (p1.dy > size.height - sqrOffsetBot) {
-        p1 = Offset(p1.dx, size.height - sqrOffsetBot);
+        // Clip points to drawing area
+        if (p1.dy < offsetY) {
+          p1 = Offset(p1.dx, offsetY);
+        } else if (p1.dy > size.height - sqrOffsetBot) {
+          p1 = Offset(p1.dx, size.height - sqrOffsetBot);
+        }
+
+        if (p2.dy < offsetY) {
+          p2 = Offset(p2.dx, offsetY);
+        } else if (p2.dy > size.height - sqrOffsetBot) {
+          p2 = Offset(p2.dx, size.height - sqrOffsetBot);
+        }
+
+        canvas.drawLine(p1, p2, paint);
       }
-
-      if (p2.dy < offsetY) {
-        p2 = Offset(p2.dx, offsetY);
-      } else if (p2.dy > size.height - sqrOffsetBot) {
-        p2 = Offset(p2.dx, size.height - sqrOffsetBot);
-      }
-
-      if (p1.dx > size.width) {
-        p1 = Offset(size.width, p1.dy);
-      }
-
-      if (p2.dx > size.width) {
-        p2 = Offset(size.width, p2.dy);
-      }
-
-      canvas.drawLine(p1, p2, paint);
     }
-    // Dibujar el recuadro negro alrededor de la grilla
-    canvas.drawRect(Rect.fromLTWH(offsetX, offsetY, size.width - offsetX, size.height - sqrOffsetBot - offsetY), borderPaint);
+
+    // Border
+    canvas.drawRect(
+      Rect.fromLTWH(offsetX, offsetY, drawingWidth, drawingHeight),
+      borderPaint
+    );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

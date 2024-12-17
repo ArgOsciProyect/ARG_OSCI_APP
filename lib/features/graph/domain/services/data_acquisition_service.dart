@@ -11,7 +11,9 @@ import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
-import 'package:simple_kalman/simple_kalman.dart';
+import 'package:scidart/scidart.dart';
+import 'package:scidart/numdart.dart';
+
 
 
 // Message classes for isolate setup
@@ -52,7 +54,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // Configuration
   double scale = 1.0;
-  double distance = 1 / 2000000;
+  double distance = 1 / 1600000;
   double triggerLevel = 0.0;
   TriggerMode triggerMode = TriggerMode.automatic;
   TriggerEdge triggerEdge = TriggerEdge.positive;
@@ -80,7 +82,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   Future<void> initialize() async {
     // Don't try to fetch config until services are ready
     scale = 1.0;  // Use default values initially
-    distance = 1 / 1634000;
+    distance = 1 / 1600000;
   }
 
   static void _socketIsolateFunction(SocketIsolateSetup setup) async {
@@ -118,7 +120,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     setup.sendPort.send(receivePort.sendPort);
   
     final queue = Queue<int>();
-    const processingChunkSize = 8192 * 4;
+    const processingChunkSize = 8192;
     const maxQueueSize = 8192 * 32;
   
     double scale = setup.scale;
@@ -168,30 +170,37 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final filteredValues = <double>[];
     var triggerActivated = false;
     var triggerIndex = 0;
-    const windowSize = 5;
-    final kalman = SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.5);
-
+    const windowSize = 15;
+    double movingAverage = 0;
+  
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
       
       final bytes = [queue.removeFirst(), queue.removeFirst()];
       final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
           .getUint16(0, Endian.little);
-      final uint12Value = uint16Value & 0xFFF;
+      
+      // Extraer los 12 bits de datos y los 4 bits del canal
+      final uint12Value = uint16Value & 0x0FFF;
+      final channel = (uint16Value >> 12) & 0x0F;
   
       final x = points.length * distance;
       final y = uint12Value * scale;
       
       // Apply filtering and trigger logic
-      filteredValues.add(y);
-      if (filteredValues.length > windowSize) {
-        filteredValues.removeAt(0);
+      if(!triggerActivated){
+        filteredValues.add(y);
+        if (filteredValues.length > windowSize) {
+          filteredValues.removeAt(0);
+        }
+    
+        // Calcular la media móvil
+        movingAverage = filteredValues.reduce((a, b) => a + b) / filteredValues.length;
       }
-  
-      if (!triggerActivated && points.isNotEmpty) {
+      if (!triggerActivated && points.isNotEmpty && filteredValues.length == windowSize) {
         final prevY = filteredValues.length > 1 ? 
             filteredValues[filteredValues.length - 2] : y;
-        final currentY = filteredValues.last;
+        final currentY = movingAverage;
         
         final triggerCondition = triggerEdge == TriggerEdge.positive
             ? prevY < triggerLevel && currentY >= triggerLevel
@@ -203,9 +212,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         }
       }
   
-      //points.add(DataPoint(x, kalman.filtered(y)));
       points.add(DataPoint(x, y));
     }
+  
     if (triggerActivated) {
       final triggerX = points[triggerIndex].x;
       return points.sublist(triggerIndex).map((point) {
@@ -216,14 +225,32 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  static List<DataPoint> _applyMovingAverageFilter(List<DataPoint> points, int windowSize) {
+    final filteredPoints = <DataPoint>[];
+  
+    for (int i = 0; i < points.length; i++) {
+      double sum = 0;
+      int count = 0;
+  
+      for (int j = i; j >= 0 && j > i - windowSize; j--) {
+        sum += points[j].y;
+        count++;
+      }
+  
+      final average = sum / count;
+      filteredPoints.add(DataPoint(points[i].x, average));
+    }
+  
+    return filteredPoints;
+  }
   SendPort? _socketToProcessingSendPort;
 
   @override
   Future<void> fetchData(String ip, int port) async {
     await stopData();
-
+  
     _processingReceivePort = ReceivePort();
-
+  
     // Start processing isolate first
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
@@ -236,7 +263,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         triggerEdge
       )
     );
-
+  
     // Get processing SendPort and wait for it to be ready
     final setupCompleter = Completer<SendPort>();
     _processingReceivePort!.listen((message) {
@@ -245,13 +272,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _configSendPort = message;
         setupCompleter.complete(message);
       } else if (message is List<DataPoint>) {
-        _dataController.add(message);
-        _updateMetrics(message);
+        // Apply moving average filter to the points
+        final filteredPoints = _applyMovingAverageFilter(message, 15); // Example window size of 5
+        _dataController.add(filteredPoints);
+        _updateMetrics(filteredPoints);
       }
     });
-
+  
     _socketToProcessingSendPort = await setupCompleter.future;
-
+  
     // Start socket isolate with processing SendPort
     _socketIsolate = await Isolate.spawn(
       _socketIsolateFunction,
@@ -267,13 +296,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   double _currentFrequency = 10000.0;
-  double _currentMaxValue = 4094.0;
+  double _currentMaxValue = 512.0;
+  double _currentAverage = 256.0;
   
   void _updateMetrics(List<DataPoint> points) {
     if (points.isEmpty) return;
     
     _currentFrequency = _calculateFrequency(points);
     _currentMaxValue = points.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    _currentAverage = points.map((p) => p.y).reduce((a, b) => a + b) / points.length;
     
     _frequencyController.add(_currentFrequency);
     _maxValueController.add(_currentMaxValue);
@@ -312,6 +343,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     triggerMode = TriggerMode.automatic;
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
+    triggerLevel = _currentAverage;
     updateConfig(); // Send updated config to processing isolate
     return [
       chartWidth / totalTime,
