@@ -1,10 +1,14 @@
-// lib/features/graph/widgets/fft_chart.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:scidart/scidart.dart';
 import 'package:scidart/numdart.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/graph_provider.dart';
+
+const double _offsetY = 30;
+const double _offsetX = 50;
+const double _sqrOffsetBot = 30;
+late Size _size;
 
 class FFTChart extends StatefulWidget {
   final List<DataPoint> dataPoints;
@@ -18,16 +22,22 @@ class FFTChart extends StatefulWidget {
 class _FFTChartState extends State<FFTChart> {
   late GraphProvider graphProvider;
   List<DataPoint> fftPoints = [];
-  double zoomX = 1.0;
-  double zoomY = 1.0;
-  double offsetX = 0.0;
-  double offsetY = 0.0;
+  double timeScale = 1.0;
+  double valueScale = 1.0;
+  double frequency = 1.0;
+  double maxValue = 1.0;
 
   @override
   void initState() {
     super.initState();
     graphProvider = Get.find<GraphProvider>();
     _calculateFFT();
+
+    graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
+      setState(() {
+        frequency = newFrequency;
+      });
+    });
   }
 
   void _calculateFFT() {
@@ -35,13 +45,11 @@ class _FFTChartState extends State<FFTChart> {
     final array = Array(yValues);
   
     final fftResult = rfft(array);
-  
     final magnitudes = arrayComplexAbs(fftResult);
     final halfLength = (magnitudes.length / 2).ceil();
     final positiveMagnitudes = magnitudes.getRange(0, halfLength).toList();
   
-    // Calcular las frecuencias correspondientes
-    final samplingRate = 1 / graphProvider.dataAcquisitionService.distance; // Frecuencia de muestreo
+    final samplingRate = 1 / graphProvider.dataAcquisitionService.distance;
     final frequencies = List<double>.generate(halfLength, (i) => i * samplingRate / array.length);
   
     setState(() {
@@ -49,44 +57,7 @@ class _FFTChartState extends State<FFTChart> {
         positiveMagnitudes.length,
         (i) => DataPoint(frequencies[i], positiveMagnitudes[i]),
       );
-    });
-  }
-  
-  void _zoomIn() {
-    setState(() {
-      zoomX *= 1.1;
-      zoomY *= 1.1;
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      zoomX *= 0.9;
-      zoomY *= 0.9;
-    });
-  }
-
-  void _moveLeft() {
-    setState(() {
-      offsetX -= 10;
-    });
-  }
-
-  void _moveRight() {
-    setState(() {
-      offsetX += 10;
-    });
-  }
-
-  void _moveUp() {
-    setState(() {
-      offsetY -= 10;
-    });
-  }
-
-  void _moveDown() {
-    setState(() {
-      offsetY += 10;
+      maxValue = positiveMagnitudes.reduce((a, b) => a > b ? a : b);
     });
   }
 
@@ -101,9 +72,14 @@ class _FFTChartState extends State<FFTChart> {
                 height: constraints.maxHeight,
                 width: constraints.maxWidth,
                 child: fftPoints.isEmpty
-                    ? Center(child: Text('No data'))
+                    ? const Center(child: Text('No data'))
                     : CustomPaint(
-                        painter: FFTChartPainter(fftPoints, zoomX, zoomY, offsetX, offsetY),
+                        painter: FFTChartPainter(
+                          fftPoints,
+                          timeScale,
+                          valueScale,
+                          maxValue,
+                        ),
                       ),
               );
             },
@@ -113,28 +89,45 @@ class _FFTChartState extends State<FFTChart> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             IconButton(
-              icon: Icon(Icons.zoom_in),
-              onPressed: _zoomIn,
+              icon: const Icon(Icons.arrow_left),
+              onPressed: () {
+                setState(() {
+                  timeScale *= 0.9; // Zoom in horizontal
+                });
+              },
             ),
             IconButton(
-              icon: Icon(Icons.zoom_out),
-              onPressed: _zoomOut,
+              icon: const Icon(Icons.arrow_right),
+              onPressed: () {
+                setState(() {
+                  timeScale *= 1.1; // Zoom out horizontal
+                });
+              },
             ),
             IconButton(
-              icon: Icon(Icons.arrow_left),
-              onPressed: _moveLeft,
+              icon: const Icon(Icons.arrow_upward),
+              onPressed: () {
+                setState(() {
+                  valueScale *= 0.9; // Zoom in vertical
+                });
+              },
             ),
             IconButton(
-              icon: Icon(Icons.arrow_right),
-              onPressed: _moveRight,
+              icon: const Icon(Icons.arrow_downward),
+              onPressed: () {
+                setState(() {
+                  valueScale *= 1.1; // Zoom out vertical
+                });
+              },
             ),
             IconButton(
-              icon: Icon(Icons.arrow_upward),
-              onPressed: _moveUp,
-            ),
-            IconButton(
-              icon: Icon(Icons.arrow_downward),
-              onPressed: _moveDown,
+              icon: const Icon(Icons.autorenew),
+              onPressed: () {
+                setState(() {
+                  timeScale = 1.0;
+                  valueScale = 1.0;
+                });
+              },
             ),
           ],
         ),
@@ -145,15 +138,15 @@ class _FFTChartState extends State<FFTChart> {
 
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
-  final double zoomX;
-  final double zoomY;
-  final double offsetX;
-  final double offsetY;
+  final double timeScale;
+  final double valueScale;
+  final double maxValue;
 
-  FFTChartPainter(this.fftPoints, this.zoomX, this.zoomY, this.offsetX, this.offsetY);
+  FFTChartPainter(this.fftPoints, this.timeScale, this.valueScale, this.maxValue);
 
   @override
   void paint(Canvas canvas, Size size) {
+    _size = size;
     final paint = Paint()
       ..color = Colors.blue
       ..strokeWidth = 2;
@@ -167,39 +160,41 @@ class FFTChartPainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    const double marginY = 30;
-    const double marginX = 50;
-    const double sqrOffsetBot = 30;
-
-    final drawingWidth = size.width - marginX;
-    final drawingHeight = size.height - marginY - sqrOffsetBot;
-
-    // Fondo
     final backgroundPaint = Paint()
       ..color = Colors.grey[200]!
       ..style = PaintingStyle.fill;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, marginY), backgroundPaint);
-    canvas.drawRect(Rect.fromLTWH(0, marginY, marginX, size.height - marginY), backgroundPaint);
 
-    // Grilla y etiquetas
+    const double offsetY = _offsetY;
+    const double offsetX = _offsetX;
+    const double sqrOffsetBot = _sqrOffsetBot;
+
+    final drawingWidth = size.width - offsetX;
+    final drawingHeight = size.height - offsetY - sqrOffsetBot;
+
+    // Background
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, offsetY), backgroundPaint);
+    canvas.drawRect(Rect.fromLTWH(0, offsetY, offsetX, size.height - offsetY), backgroundPaint);
+
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    // Eje X: Frecuencias
+    // X axis grid and labels (frequency)
+    final maxFreq = fftPoints.isNotEmpty ? fftPoints.last.x : 0;
+    final displayMaxFreq = maxFreq * timeScale; // Ajustado para zoom
     for (int i = 0; i <= 10; i++) {
-      final x = marginX + (drawingWidth * i / 10) * zoomX + offsetX;
+      final x = offsetX + (drawingWidth * i / 10);
       canvas.drawLine(
-        Offset(x, marginY),
+        Offset(x, offsetY),
         Offset(x, size.height - sqrOffsetBot),
         gridPaint,
       );
 
-      final freqValue = (i * fftPoints.length / 10).toStringAsFixed(1);
+      final freqValue = displayMaxFreq * i / 10;
       textPainter.text = TextSpan(
-        text: '$freqValue Hz',
-        style: TextStyle(color: Colors.black, fontSize: 10),
+        text: '${freqValue.toStringAsFixed(1)} Hz',
+        style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
       textPainter.paint(
@@ -208,20 +203,20 @@ class FFTChartPainter extends CustomPainter {
       );
     }
 
-    // Eje Y: Magnitudes
-    final maxY = fftPoints.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+    // Y axis grid and labels (magnitude)
+    final displayMaxValue = maxValue * valueScale; // Ajustado para zoom
     for (int i = 0; i <= 10; i++) {
-      final y = marginY + (drawingHeight * (10 - i) / 10) * zoomY + offsetY;
+      final y = offsetY + (drawingHeight * i / 10);
       canvas.drawLine(
-        Offset(marginX, y),
+        Offset(offsetX, y),
         Offset(size.width, y),
         gridPaint,
       );
 
-      final value = (maxY * i / 10).toStringAsFixed(2);
+      final value = displayMaxValue * (10 - i) / 10;
       textPainter.text = TextSpan(
-        text: '$value',
-        style: TextStyle(color: Colors.black, fontSize: 10),
+        text: (value).toStringAsFixed(2),
+        style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
       textPainter.paint(
@@ -230,25 +225,43 @@ class FFTChartPainter extends CustomPainter {
       );
     }
 
-    // Dibujar puntos FFT
+    // Draw FFT points
     if (fftPoints.length > 1) {
       for (int i = 0; i < fftPoints.length - 1; i++) {
-        final p1 = Offset(
-          fftPoints[i].x * drawingWidth / fftPoints.length * zoomX + marginX + offsetX,
-          size.height - fftPoints[i].y * drawingHeight / maxY * zoomY - sqrOffsetBot + offsetY,
+        // Normalizar los valores al rango visible actual
+        var p1 = Offset(
+          offsetX + (fftPoints[i].x * drawingWidth / displayMaxFreq),
+          size.height - (fftPoints[i].y * drawingHeight / displayMaxValue) - sqrOffsetBot,
         );
-        final p2 = Offset(
-          fftPoints[i + 1].x * drawingWidth / fftPoints.length * zoomX + marginX + offsetX,
-          size.height - fftPoints[i + 1].y * drawingHeight / maxY * zoomY - sqrOffsetBot + offsetY,
+        var p2 = Offset(
+          offsetX + (fftPoints[i + 1].x * drawingWidth / displayMaxFreq),
+          size.height - (fftPoints[i + 1].y * drawingHeight / displayMaxValue) - sqrOffsetBot,
         );
 
-        canvas.drawLine(p1, p2, paint);
+        // Clip points to drawing area
+        if (p1.dy < offsetY) {
+          p1 = Offset(p1.dx, offsetY);
+        } else if (p1.dy > size.height - sqrOffsetBot) {
+          p1 = Offset(p1.dx, size.height - sqrOffsetBot);
+        }
+
+        if (p2.dy < offsetY) {
+          p2 = Offset(p2.dx, offsetY);
+        } else if (p2.dy > size.height - sqrOffsetBot) {
+          p2 = Offset(p2.dx, size.height - sqrOffsetBot);
+        }
+
+        // Solo dibuja la línea si al menos un punto está dentro del área visible
+        if (p1.dx >= offsetX && p1.dx <= size.width &&
+            p2.dx >= offsetX && p2.dx <= size.width) {
+          canvas.drawLine(p1, p2, paint);
+        }
       }
     }
 
-    // Borde
+    // Border
     canvas.drawRect(
-      Rect.fromLTWH(marginX, marginY, drawingWidth, drawingHeight),
+      Rect.fromLTWH(offsetX, offsetY, drawingWidth, drawingHeight),
       borderPaint,
     );
   }

@@ -130,6 +130,7 @@ class _LineChartState extends State<LineChart> {
     );
   }
 }
+
 class LineChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
@@ -245,6 +246,14 @@ class LineChartPainter extends CustomPainter {
           p2 = Offset(p2.dx, offsetY);
         } else if (p2.dy > size.height - sqrOffsetBot) {
           p2 = Offset(p2.dx, size.height - sqrOffsetBot);
+        }
+
+        // Clip points to the right edge of the drawing area
+        if (p1.dx > size.width) {
+          p1 = Offset(size.width, p1.dy);
+        }
+        if (p2.dx > size.width) {
+          p2 = Offset(size.width, p2.dy);
         }
 
         canvas.drawLine(p1, p2, paint);

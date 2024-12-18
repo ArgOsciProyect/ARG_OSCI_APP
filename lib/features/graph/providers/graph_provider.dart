@@ -1,6 +1,7 @@
 // lib/features/graph/providers/graph_provider.dart
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
+import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
 import '../domain/models/data_point.dart';
 import '../domain/services/data_acquisition_service.dart';
 import '../domain/models/trigger_data.dart';
@@ -20,6 +21,9 @@ class GraphProvider extends GetxController {
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
 
+  // Kalman filter instance
+  final SimpleKalman kalman = SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
+
   GraphProvider(this.dataAcquisitionService, this.socketConnection) {
     // Subscribe to streams
     dataAcquisitionService.dataStream.listen((points) {
@@ -27,7 +31,8 @@ class GraphProvider extends GetxController {
     });
 
     dataAcquisitionService.frequencyStream.listen((freq) {
-      frequency.value = freq;
+      final filteredFreq = kalman.filtered(freq); // Aplicar el filtro Kalman
+      frequency.value = filteredFreq;
     });
 
     dataAcquisitionService.maxValueStream.listen((max) {
@@ -66,6 +71,7 @@ class GraphProvider extends GetxController {
   void setTriggerLevel(double level) {
     triggerLevel.value = level;
     dataAcquisitionService.triggerLevel = level;
+    print("Trigger level: $level");
     dataAcquisitionService.updateConfig(); // Send updated config to processing isolate
   }
 

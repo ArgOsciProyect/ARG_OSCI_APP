@@ -2,14 +2,16 @@
 class DataPoint {
   double x;
   final double y;
+  final bool isTrigger;
 
-  DataPoint(this.x, this.y);
+  DataPoint(this.x, this.y, {this.isTrigger = false});
 
   // JSON to/from Dart helper functions
   factory DataPoint.fromJson(Map<String, dynamic> json) {
     return DataPoint(
       json['x'],
       json['y'],
+      isTrigger: json['isTrigger'],
     );
   }
 
@@ -17,6 +19,7 @@ class DataPoint {
     return {
       'x': x,
       'y': y,
+      'isTrigger': isTrigger,
     };
   }
 }

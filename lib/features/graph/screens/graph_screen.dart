@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../providers/graph_provider.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/fft_chart.dart';
-import '../widgets/trigger_settings.dart';
+import '../widgets/user_settings.dart';
 
 class GraphScreen extends StatelessWidget {
   final String mode;
@@ -20,8 +20,7 @@ class GraphScreen extends StatelessWidget {
 
     if (mode == 'Oscilloscope') {
       graphProvider.fetchData();
-    }
-    else {
+    } else {
       graphProvider.fetchData();
     }
 
@@ -39,22 +38,29 @@ class GraphScreen extends StatelessWidget {
       body: Row(
         children: [
           Expanded(
-            child: Center(
-              child: Obx(() {
-                final points = graphProvider.dataPoints.value;
-                if (points.isEmpty) {
-                  return const CircularProgressIndicator();
-                } else {
-                  return mode == 'Oscilloscope'
-                      ? LineChart(dataPoints: points)
-                      : FFTChart(dataPoints: points);
-                }
-              }),
+            child: Container(
+              color: Colors.white, // Fondo para el gráfico
+              child: Center(
+                child: Obx(() {
+                  final points = graphProvider.dataPoints.value;
+                  if (points.isEmpty) {
+                    return const CircularProgressIndicator();
+                  } else {
+                    return mode == 'Oscilloscope'
+                        ? LineChart(dataPoints: points)
+                        : FFTChart(dataPoints: points);
+                  }
+                }),
+              ),
             ),
           ),
-          TriggerSettings(
-            graphProvider: graphProvider,
-            triggerLevelController: triggerLevelController
+          Container(
+            width: 200,
+            color: Colors.grey[200], // Fondo para las opciones
+            child: UserSettings(
+              graphProvider: graphProvider,
+              triggerLevelController: triggerLevelController,
+            ),
           ),
         ],
       ),

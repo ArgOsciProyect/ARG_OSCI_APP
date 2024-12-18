@@ -21,6 +21,7 @@ class SetupService implements SetupRepository {
   final NetworkInfo _networkInfo = NetworkInfo();
   late dynamic extIp;
   late dynamic extPort;
+  late dynamic extBSSID;
   late dynamic _pubKey;
 
   SetupService(this.globalSocketConnection, this.globalHttpConfig) {
@@ -43,6 +44,7 @@ class SetupService implements SetupRepository {
     final response = await localHttpService.post('/connect_wifi', credentials.toJson());
     extIp = response['IP'];
     extPort = response['Port'];
+    
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
   }
@@ -100,21 +102,27 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {
-    String? wifiName = await _networkInfo.getWifiName();
-    if (Platform.isAndroid && wifiName != null) {
-      wifiName = wifiName.replaceAll('"', '');
-    }
-    while (wifiName != 'ESP32_AP') {
-      await Future.delayed(Duration(seconds: 1));
-      wifiName = await _networkInfo.getWifiName();
+    while (true) {
+      // Obtener nombre de red WiFi
+      String? wifiName = await _networkInfo.getWifiName();
       if (Platform.isAndroid && wifiName != null) {
         wifiName = wifiName.replaceAll('"', '');
       }
-      print(wifiName);
+  
+      // Obtener IP del dispositivo
+      String? ipAddress = await _networkInfo.getWifiIP();
+      
+      // Verificar si está conectado a la red ESP32_AP y tiene la IP correcta
+      if (ipAddress != null && ipAddress.startsWith('192.168.4.')) {
+        break;
+      }
+  
+      print('WiFi: $wifiName, IP: $ipAddress');
+      await Future.delayed(Duration(seconds: 1));
     }
+  
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
   }
-
   @override
   Future<void> waitForNetworkChange(String ssid) async {
     String? wifiName = await _networkInfo.getWifiName();
@@ -128,6 +136,7 @@ class SetupService implements SetupRepository {
       if (Platform.isAndroid && wifiName != null) {
         wifiName = wifiName.replaceAll('"', '');
       }
+      print("Current WiFi: $wifiName, Expected WiFi: $ssid");
     }
   }
 }

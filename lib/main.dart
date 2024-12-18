@@ -23,7 +23,8 @@ void main() async {
 
 Future<void> requestPermissions() async {
   await [
-    Permission.location,
+    Permission.locationAlways,
+    Permission.nearbyWifiDevices,
   ].request();
 }
 
