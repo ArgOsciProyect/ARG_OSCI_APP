@@ -6,9 +6,9 @@ import '../../graph/providers/graph_provider.dart';
 
 late Size _size;
 // Mover el gráfico hacia arriba y a la derecha
-const double _offsetY = 30;
+const double _offsetY = 15;
 const double _offsetX = 50;
-const double _sqrOffsetBot = 30;
+const double _sqrOffsetBot = 15;
 const double _sqrOffsetTop = 30;
 
 class LineChart extends StatefulWidget {
@@ -57,74 +57,85 @@ class _LineChartState extends State<LineChart> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return SizedBox(
-                height: constraints.maxHeight,
-                width: constraints.maxWidth,
-                child: widget.dataPoints.isEmpty
-                    ? Center(child: Text('No data'))
-                    : CustomPaint(
-                        painter: LineChartPainter(
-                          widget.dataPoints,
-                          timeScale,
-                          valueScale,
-                          maxX,
-                          graphProvider.dataAcquisitionService.distance,
-                          voltageScale,
+              return Container(
+                color: Colors.grey[200],
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  width: constraints.maxWidth,
+                  child: widget.dataPoints.isEmpty
+                      ? Center(child: Text('No data'))
+                      : CustomPaint(
+                          painter: LineChartPainter(
+                            widget.dataPoints,
+                            timeScale,
+                            valueScale,
+                            maxX,
+                            graphProvider.dataAcquisitionService.distance,
+                            voltageScale,
+                          ),
                         ),
-                      ),
+                ),
               );
             },
           ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_left),
-              onPressed: () {
-                setState(() {
-                  timeScale *= 0.9;
-                });
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.arrow_right),
-              onPressed: () {
-                setState(() {
-                  timeScale *= 1.1;
-                });
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.arrow_upward),
-              onPressed: () {
-                setState(() {
-                  valueScale *= 1.1;
-                });
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.arrow_downward),
-              onPressed: () {
-                setState(() {
-                  valueScale *= 0.9;
-                });
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.autorenew),
-              onPressed: () {
-                final List<double> auto = graphProvider.autoset(
-                  _size.height - _offsetY * 2,
-                  _size.width - _offsetX,
-                );
-                setState(() {
-                  valueScale = auto[1];
-                  timeScale = auto[0];
-                });
-              },
-            ),
-          ],
+        Container(
+          color: Colors.grey[200],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(Icons.arrow_left),
+                color: Colors.black, // Color del icono
+                onPressed: () {
+                  setState(() {
+                    timeScale *= 0.9;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_right),
+                color: Colors.black, // Color del icono
+                onPressed: () {
+                  setState(() {
+                    timeScale *= 1.1;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_upward),
+                color: Colors.black, // Color del icono
+                onPressed: () {
+                  setState(() {
+                    valueScale *= 1.1;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_downward),
+                color: Colors.black, // Color del icono
+                onPressed: () {
+                  setState(() {
+                    valueScale *= 0.9;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.autorenew),
+                color: Colors.black, // Color del icono
+                onPressed: () {
+                  final List<double> auto = graphProvider.autoset(
+                    _size.height - _offsetY * 2,
+                    _size.width - _offsetX,
+                  );
+                  setState(() {
+                    valueScale = auto[1];
+                    timeScale = auto[0];
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -162,6 +173,10 @@ class LineChartPainter extends CustomPainter {
       ..color = Colors.grey[200]!
       ..style = PaintingStyle.fill;
 
+    final chartBackgroundPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+
     const double offsetY = _offsetY;
     const double offsetX = _offsetX;
     const double sqrOffsetBot = _sqrOffsetBot;
@@ -173,6 +188,9 @@ class LineChartPainter extends CustomPainter {
     // Background
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, offsetY), backgroundPaint);
     canvas.drawRect(Rect.fromLTWH(0, offsetY, offsetX, size.height - offsetY), backgroundPaint);
+
+    // Chart background
+    canvas.drawRect(Rect.fromLTWH(offsetX, offsetY, drawingWidth, drawingHeight), chartBackgroundPaint);
 
     final textPainter = TextPainter(
       textAlign: TextAlign.center,

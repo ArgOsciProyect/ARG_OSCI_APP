@@ -26,43 +26,55 @@ class GraphScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Graph - $mode Mode'),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: () {
-            graphProvider.stopData(); // Stop data acquisition when navigating back
-            Get.back();
-          },
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para el AppBar
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text('Graph - $mode Mode', style: TextStyle(fontSize: 15, color: Colors.black, textBaseline: TextBaseline.ideographic),),
         ),
+        leading: Transform.translate(
+          offset: Offset(0, -5), // Subir la flecha unos píxeles hacia arriba
+          child: IconButton(
+            icon: Icon(Icons.arrow_back, size: 15, color: Colors.black, applyTextScaling: true,), // Ajustar el tamaño del icono y color
+            onPressed: () {
+              graphProvider.stopData(); // Stop data acquisition when navigating back
+              Get.back();
+            },
+          ),
+        ),
+        toolbarHeight: 25.0, // Ajustar la altura del AppBar
       ),
-      body: Row(
-        children: [
-          Expanded(
-            child: Container(
-              color: Colors.white, // Fondo para el gráfico
-              child: Center(
-                child: Obx(() {
-                  final points = graphProvider.dataPoints.value;
-                  if (points.isEmpty) {
-                    return const CircularProgressIndicator();
-                  } else {
-                    return mode == 'Oscilloscope'
-                        ? LineChart(dataPoints: points)
-                        : FFTChart(dataPoints: points);
-                  }
-                }),
+      body: Container(
+        color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para todo el cuerpo
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                color: Colors.white, // Fondo para el gráfico
+                child: Center(
+                  child: Obx(() {
+                    final points = graphProvider.dataPoints.value;
+                    if (points.isEmpty) {
+                      return const CircularProgressIndicator();
+                    } else {
+                      return mode == 'Oscilloscope'
+                          ? LineChart(dataPoints: points)
+                          : FFTChart(dataPoints: points);
+                    }
+                  }),
+                ),
               ),
             ),
-          ),
-          Container(
-            width: 200,
-            color: Colors.grey[200], // Fondo para las opciones
-            child: UserSettings(
-              graphProvider: graphProvider,
-              triggerLevelController: triggerLevelController,
+            SizedBox(width: 20), // Espacio entre el graficador y UserSettings
+            Container(
+              width: 170, // Ajustar el ancho del UserSettings
+              color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para las opciones
+              child: UserSettings(
+                graphProvider: graphProvider,
+                triggerLevelController: triggerLevelController,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

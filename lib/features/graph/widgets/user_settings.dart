@@ -18,7 +18,9 @@ class UserSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(8.0),
+      color: Colors.grey[200], // Fondo uniforme para los UserSettings
       child: SingleChildScrollView(
+        hitTestBehavior: HitTestBehavior.translucent,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -27,6 +29,7 @@ class UserSettings extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(8.0),
+                color: Colors.grey[200], // Fondo uniforme para el contenedor interno
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -34,48 +37,44 @@ class UserSettings extends StatelessWidget {
                   Text('Trigger Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   SizedBox(height: 10),
                   Text('Trigger Level:'),
-                  TextField(
-                    controller: triggerLevelController,
-                    keyboardType: TextInputType.number,
-                    onSubmitted: (value) {
-                      final level = double.tryParse(value);
-                      if (level != null) {
-                        graphProvider.setTriggerLevel(level);
-                      }
-                    },
-                  ),
-                  SizedBox(height: 10),
-                  Text('Trigger Mode:'),
-                  DropdownButton<TriggerMode>(
-                    value: graphProvider.triggerMode.value,
-                    onChanged: (mode) {
-                      if (mode != null) {
-                        graphProvider.setTriggerMode(mode);
-                      }
-                    },
-                    items: TriggerMode.values.map((mode) {
-                      return DropdownMenuItem(
-                        value: mode,
-                        child: Text(mode.toString().split('.').last),
-                      );
-                    }).toList(),
-                  ),
+                  Obx(() {
+                    // Actualizar el controlador de texto cuando el valor de triggerLevel cambie
+                    triggerLevelController.text = graphProvider.triggerLevel.value.toStringAsFixed(2);
+                    return TextField(
+                      controller: triggerLevelController,
+                      keyboardType: TextInputType.number,
+                      onSubmitted: (value) {
+                        final level = double.tryParse(value);
+                        if (level != null) {
+                          graphProvider.setTriggerLevel(level);
+                        }
+                      },
+                      onChanged: (value) {
+                        final level = double.tryParse(value);
+                        if (level != null) {
+                          graphProvider.setTriggerLevel(level);
+                        }
+                      },
+                    );
+                  }),
                   SizedBox(height: 10),
                   Text('Trigger Edge:'),
-                  DropdownButton<TriggerEdge>(
-                    value: graphProvider.triggerEdge.value,
-                    onChanged: (edge) {
-                      if (edge != null) {
-                        graphProvider.setTriggerEdge(edge);
-                      }
-                    },
-                    items: TriggerEdge.values.map((edge) {
-                      return DropdownMenuItem(
-                        value: edge,
-                        child: Text(edge.toString().split('.').last),
-                      );
-                    }).toList(),
-                  ),
+                  Obx(() {
+                    return DropdownButton<TriggerEdge>(
+                      value: graphProvider.triggerEdge.value,
+                      onChanged: (edge) {
+                        if (edge != null) {
+                          graphProvider.setTriggerEdge(edge);
+                        }
+                      },
+                      items: TriggerEdge.values.map((edge) {
+                        return DropdownMenuItem(
+                          value: edge,
+                          child: Text(edge.toString().split('.').last),
+                        );
+                      }).toList(),
+                    );
+                  }),
                 ],
               ),
             ),
@@ -85,6 +84,7 @@ class UserSettings extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(8.0),
+                color: Colors.grey[200], // Fondo uniforme para el contenedor interno
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

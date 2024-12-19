@@ -130,7 +130,7 @@ class SetupService implements SetupRepository {
     if (Platform.isAndroid && wifiName != null) {
       wifiName = wifiName.replaceAll('"', '');
     }
-    while (wifiName != ssid) {
+    while (wifiName?.startsWith(ssid) == false) {
       await Future.delayed(Duration(seconds: 1));
       wifiName = await _networkInfo.getWifiName();
       if (Platform.isAndroid && wifiName != null) {

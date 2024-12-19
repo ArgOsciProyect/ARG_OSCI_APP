@@ -15,7 +15,6 @@ class GraphProvider extends GetxController {
   final frequency = Rx<double>(1.0);
   final maxValue = Rx<double>(1.0);
   final triggerLevel = Rx<double>(0.0);
-  final triggerMode = Rx<TriggerMode>(TriggerMode.automatic);
   final triggerEdge = Rx<TriggerEdge>(TriggerEdge.positive);
   final timeScale = Rx<double>(1.0);
   final valueScale = Rx<double>(1.0);
@@ -42,6 +41,10 @@ class GraphProvider extends GetxController {
     // Observe changes in socket connection
     ever(socketConnection.ip, (_) => _restartDataAcquisition());
     ever(socketConnection.port, (_) => _restartDataAcquisition());
+
+    // Sync initial values
+    triggerLevel.value = dataAcquisitionService.triggerLevel;
+    triggerEdge.value = dataAcquisitionService.triggerEdge;
   }
 
   Future<void> _restartDataAcquisition() async {
@@ -62,8 +65,9 @@ class GraphProvider extends GetxController {
 
   List<double> autoset(double chartHeight, double chartWidth) {
     print("Autosetting");
-    triggerMode.value = TriggerMode.automatic;
     final result = dataAcquisitionService.autoset(chartHeight, chartWidth);
+    // Sync updated values
+    triggerLevel.value = dataAcquisitionService.triggerLevel;
     dataAcquisitionService.updateConfig(); // Send updated config to processing isolate
     return result;
   }
@@ -72,12 +76,6 @@ class GraphProvider extends GetxController {
     triggerLevel.value = level;
     dataAcquisitionService.triggerLevel = level;
     print("Trigger level: $level");
-    dataAcquisitionService.updateConfig(); // Send updated config to processing isolate
-  }
-
-  void setTriggerMode(TriggerMode mode) {
-    triggerMode.value = mode;
-    dataAcquisitionService.triggerMode = mode;
     dataAcquisitionService.updateConfig(); // Send updated config to processing isolate
   }
 
