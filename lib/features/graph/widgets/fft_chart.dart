@@ -1,3 +1,4 @@
+// lib/features/graph/widgets/fft_chart.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:scidart/scidart.dart';
@@ -135,7 +136,6 @@ class _FFTChartState extends State<FFTChart> {
     );
   }
 }
-
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;

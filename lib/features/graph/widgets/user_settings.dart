@@ -18,73 +18,73 @@ class UserSettings extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(8.0),
-      color: Colors.grey[200], // Fondo uniforme para los UserSettings
+      color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para los UserSettings
       child: SingleChildScrollView(
         hitTestBehavior: HitTestBehavior.translucent,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8.0),
-                color: Colors.grey[200], // Fondo uniforme para el contenedor interno
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Trigger Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 10),
-                  Text('Trigger Level:'),
-                  Obx(() {
-                    // Actualizar el controlador de texto cuando el valor de triggerLevel cambie
+              Container(
+                padding: const EdgeInsets.all(8.0),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                  borderRadius: BorderRadius.circular(8.0),
+                  color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para el contenedor interno
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Trigger Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 10),
+                    Text('Trigger Level:'),
+                    Obx(() {
+                      // Actualizar el controlador de texto cuando el valor de triggerLevel cambie
                     triggerLevelController.text = graphProvider.triggerLevel.value.toStringAsFixed(2);
-                    return TextField(
-                      controller: triggerLevelController,
-                      keyboardType: TextInputType.number,
-                      onSubmitted: (value) {
-                        final level = double.tryParse(value);
-                        if (level != null) {
+                      return TextField(
+                        controller: triggerLevelController,
+                        keyboardType: TextInputType.number,
+                        onSubmitted: (value) {
+                          final level = double.tryParse(value);
+                          if (level != null) {
                           graphProvider.setTriggerLevel(level);
-                        }
-                      },
-                      onChanged: (value) {
-                        final level = double.tryParse(value);
-                        if (level != null) {
+                          }
+                        },
+                        onChanged: (value) {
+                          final level = double.tryParse(value);
+                          if (level != null) {
                           graphProvider.setTriggerLevel(level);
-                        }
-                      },
-                    );
-                  }),
-                  SizedBox(height: 10),
-                  Text('Trigger Edge:'),
-                  Obx(() {
-                    return DropdownButton<TriggerEdge>(
+                          }
+                        },
+                      );
+                    }),
+                    SizedBox(height: 10),
+                    Text('Trigger Edge:'),
+                    Obx(() {
+                      return DropdownButton<TriggerEdge>(
                       value: graphProvider.triggerEdge.value,
-                      onChanged: (edge) {
-                        if (edge != null) {
+                        onChanged: (edge) {
+                          if (edge != null) {
                           graphProvider.setTriggerEdge(edge);
-                        }
-                      },
-                      items: TriggerEdge.values.map((edge) {
-                        return DropdownMenuItem(
-                          value: edge,
-                          child: Text(edge.toString().split('.').last),
-                        );
-                      }).toList(),
-                    );
-                  }),
-                ],
+                          }
+                        },
+                        items: TriggerEdge.values.map((edge) {
+                          return DropdownMenuItem(
+                            value: edge,
+                            child: Text(edge.toString().split('.').last),
+                          );
+                        }).toList(),
+                      );
+                    }),
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: 20),
+              SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(8.0),
-                color: Colors.grey[200], // Fondo uniforme para el contenedor interno
+                color: Theme.of(context).scaffoldBackgroundColor,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

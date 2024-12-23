@@ -94,9 +94,16 @@ class SetupService implements SetupRepository {
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
-    final response = await localHttpService.get('/test');
-    print(response);
-
+    while (true) {
+      try{
+        final response = await localHttpService.get('/test');
+        print(response);
+        break;
+      } catch (e) {
+        print(e);
+        await Future.delayed(Duration(seconds: 1));
+      }
+    }
     await initializeGlobalSocketConnection(extIp, extPort); // Esperar a que la conexión del socket se complete
   }
 
@@ -113,7 +120,7 @@ class SetupService implements SetupRepository {
       String? ipAddress = await _networkInfo.getWifiIP();
       
       // Verificar si está conectado a la red ESP32_AP y tiene la IP correcta
-      if (ipAddress != null && ipAddress.startsWith('192.168.4.')) {
+      if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
         break;
       }
   
