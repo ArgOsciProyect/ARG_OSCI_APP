@@ -57,8 +57,8 @@ class GraphScreen extends StatelessWidget {
                       return const CircularProgressIndicator();
                     } else {
                       return mode == 'Oscilloscope'
-                          ? LineChart(dataPoints: points)
-                          : FFTChart(dataPoints: points);
+                          ? LineChart()
+                          : FFTChart();
                     }
                   }),
                 ),

@@ -1,9 +1,9 @@
 // lib/features/graph/widgets/fft_chart.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:scidart/scidart.dart';
-import 'package:scidart/numdart.dart';
 import '../../graph/domain/models/data_point.dart';
+import '../../graph/providers/fft_chart_provider.dart';
+import '../../graph/domain/services/fft_chart_service.dart';
 import '../../graph/providers/graph_provider.dart';
 
 const double _offsetY = 30;
@@ -12,53 +12,37 @@ const double _sqrOffsetBot = 30;
 late Size _size;
 
 class FFTChart extends StatefulWidget {
-  final List<DataPoint> dataPoints;
-
-  const FFTChart({required this.dataPoints, super.key});
+  const FFTChart({super.key});
 
   @override
   _FFTChartState createState() => _FFTChartState();
 }
 
 class _FFTChartState extends State<FFTChart> {
-  late GraphProvider graphProvider;
-  List<DataPoint> fftPoints = [];
   double timeScale = 1.0;
   double valueScale = 1.0;
   double frequency = 1.0;
   double maxValue = 1.0;
 
+  late FFTChartProvider fftChartProvider;
+
   @override
   void initState() {
     super.initState();
-    graphProvider = Get.find<GraphProvider>();
-    _calculateFFT();
+    final graphProvider = Get.find<GraphProvider>();
+    final fftChartService = FFTChartService(graphProvider);
+    fftChartProvider = FFTChartProvider(fftChartService);
+
+    fftChartProvider.fftChartService.fftStream.listen((fftPoints) {
+      setState(() {
+        // Update the state with new FFT points
+      });
+    });
 
     graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
       setState(() {
         frequency = newFrequency;
       });
-    });
-  }
-
-  void _calculateFFT() {
-    final yValues = widget.dataPoints.map((point) => point.y).toList();
-    final array = Array(yValues);
-  
-    final fftResult = rfft(array);
-    final magnitudes = arrayComplexAbs(fftResult);
-    final halfLength = (magnitudes.length / 2).ceil();
-    final positiveMagnitudes = magnitudes.getRange(0, halfLength).toList();
-  
-    final samplingRate = 1 / graphProvider.dataAcquisitionService.distance;
-    final frequencies = List<double>.generate(halfLength, (i) => i * samplingRate / array.length);
-  
-    setState(() {
-      fftPoints = List<DataPoint>.generate(
-        positiveMagnitudes.length,
-        (i) => DataPoint(frequencies[i], positiveMagnitudes[i]),
-      );
-      maxValue = positiveMagnitudes.reduce((a, b) => a > b ? a : b);
     });
   }
 
@@ -69,73 +53,88 @@ class _FFTChartState extends State<FFTChart> {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              return SizedBox(
-                height: constraints.maxHeight,
-                width: constraints.maxWidth,
-                child: fftPoints.isEmpty
-                    ? const Center(child: Text('No data'))
-                    : CustomPaint(
-                        painter: FFTChartPainter(
-                          fftPoints,
-                          timeScale,
-                          valueScale,
-                          maxValue,
-                        ),
-                      ),
+              return Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  width: constraints.maxWidth,
+                  child: Obx(() {
+                    final fftPoints = fftChartProvider.fftPoints.value;
+                    return fftPoints.isEmpty
+                        ? Center(child: Text('No data'))
+                        : CustomPaint(
+                            painter: FFTChartPainter(
+                              fftPoints,
+                              timeScale,
+                              valueScale,
+                              maxValue,
+                            ),
+                          );
+                  }),
+                ),
               );
             },
           ),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_left),
-              onPressed: () {
-                setState(() {
-                  timeScale *= 0.9; // Zoom in horizontal
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_right),
-              onPressed: () {
-                setState(() {
-                  timeScale *= 1.1; // Zoom out horizontal
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_upward),
-              onPressed: () {
-                setState(() {
-                  valueScale *= 0.9; // Zoom in vertical
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.arrow_downward),
-              onPressed: () {
-                setState(() {
-                  valueScale *= 1.1; // Zoom out vertical
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.autorenew),
-              onPressed: () {
-                setState(() {
-                  timeScale = 1.0;
-                  valueScale = 1.0;
-                });
-              },
-            ),
-          ],
+        Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(Icons.arrow_left),
+                color: Colors.black,
+                onPressed: () {
+                  setState(() {
+                    timeScale *= 0.9;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_right),
+                color: Colors.black,
+                onPressed: () {
+                  setState(() {
+                    timeScale *= 1.1;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_upward),
+                color: Colors.black,
+                onPressed: () {
+                  setState(() {
+                    valueScale *= 1.1;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.arrow_downward),
+                color: Colors.black,
+                onPressed: () {
+                  setState(() {
+                    valueScale *= 0.9;
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.autorenew),
+                color: Colors.black,
+                onPressed: () {
+                  setState(() {
+                    timeScale = 1.0;
+                    valueScale = 1.0;
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 }
+
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;

@@ -298,25 +298,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final frequencyFromTriggers = _calculateFrequencyFromTriggers(points, distance);
     return frequencyFromTriggers != 0.0 ? frequencyFromTriggers : 10000.0;
   }
-  static List<DataPoint> _applyMovingAverageFilter(
-      List<DataPoint> points, int windowSize) {
-    final filteredPoints = <DataPoint>[];
-
-    for (int i = 0; i < points.length; i++) {
-      double sum = 0;
-      int count = 0;
-
-      for (int j = i; j >= 0 && j > i - windowSize; j--) {
-        sum += points[j].y;
-        count++;
-      }
-
-      final average = sum / count;
-      filteredPoints.add(DataPoint(points[i].x, average));
-    }
-
-    return filteredPoints;
-  }
 
   SendPort? _socketToProcessingSendPort;
 
@@ -346,10 +327,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _configSendPort = message;
         setupCompleter.complete(message);
       } else if (message is List<DataPoint>) {
-        // Apply moving average filter to the points
-        final filteredPoints =
-            _applyMovingAverageFilter(message, 1); // Example window size of 5
-        _dataController.add(filteredPoints);
+        _dataController.add(message);
         _updateMetrics(message);
       }
     });

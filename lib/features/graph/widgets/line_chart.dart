@@ -2,7 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
+import '../../graph/providers/line_chart_provider.dart';
+import '../../graph/domain/services/line_chart_service.dart';
 import '../../graph/providers/graph_provider.dart';
+import 'dart:async';
 
 late Size _size;
 // Mover el gráfico hacia arriba y a la derecha
@@ -12,9 +15,7 @@ const double _sqrOffsetBot = 15;
 const double _sqrOffsetTop = 30;
 
 class LineChart extends StatefulWidget {
-  final List<DataPoint> dataPoints;
-
-  const LineChart({required this.dataPoints, super.key});
+  const LineChart({super.key});
 
   @override
   _LineChartState createState() => _LineChartState();
@@ -28,26 +29,51 @@ class _LineChartState extends State<LineChart> {
   double maxX = 1.0;
   double voltageScale = 1.0;
 
-  late GraphProvider graphProvider;
+  late LineChartProvider lineChartProvider;
+  late StreamSubscription<double> maxValueSubscription;
+  late StreamSubscription<List<DataPoint>> dataPointsSubscription;
+  late StreamSubscription<double> frequencySubscription;
 
   @override
   void initState() {
     super.initState();
-    graphProvider = Get.find<GraphProvider>();
+    final graphProvider = Get.find<GraphProvider>();
+    final lineChartService = LineChartService(graphProvider);
+    lineChartProvider = LineChartProvider(lineChartService);
 
-    graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
-      setState(() {
-        frequency = newFrequency;
-      });
+    dataPointsSubscription = graphProvider.dataAcquisitionService.dataStream.listen((newDataPoints) {
+      if (mounted) {
+        setState(() {
+          lineChartProvider.dataPoints.value = newDataPoints;
+        });
+      }
     });
 
-    graphProvider.dataAcquisitionService.maxValueStream.listen((newMaxValue) {
-      setState(() {
-        maxX = newMaxValue;
-      });
+    frequencySubscription = graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
+      if (mounted) {
+        setState(() {
+          frequency = newFrequency;
+        });
+      }
+    });
+
+    maxValueSubscription = graphProvider.dataAcquisitionService.maxValueStream.listen((newMaxValue) {
+      if (mounted) {
+        setState(() {
+          maxX = newMaxValue;
+        });
+      }
     });
 
     voltageScale = graphProvider.dataAcquisitionService.scale;
+  }
+
+  @override
+  void dispose() {
+    maxValueSubscription.cancel();
+    dataPointsSubscription.cancel();
+    frequencySubscription.cancel();
+    super.dispose();
   }
 
   @override
@@ -62,20 +88,22 @@ class _LineChartState extends State<LineChart> {
                 child: SizedBox(
                   height: constraints.maxHeight,
                   width: constraints.maxWidth,
-                  child: widget.dataPoints.isEmpty
-                      ? Center(child: Text('No data'))
-                      : CustomPaint(
-                          painter: LineChartPainter(
-                            widget.dataPoints,
-                            timeScale,
-                            valueScale,
-                            maxX,
-                            graphProvider.dataAcquisitionService.distance,
-                            voltageScale,
-                            Theme.of(context)
-                                .scaffoldBackgroundColor, // Pasa el color de fondo aquí
-                          ),
-                        ),
+                  child: Obx(() {
+                    final dataPoints = lineChartProvider.dataPoints.value;
+                    return dataPoints.isEmpty
+                        ? Center(child: Text('No data'))
+                        : CustomPaint(
+                            painter: LineChartPainter(
+                              dataPoints,
+                              timeScale,
+                              valueScale,
+                              maxX,
+                              lineChartProvider.lineChartService.graphProvider.dataAcquisitionService.distance,
+                              voltageScale,
+                              Theme.of(context).scaffoldBackgroundColor,
+                            ),
+                          );
+                  }),
                 ),
               );
             },
@@ -88,7 +116,7 @@ class _LineChartState extends State<LineChart> {
             children: [
               IconButton(
                 icon: Icon(Icons.arrow_left),
-                color: Colors.black, // Color del icono
+                color: Colors.black,
                 onPressed: () {
                   setState(() {
                     timeScale *= 0.9;
@@ -97,7 +125,7 @@ class _LineChartState extends State<LineChart> {
               ),
               IconButton(
                 icon: Icon(Icons.arrow_right),
-                color: Colors.black, // Color del icono
+                color: Colors.black,
                 onPressed: () {
                   setState(() {
                     timeScale *= 1.1;
@@ -106,7 +134,7 @@ class _LineChartState extends State<LineChart> {
               ),
               IconButton(
                 icon: Icon(Icons.arrow_upward),
-                color: Colors.black, // Color del icono
+                color: Colors.black,
                 onPressed: () {
                   setState(() {
                     valueScale *= 1.1;
@@ -115,7 +143,7 @@ class _LineChartState extends State<LineChart> {
               ),
               IconButton(
                 icon: Icon(Icons.arrow_downward),
-                color: Colors.black, // Color del icono
+                color: Colors.black,
                 onPressed: () {
                   setState(() {
                     valueScale *= 0.9;
@@ -124,9 +152,9 @@ class _LineChartState extends State<LineChart> {
               ),
               IconButton(
                 icon: Icon(Icons.autorenew),
-                color: Colors.black, // Color del icono
+                color: Colors.black,
                 onPressed: () {
-                  final List<double> auto = graphProvider.autoset(
+                  final List<double> auto = lineChartProvider.lineChartService.graphProvider.autoset(
                     _size.height - _offsetY * 2,
                     _size.width - _offsetX,
                   );
