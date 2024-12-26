@@ -56,12 +56,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   late HttpService httpService;
 
   // Configuration
-  double scale = 1;
-  double mid = 0;
+  double scale = (3.3/512);
+  double mid = 512/2;
   double distance = 1 / 1600000;
   double triggerLevel = 0.0;
   TriggerEdge triggerEdge = TriggerEdge.positive;
-  double triggerSensitivity = 100.0; // Nueva variable
+  double triggerSensitivity = 1.0; // Nueva variable
 
   // Isolates
   Isolate? _socketIsolate;
@@ -165,9 +165,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
 
-  double _currentFrequency = 10000.0;
-  double _currentMaxValue = 512.0;
-  double _currentAverage = 256.0;
+  double _currentFrequency = 0.0;
+  double _currentMaxValue = 1.65;
+  double _currentAverage = 0;
 
     static List<DataPoint> _processData(
       Queue<int> queue, 
@@ -297,7 +297,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   
   double _calculateFrequency(List<DataPoint> points) {
     final frequencyFromTriggers = _calculateFrequencyFromTriggers(points, distance);
-    return frequencyFromTriggers != 0.0 ? frequencyFromTriggers : 10000.0;
+    return frequencyFromTriggers != 0.0 ? frequencyFromTriggers : 0.0;
   }
 
   SendPort? _socketToProcessingSendPort;
@@ -371,12 +371,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _maxValueController.close();
   }
 
-  @override
-  List<double> autoset(double chartHeight, double chartWidth) {
-    final period = 1 / _currentFrequency;
-    final totalTime = 3 * period;
-    triggerLevel = _currentAverage;
-    updateConfig(); // Send updated config to processing isolate
-    return [chartWidth / totalTime, chartHeight / _currentMaxValue];
+@override
+List<double> autoset(double chartHeight, double chartWidth) {
+  if (_currentFrequency <= 0) {
+    return [1.0, 1.0];
   }
+  
+  // Calcular escala de tiempo
+  final period = 1 / _currentFrequency;
+  final totalTime = 3 * period;
+  final timeScale = chartWidth / totalTime;
+  final valueScale;
+
+  final maxValAbs = _currentMaxValue.abs();
+  if(maxValAbs > 0){
+    valueScale = 1.0 / (_currentMaxValue.abs()); // 20% de margen
+  }
+  else{
+    valueScale = 1;
+  }
+  
+  triggerLevel = _currentAverage;
+  updateConfig();
+  
+  return [timeScale, valueScale];
+}
+
 }

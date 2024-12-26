@@ -41,7 +41,8 @@ class _LineChartState extends State<LineChart> {
     final lineChartService = LineChartService(graphProvider);
     lineChartProvider = LineChartProvider(lineChartService);
 
-    dataPointsSubscription = graphProvider.dataAcquisitionService.dataStream.listen((newDataPoints) {
+    dataPointsSubscription =
+        graphProvider.dataAcquisitionService.dataStream.listen((newDataPoints) {
       if (mounted) {
         setState(() {
           lineChartProvider.dataPoints.value = newDataPoints;
@@ -49,7 +50,8 @@ class _LineChartState extends State<LineChart> {
       }
     });
 
-    frequencySubscription = graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
+    frequencySubscription = graphProvider.dataAcquisitionService.frequencyStream
+        .listen((newFrequency) {
       if (mounted) {
         setState(() {
           frequency = newFrequency;
@@ -57,7 +59,8 @@ class _LineChartState extends State<LineChart> {
       }
     });
 
-    maxValueSubscription = graphProvider.dataAcquisitionService.maxValueStream.listen((newMaxValue) {
+    maxValueSubscription = graphProvider.dataAcquisitionService.maxValueStream
+        .listen((newMaxValue) {
       if (mounted) {
         setState(() {
           maxX = newMaxValue;
@@ -98,7 +101,8 @@ class _LineChartState extends State<LineChart> {
                               timeScale,
                               valueScale,
                               maxX,
-                              lineChartProvider.lineChartService.graphProvider.dataAcquisitionService.distance,
+                              lineChartProvider.lineChartService.graphProvider
+                                  .dataAcquisitionService.distance,
                               voltageScale,
                               Theme.of(context).scaffoldBackgroundColor,
                             ),
@@ -154,7 +158,8 @@ class _LineChartState extends State<LineChart> {
                 icon: Icon(Icons.autorenew),
                 color: Colors.black,
                 onPressed: () {
-                  final List<double> auto = lineChartProvider.lineChartService.graphProvider.autoset(
+                  final List<double> auto =
+                      lineChartProvider.lineChartService.graphProvider.autoset(
                     _size.height - _offsetY * 2,
                     _size.width - _offsetX,
                   );
@@ -215,13 +220,12 @@ class LineChartPainter extends CustomPainter {
     // Drawing area dimensions
     final drawingWidth = size.width - offsetX;
     final drawingHeight = size.height - offsetY - sqrOffsetBot;
+    final centerY = offsetY + drawingHeight / 2;
 
-    // Background
+    // Background y áreas
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, offsetY), backgroundPaint);
     canvas.drawRect(Rect.fromLTWH(0, offsetY, offsetX, size.height - offsetY),
         backgroundPaint);
-
-    // Chart background
     canvas.drawRect(
         Rect.fromLTWH(offsetX, offsetY, drawingWidth, drawingHeight),
         chartBackgroundPaint);
@@ -231,13 +235,13 @@ class LineChartPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
 
+    // Eje X (tiempo)
     for (int i = 0; i <= 10; i++) {
       final x = offsetX + (drawingWidth * i / 10);
       canvas.drawLine(
           Offset(x, offsetY), Offset(x, size.height - sqrOffsetBot), gridPaint);
 
-      // Calcular el tiempo real en este punto
-      final timeValue = (x - offsetX) / timeScale * 1e6; // en microsegundos
+      final timeValue = (x - offsetX) / timeScale * 1e6;
       textPainter.text = TextSpan(
         text: '${timeValue.toStringAsFixed(1)} µs',
         style: TextStyle(color: Colors.black, fontSize: 10),
@@ -247,32 +251,30 @@ class LineChartPainter extends CustomPainter {
           Offset(x - textPainter.width / 2, size.height - sqrOffsetBot + 5));
     }
 
-    // Y axis grid and labels
-    // Usar la misma transformación que usamos para los puntos
-    for (int i = 0; i <= 10; i++) {
-      final y = offsetY + (drawingHeight * i / 10);
+    // Para el eje Y - modificar para que se ajuste con la escala
+    for (int i = -5; i <= 5; i++) {
+      final y = centerY - (i * drawingHeight / 10);
       canvas.drawLine(Offset(offsetX, y), Offset(size.width, y), gridPaint);
-
-      // Calcular el valor real en este punto usando la misma transformación
-      final value =
-          ((size.height - y - sqrOffsetBot) / valueScale) * voltageScale;
+    
+      // El valor debe ser proporcional a la posición en la pantalla
+      final value = (centerY - y) / (drawingHeight / 2) / valueScale;
       textPainter.text = TextSpan(
-        text: '${value.toStringAsFixed(2)} V',
+        text: '${value.toStringAsFixed(2)}',
         style: TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
       textPainter.paint(canvas, Offset(5, y - textPainter.height / 2));
     }
 
-    // Draw data points
+    // Dibujar puntos de datos
     if (dataPoints.length > 1) {
       for (int i = 0; i < dataPoints.length - 1; i++) {
         var p1 = Offset(dataPoints[i].x * timeScale + offsetX,
-            size.height - (dataPoints[i].y * valueScale + sqrOffsetBot));
+            centerY - (dataPoints[i].y * valueScale * drawingHeight / 2));
         var p2 = Offset(dataPoints[i + 1].x * timeScale + offsetX,
-            size.height - (dataPoints[i + 1].y * valueScale + sqrOffsetBot));
+            centerY - (dataPoints[i + 1].y * valueScale * drawingHeight / 2));
 
-        // Clip points to drawing area
+        // Recortar puntos al área de dibujo
         if (p1.dy < offsetY) {
           p1 = Offset(p1.dx, offsetY);
         } else if (p1.dy > size.height - sqrOffsetBot) {
@@ -285,7 +287,7 @@ class LineChartPainter extends CustomPainter {
           p2 = Offset(p2.dx, size.height - sqrOffsetBot);
         }
 
-        // Clip points to the right edge of the drawing area
+        // Recortar puntos al borde derecho
         if (p1.dx > size.width) {
           p1 = Offset(size.width, p1.dy);
         }
@@ -297,7 +299,7 @@ class LineChartPainter extends CustomPainter {
       }
     }
 
-    // Border
+    // Borde
     canvas.drawRect(
         Rect.fromLTWH(offsetX, offsetY, drawingWidth, drawingHeight),
         borderPaint);
