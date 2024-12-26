@@ -6,6 +6,8 @@ import '../features/setup/domain/services/setup_service.dart';
 import '../features/setup/providers/setup_provider.dart';
 import '../features/graph/domain/services/data_acquisition_service.dart';
 import '../features/graph/providers/graph_provider.dart';
+import '../features/graph/domain/services/fft_chart_service.dart';
+import '../features/graph/providers/fft_chart_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
@@ -32,5 +34,10 @@ class Initializer {
       Get.find<DataAcquisitionService>(),
       Get.find<SocketConnection>()
     ));
+
+    // Initialize and register FFTChartService and FFTChartProvider
+    final fftChartService = FFTChartService(Get.find<GraphProvider>());
+    Get.put<FFTChartService>(fftChartService);
+    Get.put<FFTChartProvider>(FFTChartProvider(fftChartService));
   }
 }

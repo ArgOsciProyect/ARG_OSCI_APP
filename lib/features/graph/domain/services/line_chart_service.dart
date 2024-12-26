@@ -10,7 +10,7 @@ class LineChartService {
   Stream<List<DataPoint>> get dataStream => _dataController.stream;
 
   LineChartService(this.graphProvider) {
-    graphProvider.dataPoints.listen((points) {
+    graphProvider.dataPointsStream.listen((points) {
       final filteredPoints = _applyMovingAverageFilter(points, 5); // Example window size of 5
       _dataController.add(filteredPoints);
     });

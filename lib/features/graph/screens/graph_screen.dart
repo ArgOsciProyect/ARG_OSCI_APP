@@ -17,12 +17,8 @@ class GraphScreen extends StatelessWidget {
     final triggerLevelController = TextEditingController(
       text: graphProvider.triggerLevel.value.toString()
     );
-
-    if (mode == 'Oscilloscope') {
-      graphProvider.fetchData();
-    } else {
-      graphProvider.fetchData();
-    }
+    
+    graphProvider.fetchData();
 
     return Scaffold(
       appBar: AppBar(

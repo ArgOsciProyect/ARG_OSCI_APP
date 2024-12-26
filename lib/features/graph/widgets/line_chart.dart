@@ -268,9 +268,9 @@ class LineChartPainter extends CustomPainter {
     if (dataPoints.length > 1) {
       for (int i = 0; i < dataPoints.length - 1; i++) {
         var p1 = Offset(dataPoints[i].x * timeScale + offsetX,
-            size.height - dataPoints[i].y * valueScale - sqrOffsetBot);
+            size.height - (dataPoints[i].y * valueScale + sqrOffsetBot));
         var p2 = Offset(dataPoints[i + 1].x * timeScale + offsetX,
-            size.height - dataPoints[i + 1].y * valueScale - sqrOffsetBot);
+            size.height - (dataPoints[i + 1].y * valueScale + sqrOffsetBot));
 
         // Clip points to drawing area
         if (p1.dy < offsetY) {

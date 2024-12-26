@@ -3,51 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/fft_chart_provider.dart';
-import '../../graph/domain/services/fft_chart_service.dart';
-import '../../graph/providers/graph_provider.dart';
 
 const double _offsetY = 30;
 const double _offsetX = 50;
 const double _sqrOffsetBot = 30;
 late Size _size;
 
-class FFTChart extends StatefulWidget {
-  const FFTChart({super.key});
-
-  @override
-  _FFTChartState createState() => _FFTChartState();
-}
-
-class _FFTChartState extends State<FFTChart> {
-  double timeScale = 1.0;
-  double valueScale = 1.0;
-  double frequency = 1.0;
-  double maxValue = 1.0;
-
-  late FFTChartProvider fftChartProvider;
-
-  @override
-  void initState() {
-    super.initState();
-    final graphProvider = Get.find<GraphProvider>();
-    final fftChartService = FFTChartService(graphProvider);
-    fftChartProvider = FFTChartProvider(fftChartService);
-
-    fftChartProvider.fftChartService.fftStream.listen((fftPoints) {
-      setState(() {
-        // Update the state with new FFT points
-      });
-    });
-
-    graphProvider.dataAcquisitionService.frequencyStream.listen((newFrequency) {
-      setState(() {
-        frequency = newFrequency;
-      });
-    });
-  }
+class FFTChart extends StatelessWidget {
+  FFTChart({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final fftChartProvider = Get.find<FFTChartProvider>();
+
     return Column(
       children: [
         Expanded(
@@ -60,6 +28,8 @@ class _FFTChartState extends State<FFTChart> {
                   width: constraints.maxWidth,
                   child: Obx(() {
                     final fftPoints = fftChartProvider.fftPoints.value;
+                    final timeScale = fftChartProvider.timeScale.value;
+                    final valueScale = fftChartProvider.valueScale.value;
                     return fftPoints.isEmpty
                         ? Center(child: Text('No data'))
                         : CustomPaint(
@@ -67,7 +37,7 @@ class _FFTChartState extends State<FFTChart> {
                               fftPoints,
                               timeScale,
                               valueScale,
-                              maxValue,
+                              1.0, // maxValue can be set dynamically if needed
                             ),
                           );
                   }),
@@ -85,46 +55,36 @@ class _FFTChartState extends State<FFTChart> {
                 icon: Icon(Icons.arrow_left),
                 color: Colors.black,
                 onPressed: () {
-                  setState(() {
-                    timeScale *= 0.9;
-                  });
+                  fftChartProvider.timeScale.value *= 0.9;
                 },
               ),
               IconButton(
                 icon: Icon(Icons.arrow_right),
                 color: Colors.black,
                 onPressed: () {
-                  setState(() {
-                    timeScale *= 1.1;
-                  });
+                  fftChartProvider.timeScale.value *= 1.1;
                 },
               ),
               IconButton(
                 icon: Icon(Icons.arrow_upward),
                 color: Colors.black,
                 onPressed: () {
-                  setState(() {
-                    valueScale *= 1.1;
-                  });
+                  fftChartProvider.valueScale.value *= 1.1;
                 },
               ),
               IconButton(
                 icon: Icon(Icons.arrow_downward),
                 color: Colors.black,
                 onPressed: () {
-                  setState(() {
-                    valueScale *= 0.9;
-                  });
+                  fftChartProvider.valueScale.value *= 0.9;
                 },
               ),
               IconButton(
                 icon: Icon(Icons.autorenew),
                 color: Colors.black,
                 onPressed: () {
-                  setState(() {
-                    timeScale = 1.0;
-                    valueScale = 1.0;
-                  });
+                  fftChartProvider.timeScale.value = 1.0;
+                  fftChartProvider.valueScale.value = 1.0;
                 },
               ),
             ],

@@ -56,7 +56,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   late HttpService httpService;
 
   // Configuration
-  double scale = 1.0;
+  double scale = 1;
+  double mid = 0;
   double distance = 1 / 1600000;
   double triggerLevel = 0.0;
   TriggerEdge triggerEdge = TriggerEdge.positive;
@@ -84,7 +85,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> initialize() async {
     // Don't try to fetch config until services are ready
-    scale = 1.0; // Use default values initially
+    scale = (3.3/512); // Use default values initially
+    mid = 512/2;
     distance = 1 / 1600000;
   }
 
@@ -168,98 +170,97 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double _currentAverage = 256.0;
 
     static List<DataPoint> _processData(
-    Queue<int> queue, 
-    int chunkSize,
-    double scale,
-    double distance,
-    double triggerLevel,
-    TriggerEdge triggerEdge,
-    double triggerSensitivity
-  ) {
-    final points = <DataPoint>[];
-    var firstTriggerX = 0.0;
-    var secondTriggerX = 0.0;
-    int firstTriggerIndex = -1;
-    int lastTriggerIndex = -1;
-    int secondTriggerIndex = -1;
-    bool foundFirstTrigger = false;
-    bool foundSecondTrigger = false;
+      Queue<int> queue, 
+      int chunkSize,
+      double scale,
+      double distance,
+      double triggerLevel,
+      TriggerEdge triggerEdge,
+      double triggerSensitivity
+    ) {
+      final points = <DataPoint>[];
+      var firstTriggerX = 0.0;
+      var secondTriggerX = 0.0;
+      int firstTriggerIndex = -1;
+      int lastTriggerIndex = -1;
+      int secondTriggerIndex = -1;
+      bool foundFirstTrigger = false;
+      bool foundSecondTrigger = false;
+      
+      bool waitingForHysteresis = false;
+      double lastTriggerY = 0.0;
     
-    bool waitingForHysteresis = false;
-    double lastTriggerY = 0.0;
-  
-    for (var i = 0; i < chunkSize; i += 2) {
-      if (queue.length < 2) break;
-      
-      final bytes = [queue.removeFirst(), queue.removeFirst()];
-      final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
-          .getUint16(0, Endian.little);
-      
-      final uint12Value = uint16Value & 0x0FFF;
-      final channel = (uint16Value >> 12) & 0x0F;
-  
-      final x = points.length * distance;
-      final y = uint12Value * scale;
-  
-      if (points.isNotEmpty) {
-        final prevY = points.length > 1 ? points[points.length - 2].y : y;
-        final currentY = y;
+      for (var i = 0; i < chunkSize; i += 2) {
+        if (queue.length < 2) break;
         
-        // Unified trigger detection
-        if (!waitingForHysteresis) {
-          final risingEdgeTrigger = triggerEdge == TriggerEdge.positive &&
-              prevY < triggerLevel && currentY >= triggerLevel;
+        final bytes = [queue.removeFirst(), queue.removeFirst()];
+        final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
+            .getUint16(0, Endian.little);
+        
+        final uint12Value = uint16Value & 0x0FFF;
+        final channel = (uint16Value >> 12) & 0x0F;
+    
+        final x = points.length * distance;
+        final y = (uint12Value - 256) * scale;
+    
+        if (points.isNotEmpty) {
+          final prevY = points.length > 1 ? points[points.length - 2].y : y;
+          final currentY = y;
           
-          final fallingEdgeTrigger = triggerEdge == TriggerEdge.negative &&
-              prevY > triggerLevel && currentY <= triggerLevel;
-  
-          if (risingEdgeTrigger || fallingEdgeTrigger) {
-            if (!foundFirstTrigger) {
-              firstTriggerIndex = points.length;
-              firstTriggerX = x;
-              foundFirstTrigger = true;
-              points.add(DataPoint(x, y, isTrigger: true));
-            } else {
-              lastTriggerIndex = points.length;
-              if (!foundSecondTrigger) {
-                secondTriggerIndex = points.length;
-                secondTriggerX = x;
-                foundSecondTrigger = true;
+          // Unified trigger detection
+          if (!waitingForHysteresis) {
+            final risingEdgeTrigger = triggerEdge == TriggerEdge.positive &&
+                prevY < triggerLevel && currentY >= triggerLevel;
+            
+            final fallingEdgeTrigger = triggerEdge == TriggerEdge.negative &&
+                prevY > triggerLevel && currentY <= triggerLevel;
+    
+            if (risingEdgeTrigger || fallingEdgeTrigger) {
+              if (!foundFirstTrigger) {
+                firstTriggerIndex = points.length;
+                firstTriggerX = x;
+                foundFirstTrigger = true;
+                points.add(DataPoint(x, y, isTrigger: true));
+              } else {
+                lastTriggerIndex = points.length;
+                if (!foundSecondTrigger) {
+                  secondTriggerIndex = points.length;
+                  secondTriggerX = x;
+                  foundSecondTrigger = true;
+                }
+                points.add(DataPoint(x, y, isTrigger: true));
               }
-              points.add(DataPoint(x, y, isTrigger: true));
-            }
-            waitingForHysteresis = true;
-            lastTriggerY = currentY;
-            continue;
-          }
-        } else {
-          // Apply hysteresis
-          if (triggerEdge == TriggerEdge.positive) {
-            if (currentY < (triggerLevel - triggerSensitivity)) {
-              waitingForHysteresis = false;
+              waitingForHysteresis = true;
+              lastTriggerY = currentY;
+              continue;
             }
           } else {
-            if (currentY > (triggerLevel + triggerSensitivity)) {
-              waitingForHysteresis = false;
+            // Apply hysteresis
+            if (triggerEdge == TriggerEdge.positive) {
+              if (currentY < (triggerLevel - triggerSensitivity)) {
+                waitingForHysteresis = false;
+              }
+            } else {
+              if (currentY > (triggerLevel + triggerSensitivity)) {
+                waitingForHysteresis = false;
+              }
             }
           }
         }
+        points.add(DataPoint(x, y));
       }
-      points.add(DataPoint(x, y));
-    }
-  
-    // Return points based on the last trigger detected before the end of the list
-    if (foundFirstTrigger) {
-      final endIndex = lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
-      return points
-          .sublist(firstTriggerIndex, endIndex)
-          .map((point) => DataPoint(point.x - firstTriggerX, point.y, isTrigger: point.isTrigger))
-          .toList();
-    }
     
-    return points;
-  }
-  
+      // Return points based on the last trigger detected before the end of the list
+      if (foundFirstTrigger) {
+        final endIndex = lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
+        return points
+            .sublist(firstTriggerIndex, endIndex)
+            .map((point) => DataPoint(point.x - firstTriggerX, point.y, isTrigger: point.isTrigger))
+            .toList();
+      }
+      
+      return points;
+    }
   double _calculateFrequencyFromTriggers(List<DataPoint> points, double distance) {
     if (points.isEmpty) return 0.0;
   

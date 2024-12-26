@@ -8,10 +8,13 @@ class FFTChartProvider extends GetxController {
 
   // Reactive variables
   final fftPoints = Rx<List<DataPoint>>([]);
+  final timeScale = Rx<double>(1.0);
+  final valueScale = Rx<double>(1.0);
 
   FFTChartProvider(this.fftChartService) {
     // Subscribe to streams
     fftChartService.fftStream.listen((points) {
+      //print first 1000 points
       fftPoints.value = points;
     });
   }

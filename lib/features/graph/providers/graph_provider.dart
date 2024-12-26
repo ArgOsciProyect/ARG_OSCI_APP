@@ -2,6 +2,7 @@
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
+import 'dart:async';
 import '../domain/models/data_point.dart';
 import '../domain/services/data_acquisition_service.dart';
 import '../domain/models/trigger_data.dart';
@@ -11,6 +12,7 @@ class GraphProvider extends GetxController {
   final SocketConnection socketConnection;
   
   // Reactive variables
+  final _dataPointsController = StreamController<List<DataPoint>>.broadcast();
   final dataPoints = Rx<List<DataPoint>>([]);
   final frequency = Rx<double>(1.0);
   final maxValue = Rx<double>(1.0);
@@ -27,6 +29,7 @@ class GraphProvider extends GetxController {
     // Subscribe to streams
     dataAcquisitionService.dataStream.listen((points) {
       dataPoints.value = points;
+      _dataPointsController.add(points);
     });
 
     dataAcquisitionService.frequencyStream.listen((freq) {
@@ -46,6 +49,8 @@ class GraphProvider extends GetxController {
     triggerLevel.value = dataAcquisitionService.triggerLevel;
     triggerEdge.value = dataAcquisitionService.triggerEdge;
   }
+
+  Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
 
   Future<void> _restartDataAcquisition() async {
     await stopData();
@@ -100,6 +105,7 @@ class GraphProvider extends GetxController {
   @override
   void onClose() {
     stopData(); // Stop data acquisition when the controller is closed
+    _dataPointsController.close();
     super.onClose();
   }
 }
