@@ -4,13 +4,13 @@ import 'dart:isolate';
 import 'dart:typed_data';
 import 'dart:collection';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
-
 import '../models/data_point.dart';
 import '../repository/data_acquisition_repository.dart';
 import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
+
 // Message classes for isolate setup
 class SocketIsolateSetup {
   final SendPort sendPort;
@@ -36,8 +36,7 @@ class UpdateConfigMessage {
   final double scale;
   final double triggerLevel;
   final TriggerEdge triggerEdge;
-  final double triggerSensitivity; // Nueva variable
-
+  final double triggerSensitivity;
   UpdateConfigMessage(
       this.scale, this.triggerLevel, this.triggerEdge, this.triggerSensitivity);
 }
@@ -60,7 +59,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   TriggerEdge triggerEdge = TriggerEdge.positive;
   @override
-  double triggerSensitivity = 70.0; // Nueva variable
+  double triggerSensitivity = 70.0;
 
   // Isolates
   Isolate? _socketIsolate;
@@ -85,7 +84,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     scale = (3.3 / 512); // Use default values initially
     mid = 512 / 2;
     distance = 1 / 1600000;
-  }
+    }
 
   static void _socketIsolateFunction(SocketIsolateSetup setup) async {
     final socketService = SocketService();
@@ -118,7 +117,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     });
   }
 
-static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
+  static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
 
@@ -157,7 +156,7 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
         triggerLevel = message.triggerLevel;
         triggerEdge = message.triggerEdge;
         triggerSensitivity =
-            message.triggerSensitivity; // Actualizar la nueva variable
+            message.triggerSensitivity; // Update the new variable
       }
     });
   }
@@ -198,7 +197,7 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
           .getUint16(0, Endian.little);
 
       final uint12Value = uint16Value & 0x0FFF;
-      final channel = (uint16Value >> 12) & 0x0F;
+      final channel = (uint16Value >> 12) & 0x0F; // We should add the channel as a field of the DataPoint class
 
       final x = points.length * distance;
       final y = (uint12Value - mid) * scale;
@@ -237,7 +236,10 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
             continue;
           }
         } else {
-          // Apply hysteresis
+          // Apply hysteresis: If the current value crosses the trigger level, 
+          // we wait until it moves beyond the hysteresis band before allowing 
+          // another trigger event. This prevents multiple triggers from noise 
+          // around the trigger level.
           if (triggerEdge == TriggerEdge.positive) {
             if (currentY < (triggerLevel - (triggerSensitivity * scale))) {
               waitingForHysteresis = false;
@@ -314,6 +316,7 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     await stopData();
 
     _processingReceivePort = ReceivePort();
+    final processingReceivePortStream = _processingReceivePort!.asBroadcastStream();
 
     // Start processing isolate first
     _processingIsolate = await Isolate.spawn(
@@ -330,7 +333,7 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
 
     // Get processing SendPort and wait for it to be ready
     final setupCompleter = Completer<SendPort>();
-    _processingReceivePort!.listen((message) {
+    processingReceivePortStream.listen((message) {
       if (message is SendPort) {
         _socketToProcessingSendPort = message;
         _configSendPort = message;
@@ -373,8 +376,8 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
   }
 
   @override
-  void dispose() {
-    stopData();
+  Future<void> dispose() async {
+    await stopData();
     _dataController.close();
     _frequencyController.close();
     _maxValueController.close();
@@ -390,11 +393,11 @@ static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
     final timeScale = chartWidth / totalTime;
-    final dynamic valueScale;
+    final double valueScale;
 
     final maxValAbs = _currentMaxValue.abs();
     if (maxValAbs > 0) {
-      valueScale = 1.0 / (_currentMaxValue.abs()); // 20% de margen
+      valueScale = 1.0 / (_currentMaxValue.abs()); 
     } else {
       valueScale = 1;
     }

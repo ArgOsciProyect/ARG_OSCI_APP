@@ -5,6 +5,7 @@ import '../providers/data_provider.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/fft_chart.dart';
 import '../widgets/user_settings.dart';
+import '../providers/line_chart_provider.dart';
 
 class GraphScreen extends StatelessWidget {
   final String mode;
@@ -17,6 +18,8 @@ class GraphScreen extends StatelessWidget {
     final triggerLevelController = TextEditingController(
       text: graphProvider.triggerLevel.value.toString()
     );
+    final lineChartProvider = Get.find<LineChartProvider>();
+
     
     graphProvider.fetchData();
 
@@ -65,6 +68,7 @@ class GraphScreen extends StatelessWidget {
               width: 170, // Ajustar el ancho del UserSettings
               color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para las opciones
               child: UserSettings(
+                lineChartProvider: lineChartProvider,
                 graphProvider: graphProvider,
                 triggerLevelController: triggerLevelController,
               ),

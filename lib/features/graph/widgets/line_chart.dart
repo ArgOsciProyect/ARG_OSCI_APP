@@ -37,18 +37,16 @@ class _LineChartState extends State<LineChart> {
   void initState() {
     super.initState();
     final graphProvider = Get.find<GraphProvider>();
-    final lineChartService = LineChartService(graphProvider);
-    lineChartProvider = LineChartProvider(lineChartService);
+    lineChartProvider = Get.find<LineChartProvider>();
 
-    dataPointsSubscription =
-        graphProvider.dataAcquisitionService.dataStream.listen((newDataPoints) {
+    // Use the filtered data stream
+    dataPointsSubscription = lineChartProvider.dataPoints.listen((newDataPoints) {
       if (mounted) {
-        setState(() {
-          lineChartProvider.dataPoints.value = newDataPoints;
-        });
+        setState(() {});
       }
     });
 
+    // Other subscriptions remain the same
     frequencySubscription = graphProvider.dataAcquisitionService.frequencyStream
         .listen((newFrequency) {
       if (mounted) {
