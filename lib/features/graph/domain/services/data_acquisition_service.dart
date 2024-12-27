@@ -362,18 +362,28 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<void> stopData() async {
-    _socketIsolate?.kill();
-    _socketIsolate = null;
-
+    // Primero detener los isolates
     _processingIsolate?.kill();
     _processingIsolate = null;
 
+    // Esperar un momento para asegurar que el isolate se detuvo
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Luego detener el socket
+    _socketIsolate?.kill();
+    _socketIsolate = null;
+
+    // Cerrar los puertos y limpiar las referencias
     _processingReceivePort?.close();
     _processingReceivePort = null;
 
     _socketToProcessingSendPort = null;
     _configSendPort = null;
+
+    // Limpiar cualquier dato pendiente
+    _dataController.add([]);
   }
+
 
   @override
   Future<void> dispose() async {
@@ -393,18 +403,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
     final timeScale = chartWidth / totalTime;
-    final double valueScale;
 
+    // Calcular escala de valor
     final maxValAbs = _currentMaxValue.abs();
-    if (maxValAbs > 0) {
-      valueScale = 1.0 / (_currentMaxValue.abs()); 
-    } else {
-      valueScale = 1;
-    }
+    final valueScale = maxValAbs > 0 ? 1.0 / maxValAbs : 1.0;
 
+    // Actualizar trigger
     triggerLevel = _currentAverage;
     updateConfig();
 
+    print('Autoset: timeScale=$timeScale, valueScale=$valueScale'); // Debug
     return [timeScale, valueScale];
   }
 }

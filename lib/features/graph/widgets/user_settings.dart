@@ -4,7 +4,8 @@ import 'package:get/get.dart';
 import '../providers/data_provider.dart';
 import '../providers/line_chart_provider.dart';
 import '../domain/models/trigger_data.dart';
-import '../domain/services/line_chart_service.dart'; 
+import '../domain/models/filter_types.dart';
+import '../domain/services/line_chart_service.dart';
 
 class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
@@ -146,80 +147,76 @@ class UserSettings extends StatelessWidget {
                         lineChartProvider.setFilter(filter);
                       }
                     },
-                    items: FilterType.values.map((type) => DropdownMenuItem(
+                    items: LineChartService.availableFilters.map((type) => DropdownMenuItem(
                       value: type,
-                      child: Text(type.toString().split('.').last),
+                      child: Text(type.name),
                     )).toList(),
                   )),
                   const SizedBox(height: 8),
                   Obx(() {
                     final currentFilter = lineChartProvider.currentFilter.value;
-                    switch (currentFilter) {
-                      case FilterType.movingAverage:
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Window Size:'),
-                            TextField(
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              onSubmitted: (value) {
-                                final size = int.tryParse(value);
-                                if (size != null) {
-                                  lineChartProvider.setWindowSize(size);
-                                }
-                              },
+                    if (currentFilter is MovingAverageFilter) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Window Size:'),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
-                          ],
-                        );
-                      
-                      case FilterType.exponential:
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Alpha:'),
-                            TextField(
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              onSubmitted: (value) {
-                                final alpha = double.tryParse(value);
-                                if (alpha != null) {
-                                  lineChartProvider.setAlpha(alpha);
-                                }
-                              },
+                            onSubmitted: (value) {
+                              final size = int.tryParse(value);
+                              if (size != null) {
+                                lineChartProvider.setWindowSize(size);
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    } else if (currentFilter is ExponentialFilter) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Alpha:'),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
-                          ],
-                        );
-                      
-                      case FilterType.lowPass:
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Cutoff Frequency (Hz):'),
-                            TextField(
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              onSubmitted: (value) {
-                                final freq = double.tryParse(value);
-                                if (freq != null) {
-                                  lineChartProvider.setCutoffFrequency(freq);
-                                }
-                              },
+                            onSubmitted: (value) {
+                              final alpha = double.tryParse(value);
+                              if (alpha != null) {
+                                lineChartProvider.setAlpha(alpha);
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    } else if (currentFilter is LowPassFilter) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Cutoff Frequency (Hz):'),
+                          TextField(
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                             ),
-                          ],
-                        );
-                      
-                      default:
-                        return const SizedBox.shrink();
+                            onSubmitted: (value) {
+                              final freq = double.tryParse(value);
+                              if (freq != null) {
+                                lineChartProvider.setCutoffFrequency(freq);
+                              }
+                            },
+                          ),
+                        ],
+                      );
+                    } else {
+                      return const SizedBox.shrink();
                     }
                   }),
                 ],

@@ -6,17 +6,29 @@ import '../domain/models/data_point.dart';
 class FFTChartProvider extends GetxController {
   final FFTChartService fftChartService;
 
-  // Reactive variables
+  // Reactive state
   final fftPoints = Rx<List<DataPoint>>([]);
-  final timeScale = Rx<double>(1.0);
-  final valueScale = Rx<double>(1.0);
+  final timeScale = RxDouble(1.0);
+  final valueScale = RxDouble(1.0);
 
   FFTChartProvider(this.fftChartService) {
-    // Subscribe to streams
+    // Subscribe to filtered data stream
     fftChartService.fftStream.listen((points) {
-      //print first 1000 points
       fftPoints.value = points;
     });
+  }
+
+  void setTimeScale(double scale) {
+    timeScale.value = scale;
+  }
+
+  void setValueScale(double scale) {
+    valueScale.value = scale;
+  }
+
+  void resetScales() {
+    timeScale.value = 1.0;
+    valueScale.value = 1.0;
   }
 
   @override

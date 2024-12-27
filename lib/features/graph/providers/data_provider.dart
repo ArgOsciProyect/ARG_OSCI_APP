@@ -6,6 +6,7 @@ import 'dart:async';
 import '../domain/models/data_point.dart';
 import '../domain/services/data_acquisition_service.dart';
 import '../domain/models/trigger_data.dart';
+import 'line_chart_provider.dart';
 
 class GraphProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
@@ -21,6 +22,9 @@ class GraphProvider extends GetxController {
   final timeScale = Rx<double>(1.0);
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
+  final distance = RxDouble(1 / 1600000);
+  final scale = RxDouble(3.3 / 512);
+  
 
   // Kalman filter instance
   final SimpleKalman kalman = SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
@@ -48,9 +52,16 @@ class GraphProvider extends GetxController {
     // Sync initial values
     triggerLevel.value = dataAcquisitionService.triggerLevel;
     triggerEdge.value = dataAcquisitionService.triggerEdge;
+    distance.value = dataAcquisitionService.distance;
+    scale.value = dataAcquisitionService.scale;
+    
   }
 
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
+  double getDistance() => distance.value;
+  double getScale() => scale.value;
+  double getFrequency() => frequency.value;
+  double getMaxValue() => maxValue.value;
 
   Future<void> _restartDataAcquisition() async {
     await stopData();
@@ -65,17 +76,30 @@ class GraphProvider extends GetxController {
   }
 
   Future<void> stopData() async {
-    await dataAcquisitionService.stopData();
+    // Asegurar que los sockets se cierran correctamente
+    try {
+      await dataAcquisitionService.stopData();
+      await Future.delayed(const Duration(milliseconds: 100)); // Dar tiempo para cerrar
+    } catch (e) {
+      print('Error stopping data: $e');
+    }
   }
 
   List<double> autoset(double chartHeight, double chartWidth) {
-    print("Autosetting");
     final result = dataAcquisitionService.autoset(chartHeight, chartWidth);
-    // Sync updated values
+    
+    // Notificar al LineChartProvider sobre el cambio de escalas
+    final lineChartProvider = Get.find<LineChartProvider>();
+    lineChartProvider.setTimeScale(result[0]);
+    lineChartProvider.setValueScale(result[1]);
+    
+    // Actualizar trigger
     triggerLevel.value = dataAcquisitionService.triggerLevel;
-    dataAcquisitionService.updateConfig(); // Send updated config to processing isolate
+    dataAcquisitionService.updateConfig();
+    
     return result;
   }
+
 
   void setTriggerLevel(double level) {
     triggerLevel.value = level;

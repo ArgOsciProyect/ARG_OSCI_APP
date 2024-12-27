@@ -17,6 +17,8 @@ class FFTChartService {
   StreamSubscription? _receivePortSubscription;
   StreamSubscription? _dataPointsSubscription;
   final _isolateReady = Completer<void>();
+  bool _isProcessing = false;
+
 
   final List<DataPoint> _dataBuffer = [];
 
@@ -27,19 +29,25 @@ class FFTChartService {
     _initializeIsolate().then((_) {
       _dataPointsSubscription = graphProvider.dataPointsStream.listen((points) {
         if (!_isolateReady.isCompleted) return;
+        if (_isProcessing) {
+          //print("FFT processing in progress, discarding ${points.length} points");
+          return; // Skip new data while processing
+        }
 
         _dataBuffer.addAll(points);
 
-        while (_dataBuffer.length >= blockSize) {
+        if (_dataBuffer.length >= blockSize) {
+          _isProcessing = true;
+          print("Starting FFT processing with ${_dataBuffer.length} points");
+          
           final dataToProcess = _dataBuffer.sublist(0, blockSize);
-          _dataBuffer.removeRange(0, blockSize);
-
+          _dataBuffer.clear(); // Clear buffer immediately
+          
           _sendPort.send(dataToProcess);
         }
       });
     });
   }
-
   Future<void> _initializeIsolate() async {
     print("Initializing Isolate");
     if (_isolateReady.isCompleted) return;
@@ -54,6 +62,8 @@ class FFTChartService {
     _receivePortSubscription = broadcastStream.listen((message) {
       if (message is List<DataPoint>) {
         _fftController.add(message);
+        _isProcessing = false; // Reset processing flag
+        print("FFT processing complete");
       }
     });
 

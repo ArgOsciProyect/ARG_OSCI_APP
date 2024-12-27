@@ -26,15 +26,13 @@ class FFTChart extends StatelessWidget {
                   width: constraints.maxWidth,
                   child: Obx(() {
                     final fftPoints = fftChartProvider.fftPoints.value;
-                    final timeScale = fftChartProvider.timeScale.value;
-                    final valueScale = fftChartProvider.valueScale.value;
                     return fftPoints.isEmpty
                         ? const Center(child: Text('No data'))
                         : CustomPaint(
                             painter: FFTChartPainter(
                               fftPoints,
-                              timeScale,
-                              valueScale,
+                              fftChartProvider.timeScale.value,
+                              fftChartProvider.valueScale.value,
                             ),
                           );
                   }),
@@ -51,38 +49,31 @@ class FFTChart extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.arrow_left),
                 color: Colors.black,
-                onPressed: () {
-                  fftChartProvider.timeScale.value *= 0.9;
-                },
+                onPressed: () => fftChartProvider.setTimeScale(
+                    fftChartProvider.timeScale.value * 0.9),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_right),
                 color: Colors.black,
-                onPressed: () {
-                  fftChartProvider.timeScale.value *= 1.1;
-                },
+                onPressed: () => fftChartProvider.setTimeScale(
+                    fftChartProvider.timeScale.value * 1.1),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_upward),
                 color: Colors.black,
-                onPressed: () {
-                  fftChartProvider.valueScale.value *= 1.1;
-                },
+                onPressed: () => fftChartProvider.setValueScale(
+                    fftChartProvider.valueScale.value * 1.1),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_downward),
                 color: Colors.black,
-                onPressed: () {
-                  fftChartProvider.valueScale.value *= 0.9;
-                },
+                onPressed: () => fftChartProvider.setValueScale(
+                    fftChartProvider.valueScale.value * 0.9),
               ),
               IconButton(
                 icon: const Icon(Icons.autorenew),
                 color: Colors.black,
-                onPressed: () {
-                  fftChartProvider.timeScale.value = 1.0;
-                  fftChartProvider.valueScale.value = 1.0;
-                },
+                onPressed: () => fftChartProvider.resetScales(),
               ),
             ],
           ),

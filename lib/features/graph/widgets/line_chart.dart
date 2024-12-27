@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/line_chart_provider.dart';
-import '../../graph/domain/services/line_chart_service.dart';
 import '../providers/data_provider.dart';
-import 'dart:async';
 
 late Size _size;
 // Mover el gráfico hacia arriba y a la derecha
@@ -13,71 +11,14 @@ const double _offsetY = 15;
 const double _offsetX = 50;
 const double _sqrOffsetBot = 15;
 
-class LineChart extends StatefulWidget {
+class LineChart extends StatelessWidget {
   const LineChart({super.key});
 
   @override
-  _LineChartState createState() => _LineChartState();
-}
-
-class _LineChartState extends State<LineChart> {
-  double timeScale = 1.0;
-  double valueScale = 1.0;
-  double frequency = 1.0;
-  double maxValue = 1.0;
-  double maxX = 1.0;
-  double voltageScale = 1.0;
-
-  late LineChartProvider lineChartProvider;
-  late StreamSubscription<double> maxValueSubscription;
-  late StreamSubscription<List<DataPoint>> dataPointsSubscription;
-  late StreamSubscription<double> frequencySubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    final graphProvider = Get.find<GraphProvider>();
-    lineChartProvider = Get.find<LineChartProvider>();
-
-    // Use the filtered data stream
-    dataPointsSubscription = lineChartProvider.dataPoints.listen((newDataPoints) {
-      if (mounted) {
-        setState(() {});
-      }
-    });
-
-    // Other subscriptions remain the same
-    frequencySubscription = graphProvider.dataAcquisitionService.frequencyStream
-        .listen((newFrequency) {
-      if (mounted) {
-        setState(() {
-          frequency = newFrequency;
-        });
-      }
-    });
-
-    maxValueSubscription = graphProvider.dataAcquisitionService.maxValueStream
-        .listen((newMaxValue) {
-      if (mounted) {
-        setState(() {
-          maxX = newMaxValue;
-        });
-      }
-    });
-
-    voltageScale = graphProvider.dataAcquisitionService.scale;
-  }
-
-  @override
-  void dispose() {
-    maxValueSubscription.cancel();
-    dataPointsSubscription.cancel();
-    frequencySubscription.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final lineChartProvider = Get.find<LineChartProvider>();
+    final graphProvider = Get.find<GraphProvider>();
+
     return Column(
       children: [
         Expanded(
@@ -91,16 +32,15 @@ class _LineChartState extends State<LineChart> {
                   child: Obx(() {
                     final dataPoints = lineChartProvider.dataPoints.value;
                     return dataPoints.isEmpty
-                        ? Center(child: Text('No data'))
+                        ? const Center(child: Text('No data'))
                         : CustomPaint(
                             painter: LineChartPainter(
                               dataPoints,
-                              timeScale,
-                              valueScale,
-                              maxX,
-                              lineChartProvider.lineChartService.graphProvider
-                                  .dataAcquisitionService.distance,
-                              voltageScale,
+                              lineChartProvider.getTimeScale(),
+                              lineChartProvider.getValueScale(),
+                              graphProvider.getMaxValue(),
+                              graphProvider.getDistance(),
+                              graphProvider.getScale(),
                               Theme.of(context).scaffoldBackgroundColor,
                             ),
                           );
@@ -116,54 +56,36 @@ class _LineChartState extends State<LineChart> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                icon: Icon(Icons.arrow_left),
+                icon: const Icon(Icons.arrow_left),
                 color: Colors.black,
-                onPressed: () {
-                  setState(() {
-                    timeScale *= 0.9;
-                  });
-                },
+                onPressed: () => lineChartProvider
+                    .setTimeScale(lineChartProvider.timeScale.value * 0.9),
               ),
               IconButton(
-                icon: Icon(Icons.arrow_right),
+                icon: const Icon(Icons.arrow_right),
                 color: Colors.black,
-                onPressed: () {
-                  setState(() {
-                    timeScale *= 1.1;
-                  });
-                },
+                onPressed: () => lineChartProvider
+                    .setTimeScale(lineChartProvider.timeScale.value * 1.1),
               ),
               IconButton(
-                icon: Icon(Icons.arrow_upward),
+                icon: const Icon(Icons.arrow_upward),
                 color: Colors.black,
-                onPressed: () {
-                  setState(() {
-                    valueScale *= 1.1;
-                  });
-                },
+                onPressed: () => lineChartProvider
+                    .setValueScale(lineChartProvider.valueScale.value * 1.1),
               ),
               IconButton(
-                icon: Icon(Icons.arrow_downward),
+                icon: const Icon(Icons.arrow_downward),
                 color: Colors.black,
-                onPressed: () {
-                  setState(() {
-                    valueScale *= 0.9;
-                  });
-                },
+                onPressed: () => lineChartProvider
+                    .setValueScale(lineChartProvider.valueScale.value * 0.9),
               ),
               IconButton(
-                icon: Icon(Icons.autorenew),
+                icon: const Icon(Icons.autorenew),
                 color: Colors.black,
                 onPressed: () {
-                  final List<double> auto =
-                      lineChartProvider.lineChartService.graphProvider.autoset(
-                    _size.height - _offsetY * 2,
-                    _size.width - _offsetX,
-                  );
-                  setState(() {
-                    valueScale = auto[1];
-                    timeScale = auto[0];
-                  });
+                  final size = MediaQuery.of(context).size;
+                  graphProvider.autoset(size.height,
+                      size.width);
                 },
               ),
             ],
@@ -252,7 +174,7 @@ class LineChartPainter extends CustomPainter {
     for (int i = -5; i <= 5; i++) {
       final y = centerY - (i * drawingHeight / 10);
       canvas.drawLine(Offset(offsetX, y), Offset(size.width, y), gridPaint);
-    
+
       // El valor debe ser proporcional a la posición en la pantalla
       final value = (centerY - y) / (drawingHeight / 2) / valueScale;
       textPainter.text = TextSpan(

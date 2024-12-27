@@ -2,20 +2,25 @@
 import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/models/data_point.dart';
+import '../domain/models/filter_types.dart';
+import 'dart:async';
+
 
 class LineChartProvider extends GetxController {
   final LineChartService lineChartService;
+  StreamSubscription? _dataSubscription;
 
-  // Reactive variables
   final dataPoints = Rx<List<DataPoint>>([]);
-  final currentFilter = Rx<FilterType>(FilterType.movingAverage);
+  final currentFilter = Rx<FilterType>(NoFilter());
   final windowSize = RxInt(5);
   final alpha = RxDouble(0.2);
   final cutoffFrequency = RxDouble(100.0);
+  final timeScale = RxDouble(1.0);
+  final valueScale = RxDouble(1.0);
 
   LineChartProvider(this.lineChartService) {
     // Subscribe to filtered data stream
-    lineChartService.dataStream.listen((points) {
+    _dataSubscription = lineChartService.dataStream.listen((points) {
       dataPoints.value = points;
     });
 
@@ -28,31 +33,46 @@ class LineChartProvider extends GetxController {
 
   void setFilter(FilterType filter) {
     currentFilter.value = filter;
-    print("Filter: $filter");
     lineChartService.setFilter(filter);
   }
 
   void setWindowSize(int size) {
     windowSize.value = size;
-    print("Window size: $size");
     lineChartService.setWindowSize(size);
   }
 
   void setAlpha(double value) {
     alpha.value = value;
-    print("Alpha: $value");
     lineChartService.setAlpha(value);
   }
 
   void setCutoffFrequency(double freq) {
     cutoffFrequency.value = freq;
-    print("Cutoff frequency: $freq");
     lineChartService.setCutoffFrequency(freq);
+  }
+
+  void setTimeScale(double scale) {
+    print('Setting time scale: $scale'); // Debug
+    timeScale.value = scale;
+  }
+
+  void setValueScale(double scale) {
+    print('Setting value scale: $scale'); // Debug
+    valueScale.value = scale;
+  }
+
+  void resetScales() {
+    timeScale.value = 1.0;
+    valueScale.value = 1.0;
   }
 
   @override
   void onClose() {
+    _dataSubscription?.cancel();
     lineChartService.dispose();
     super.onClose();
   }
+
+  double getTimeScale() => timeScale.value; 
+  double getValueScale() => valueScale.value;
 }

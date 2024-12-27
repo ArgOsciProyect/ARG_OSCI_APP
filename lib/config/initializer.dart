@@ -32,18 +32,21 @@ class Initializer {
 
     // Initialize providers
     Get.put<SetupProvider>(SetupProvider(setupService));
-    Get.put<GraphProvider>(GraphProvider(
+    
+    // Initialize GraphProvider with its dependencies
+    final graphProvider = GraphProvider(
       Get.find<DataAcquisitionService>(),
       Get.find<SocketConnection>()
-    ));
+    );
+    Get.put<GraphProvider>(graphProvider);
 
     // Initialize and register FFTChartService and FFTChartProvider
-    final fftChartService = FFTChartService(Get.find<GraphProvider>());
+    final fftChartService = FFTChartService(graphProvider);
     Get.put<FFTChartService>(fftChartService);
     Get.put<FFTChartProvider>(FFTChartProvider(fftChartService));
 
     // Initialize and register LineChartService and LineChartProvider
-    final lineChartService = LineChartService(Get.find<GraphProvider>());
+    final lineChartService = LineChartService(graphProvider);
     Get.put<LineChartService>(lineChartService);
     Get.put<LineChartProvider>(LineChartProvider(lineChartService));
   }
