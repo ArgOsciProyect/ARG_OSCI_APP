@@ -1,7 +1,7 @@
 // lib/features/graph/widgets/user_settings.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../graph/providers/graph_provider.dart';
+import '../providers/data_provider.dart';
 import '../domain/models/trigger_data.dart';
 
 class UserSettings extends StatelessWidget {

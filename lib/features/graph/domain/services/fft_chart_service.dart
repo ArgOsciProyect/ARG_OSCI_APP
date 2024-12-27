@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:isolate';
 import '../models/data_point.dart';
-import '../../providers/graph_provider.dart';
+import '../../providers/data_provider.dart';
 import 'package:scidart/scidart.dart';
 import 'package:scidart/numdart.dart';
 

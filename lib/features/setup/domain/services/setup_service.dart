@@ -29,11 +29,13 @@ class SetupService implements SetupRepository {
     localHttpService = HttpService(globalHttpConfig);
   }
 
+  @override
   Future<void> initializeGlobalHttpConfig(String baseUrl, {http.Client? client}) async {
     globalHttpConfig = HttpConfig(baseUrl, client : client);
     localHttpService = HttpService(globalHttpConfig);
   }
 
+  @override
   Future<void> initializeGlobalSocketConnection(String ip, int port) async {
     globalSocketConnection.updateConnection(ip, port);
     localSocketService = SocketService();
@@ -62,6 +64,7 @@ class SetupService implements SetupRepository {
     return wifiData.map((item) => item['SSID'] as String).toList();
   }
 
+  @override
   String encriptWithPublicKey(String message) {
     if (_publicKey == null) {
       throw Exception('Public key is not set');

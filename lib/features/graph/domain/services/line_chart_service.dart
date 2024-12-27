@@ -1,7 +1,7 @@
 // lib/features/graph/services/line_chart_service.dart
 import 'dart:async';
 import '../models/data_point.dart';
-import '../../providers/graph_provider.dart';
+import '../../providers/data_provider.dart';
 
 class LineChartService {
   final GraphProvider graphProvider;

@@ -1,7 +1,7 @@
 // lib/features/graph/screens/graph_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/graph_provider.dart';
+import '../providers/data_provider.dart';
 import '../widgets/line_chart.dart';
 import '../widgets/fft_chart.dart';
 import '../widgets/user_settings.dart';

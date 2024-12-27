@@ -4,15 +4,16 @@ import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
 import '../../graph/screens/mode_selection_screen.dart';
 
-Future<void> showAPSelectionDialog(BuildContext context) async {
+Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
+  
   // Mostrar diálogo de espera
   Get.dialog(
     AlertDialog(
-      title: Text('Connecting to ESP32 AP'),
+      title: const Text('Connecting to ESP32 AP'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: const [
           Text('Please wait while connecting to ESP32 AP...'),
           SizedBox(height: 20),
           CircularProgressIndicator(),
@@ -29,8 +30,8 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
 
     Get.dialog(
       AlertDialog(
-        title: Text('Select AP Mode'),
-        content: Text('Choose your preferred AP mode.'),
+        title: const Text('Select AP Mode'),
+        content: const Text('Choose your preferred AP mode.'),
         actions: [
           TextButton(
             onPressed: () async {
@@ -40,9 +41,9 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
               Get.snackbar('AP Mode', 'Local AP selected.');
 
               // Navegar a la pantalla de selección de modo
-              Get.to(() => ModeSelectionScreen());
+              Get.to(() => const ModeSelectionScreen());
             },
-            child: Text('Local AP'),
+            child: const Text('Local AP'),
           ),
           TextButton(
             onPressed: () async {
@@ -52,9 +53,9 @@ Future<void> showAPSelectionDialog(BuildContext context) async {
               Get.snackbar('AP Mode', 'External AP selected.');
 
               // Mostrar diálogo para seleccionar red WiFi externa
-              await showWiFiNetworkDialog(context);
+              await showWiFiNetworkDialog();
             },
-            child: Text('External AP'),
+            child: const Text('External AP'),
           ),
         ],
       ),

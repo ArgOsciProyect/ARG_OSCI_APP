@@ -8,16 +8,16 @@ class SetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Oscilloscope')),
+      appBar: AppBar(title: const Text('Oscilloscope')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
               onPressed: () async {
-                await showAPSelectionDialog(context);
+                await showAPSelectionDialog(); // Remove context parameter
               },
-              child: Text('Select AP Mode'),
+              child: const Text('Select AP Mode'),
             ),
           ],
         ),

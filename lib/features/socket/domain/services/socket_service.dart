@@ -9,7 +9,9 @@ class SocketService implements SocketRepository {
   Socket? _socket;
   final _controller = StreamController<List<int>>.broadcast();
   final List<StreamSubscription<List<int>>> _subscriptions = [];
+  @override
   dynamic ip;
+  @override
   dynamic port;
 
   @override
@@ -42,6 +44,7 @@ class SocketService implements SocketRepository {
   /// Subscribes to the data stream.
   ///
   /// Returns a [StreamSubscription] that can be used to manage the subscription.
+  @override
   StreamSubscription<List<int>> subscribe(void Function(List<int>) onData) {
     final subscription = _controller.stream.listen(onData);
     _subscriptions.add(subscription);
@@ -51,6 +54,7 @@ class SocketService implements SocketRepository {
   /// Unsubscribes from the data stream.
   ///
   /// Takes a [StreamSubscription] that was returned by [subscribe].
+  @override
   void unsubscribe(StreamSubscription<List<int>> subscription) {
     subscription.cancel();
     _subscriptions.remove(subscription);

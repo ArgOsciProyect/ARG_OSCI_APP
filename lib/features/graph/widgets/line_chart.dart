@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/line_chart_provider.dart';
 import '../../graph/domain/services/line_chart_service.dart';
-import '../../graph/providers/graph_provider.dart';
+import '../providers/data_provider.dart';
 import 'dart:async';
 
 late Size _size;
@@ -12,7 +12,6 @@ late Size _size;
 const double _offsetY = 15;
 const double _offsetX = 50;
 const double _sqrOffsetBot = 15;
-const double _sqrOffsetTop = 30;
 
 class LineChart extends StatefulWidget {
   const LineChart({super.key});
@@ -259,7 +258,7 @@ class LineChartPainter extends CustomPainter {
       // El valor debe ser proporcional a la posición en la pantalla
       final value = (centerY - y) / (drawingHeight / 2) / valueScale;
       textPainter.text = TextSpan(
-        text: '${value.toStringAsFixed(2)}',
+        text: '${value.toStringAsFixed(2)} V',
         style: TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();

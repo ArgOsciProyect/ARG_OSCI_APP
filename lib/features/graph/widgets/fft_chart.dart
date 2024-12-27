@@ -8,7 +8,7 @@ const double _offsetX = 50;
 const double _sqrOffsetBot = 30;
 
 class FFTChart extends StatelessWidget {
-  FFTChart({super.key});
+  const FFTChart({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +146,7 @@ class FFTChartPainter extends CustomPainter {
     );
   
     // Grid y etiquetas X
-    final xDivisions = 10;
+    const xDivisions = 10;
     for (int i = 0; i <= xDivisions; i++) {
       final x = _offsetX + (chartArea.width * i / xDivisions);
       final xValue = (maxX * timeScale * i / xDivisions);
@@ -169,7 +169,7 @@ class FFTChartPainter extends CustomPainter {
     }
   
     // Grid y etiquetas Y
-    final yDivisions = 10;
+    const yDivisions = 10;
     for (int i = 0; i <= yDivisions; i++) {
       final y = chartArea.top + (chartArea.height * i / yDivisions);
       final yValue = maxY - (i * (maxY - minY) * valueScale / yDivisions);

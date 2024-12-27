@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'graph_screen.dart';
 
 class ModeSelectionScreen extends StatelessWidget {
+  const ModeSelectionScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

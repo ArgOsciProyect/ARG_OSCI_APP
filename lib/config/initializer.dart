@@ -5,7 +5,7 @@ import '../features/socket/domain/models/socket_connection.dart';
 import '../features/setup/domain/services/setup_service.dart';
 import '../features/setup/providers/setup_provider.dart';
 import '../features/graph/domain/services/data_acquisition_service.dart';
-import '../features/graph/providers/graph_provider.dart';
+import '../features/graph/providers/data_provider.dart';
 import '../features/graph/domain/services/fft_chart_service.dart';
 import '../features/graph/providers/fft_chart_provider.dart';
 
