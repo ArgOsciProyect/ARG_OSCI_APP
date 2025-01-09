@@ -5,7 +5,6 @@ import '../providers/data_provider.dart';
 import '../providers/line_chart_provider.dart';
 import '../domain/models/trigger_data.dart';
 import '../domain/models/filter_types.dart';
-import '../domain/services/line_chart_service.dart';
 
 class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
@@ -140,21 +139,26 @@ class UserSettings extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Text('Filter Type:'),
                   Obx(() => DropdownButton<FilterType>(
-                    value: lineChartProvider.currentFilter.value,
+                    value: graphProvider.currentFilter.value,
                     isExpanded: true,
                     onChanged: (filter) {
                       if (filter != null) {
-                        lineChartProvider.setFilter(filter);
+                        graphProvider.setFilter(filter);
                       }
                     },
-                    items: LineChartService.availableFilters.map((type) => DropdownMenuItem(
+                    items: [
+                      NoFilter(),
+                      MovingAverageFilter(),
+                      ExponentialFilter(),
+                      LowPassFilter(),
+                    ].map((type) => DropdownMenuItem(
                       value: type,
                       child: Text(type.name),
                     )).toList(),
                   )),
                   const SizedBox(height: 8),
                   Obx(() {
-                    final currentFilter = lineChartProvider.currentFilter.value;
+                    final currentFilter = graphProvider.currentFilter.value;
                     if (currentFilter is MovingAverageFilter) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -169,7 +173,7 @@ class UserSettings extends StatelessWidget {
                             onSubmitted: (value) {
                               final size = int.tryParse(value);
                               if (size != null) {
-                                lineChartProvider.setWindowSize(size);
+                                graphProvider.setWindowSize(size);
                               }
                             },
                           ),
@@ -189,7 +193,7 @@ class UserSettings extends StatelessWidget {
                             onSubmitted: (value) {
                               final alpha = double.tryParse(value);
                               if (alpha != null) {
-                                lineChartProvider.setAlpha(alpha);
+                                graphProvider.setAlpha(alpha);
                               }
                             },
                           ),
@@ -209,7 +213,7 @@ class UserSettings extends StatelessWidget {
                             onSubmitted: (value) {
                               final freq = double.tryParse(value);
                               if (freq != null) {
-                                lineChartProvider.setCutoffFrequency(freq);
+                                graphProvider.setCutoffFrequency(freq);
                               }
                             },
                           ),
