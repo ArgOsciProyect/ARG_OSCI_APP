@@ -47,6 +47,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _frequencyController = StreamController<double>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   late HttpService httpService;
+  
+  bool _disposed = false;
 
   // Configuration
   @override
@@ -68,11 +70,29 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   SendPort? _configSendPort;
 
   @override
-  Stream<List<DataPoint>> get dataStream => _dataController.stream;
+  Stream<List<DataPoint>> get dataStream {
+    if (_disposed) {
+      throw StateError('Data stream is closed');
+    }
+    return _dataController.stream;
+  }
+
   @override
-  Stream<double> get frequencyStream => _frequencyController.stream;
+  Stream<double> get frequencyStream {
+    if (_disposed) {
+      throw StateError('Frequency stream is closed');
+    }
+    return _frequencyController.stream;
+  }
+
   @override
-  Stream<double> get maxValueStream => _maxValueController.stream;
+  Stream<double> get maxValueStream {
+    if (_disposed) {
+      throw StateError('Max value stream is closed');
+    }
+    return _maxValueController.stream;
+  }
+
 
   DataAcquisitionService(this.httpConfig) {
     httpService = HttpService(httpConfig);
@@ -84,7 +104,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     scale = (3.3 / 512); // Use default values initially
     mid = 512 / 2;
     distance = 1 / 1600000;
-    }
+  }
 
   static void _socketIsolateFunction(SocketIsolateSetup setup) async {
     final socketService = SocketService();
@@ -148,7 +168,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
               triggerLevel,
               triggerEdge,
               triggerSensitivity,
-              mid);  // Pass mid parameter
+              mid); // Pass mid parameter
           setup.sendPort.send(points);
         }
       } else if (message is UpdateConfigMessage) {
@@ -197,7 +217,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           .getUint16(0, Endian.little);
 
       final uint12Value = uint16Value & 0x0FFF;
-      final channel = (uint16Value >> 12) & 0x0F; // We should add the channel as a field of the DataPoint class
+      final channel = (uint16Value >> 12) &
+          0x0F; // We should add the channel as a field of the DataPoint class
 
       final x = points.length * distance;
       final y = (uint12Value - mid) * scale;
@@ -236,9 +257,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             continue;
           }
         } else {
-          // Apply hysteresis: If the current value crosses the trigger level, 
-          // we wait until it moves beyond the hysteresis band before allowing 
-          // another trigger event. This prevents multiple triggers from noise 
+          // Apply hysteresis: If the current value crosses the trigger level,
+          // we wait until it moves beyond the hysteresis band before allowing
+          // another trigger event. This prevents multiple triggers from noise
           // around the trigger level.
           if (triggerEdge == TriggerEdge.positive) {
             if (currentY < (triggerLevel - (triggerSensitivity * scale))) {
@@ -316,20 +337,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     await stopData();
 
     _processingReceivePort = ReceivePort();
-    final processingReceivePortStream = _processingReceivePort!.asBroadcastStream();
+    final processingReceivePortStream =
+        _processingReceivePort!.asBroadcastStream();
 
     // Start processing isolate first
     _processingIsolate = await Isolate.spawn(
         _processingIsolateFunction,
         ProcessingIsolateSetup(
-            _processingReceivePort!.sendPort,
-            scale,
-            distance,
-            triggerLevel,
-            triggerEdge,
-            triggerSensitivity,
-            mid,
-            ));
+          _processingReceivePort!.sendPort,
+          scale,
+          distance,
+          triggerLevel,
+          triggerEdge,
+          triggerSensitivity,
+          mid,
+        ));
 
     // Get processing SendPort and wait for it to be ready
     final setupCompleter = Completer<SendPort>();
@@ -362,37 +384,46 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<void> stopData() async {
-    // Primero detener los isolates
+    // Kill isolates first
     _processingIsolate?.kill();
     _processingIsolate = null;
-
-    // Esperar un momento para asegurar que el isolate se detuvo
-    await Future.delayed(const Duration(milliseconds: 50));
-
-    // Luego detener el socket
     _socketIsolate?.kill();
     _socketIsolate = null;
 
-    // Cerrar los puertos y limpiar las referencias
+    // Clean up ports
     _processingReceivePort?.close();
     _processingReceivePort = null;
-
     _socketToProcessingSendPort = null;
     _configSendPort = null;
-
-    // Limpiar cualquier dato pendiente
-    _dataController.add([]);
   }
-
 
   @override
   Future<void> dispose() async {
-    await stopData();
-    _dataController.close();
-    _frequencyController.close();
-    _maxValueController.close();
-  }
+    // Signal that we’re fully disposing
+    _disposed = true;
 
+    // Stop data acquisition
+    await stopData();
+
+    // Close controllers
+    final closeFutures = <Future>[];
+    if (!_dataController.isClosed) {
+      closeFutures.add(_dataController.close());
+    }
+    if (!_frequencyController.isClosed) {
+      closeFutures.add(_frequencyController.close());
+    }
+    if (!_maxValueController.isClosed) {
+      closeFutures.add(_maxValueController.close());
+    }
+
+    try {
+      await Future.wait(closeFutures);
+    } catch (e) {
+      print('Error closing controllers: $e');
+    }
+  }
+  
   @override
   List<double> autoset(double chartHeight, double chartWidth) {
     if (_currentFrequency <= 0) {
