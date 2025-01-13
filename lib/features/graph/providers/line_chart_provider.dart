@@ -2,7 +2,6 @@
 import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/models/data_point.dart';
-import '../domain/models/filter_types.dart';
 import 'dart:async';
 
 

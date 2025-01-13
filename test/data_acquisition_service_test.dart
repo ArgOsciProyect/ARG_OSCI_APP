@@ -1,10 +1,8 @@
 // test/features/graph/domain/services/data_acquisition_service_test.dart
 import 'dart:async';
 import 'dart:collection';
-import 'dart:isolate';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -86,6 +84,7 @@ class MockHttpService extends Mock implements HttpService {}
 void main() {
   late DataAcquisitionService service;
   late MockHttpConfig mockHttpConfig;
+  // ignore: unused_local_variable
   late MockSocketService mockSocketService;
 
   setUp(() async {
@@ -128,8 +127,9 @@ void main() {
       print('\nRising Edge Test:');
       print('Scale: ${service.scale}, Mid: ${service.mid}');
       print('TriggerLevel: ${service.triggerLevel}');
-      points.forEach((p) =>
-          print('x: ${p.x}, y: ${p.y}, trigger: ${p.isTrigger}'));
+      for (var p in points) {
+        print('x: ${p.x}, y: ${p.y}, trigger: ${p.isTrigger}');
+      }
 
       expect(points, isNotEmpty);
       expect(points.any((p) => p.isTrigger), isTrue);
@@ -159,8 +159,9 @@ void main() {
       print('\nFalling Edge Test:');
       print('Scale: ${service.scale}, Mid: ${service.mid}');
       print('TriggerLevel: ${service.triggerLevel}');
-      points.forEach((p) =>
-          print('x: ${p.x}, y: ${p.y}, trigger: ${p.isTrigger}'));
+      for (var p in points) {
+        print('x: ${p.x}, y: ${p.y}, trigger: ${p.isTrigger}');
+      }
 
       expect(points, isNotEmpty);
       expect(points.any((p) => p.isTrigger), isTrue);
@@ -176,7 +177,7 @@ void main() {
       ];
 
       // Frecuencia esperada: 1 / (2e-6) = 500000 Hz
-      final expectedFrequency = 500000.0;
+      const expectedFrequency = 500000.0;
 
       // Escuchar el stream y esperar la frecuencia
       final frequencyFuture = service.frequencyStream.first;
@@ -253,8 +254,9 @@ void main() {
 // In the test file, update the isolate handling group:
 group('Isolate Handling', () {
     test('should spawn processing isolate on fetchData', () async {
-      final ip = '127.0.0.1';
+      const ip = '127.0.0.1';
       final dataReceived = Completer<void>();
+      // ignore: unused_local_variable
       final isolateSpawned = Completer<void>();
       
       // Create server and handle connection
@@ -297,7 +299,7 @@ group('Isolate Handling', () {
     });
 
     test('should handle data received from processing isolate', () async {
-      final ip = '127.0.0.1';
+      const ip = '127.0.0.1';
       final dataReceived = Completer<List<DataPoint>>();
       
       final server = await ServerSocket.bind(ip, 0);
@@ -341,8 +343,8 @@ group('Isolate Handling', () {
     });
 
     test('should retry socket connection on failure', () async {
-      final ip = '127.0.0.1';
-      final port = 35642; // Unused port
+      const ip = '127.0.0.1';
+      const port = 35642; // Unused port
       final connectionAttempted = Completer<void>();
       
       // Start fetching data

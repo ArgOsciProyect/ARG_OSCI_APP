@@ -264,6 +264,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           .getUint16(0, Endian.little);
 
       final uint12Value = uint16Value & 0x0FFF;
+      // ignore: unused_local_variable
       final channel = (uint16Value >> 12) &
           0x0F; // We should add the channel as a field of the DataPoint class
 

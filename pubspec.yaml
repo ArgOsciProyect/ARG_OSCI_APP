@@ -40,6 +40,7 @@ dependencies:
   scidart: ^0.0.2-dev.12
   fftea: ^1.5.0+1
   simple_kalman: ^1.0.2
+  meta: ^1.15.0
 
 
 

@@ -5,6 +5,7 @@ import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/line_chart_provider.dart';
 import '../providers/data_provider.dart';
 
+// ignore: unused_element
 late Size _size;
 // Mover el gráfico hacia arriba y a la derecha
 const double _offsetY = 15;
