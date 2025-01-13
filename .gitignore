@@ -51,3 +51,4 @@ export_deb.sh
 
 #coverage
 coverage/
+coverage_local.sh
