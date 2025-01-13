@@ -13,62 +13,66 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Cache Flutter dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pub-cache
-          /opt/hostedtoolcache/flutter
-        key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
 
-    - name: Set up Flutter
-      if: steps.flutter-cache.outputs.cache-hit != 'true'
-      uses: subosito/flutter-action@v2
-      with:
-        channel: stable
+      - name: Set up Flutter
+        if: steps.flutter-cache.outputs.cache-hit != 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
 
-    - name: Install lcov
-      run: sudo apt-get update && sudo apt-get install -y lcov
-        
-    - name: Dart version
-      run: dart --version
+      - name: Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
 
-    - name: Flutter version
-      run: flutter --version
+      - name: Dart version
+        run: dart --version
 
-    - name: Flutter doctor
-      run: flutter doctor
+      - name: Flutter version
+        run: flutter --version
 
-    - name: Install dependencies
-      run: flutter pub get
+      - name: Flutter doctor
+        run: flutter doctor
 
-    - name: Check Dart format
-      run: dart format --set-exit-if-changed .
-      # This will fail the workflow if there are any formatting issues
+      - name: Install dependencies
+        run: flutter pub get
 
-    - name: Run tests with coverage
-      run: |
-        flutter test --coverage
-        # Generate lcov report
-        genhtml coverage/lcov.info -o coverage/html
+      - name: Check Dart format
+        run: dart format --set-exit-if-changed .
+        # This will fail the workflow if there are any formatting issues
 
-    - name: Upload Coverage Report as Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-report
-        path: coverage/html
+      - name: Run tests with coverage
+        run: |
+          flutter test --coverage
+          # Generar reporte lcov
+          genhtml coverage/lcov.info -o coverage/html
 
-    - name: Enforce Coverage Threshold
-      run: |
-        COVERAGE=$(grep -oP '\d+\.\d+' coverage/lcov.info | awk '{s+=$1} END {print s/NR}')
-        echo "Total Coverage: $COVERAGE%"
-        if (( $(echo "$COVERAGE < 40" | bc -l) )); then
-          echo "Coverage is below 40%"
-          exit 1
-        fi
-      shell: bash
+      - name: Upload Coverage Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/html
+
+      - name: Enforce Coverage Threshold
+        run: |
+          if [ ! -f coverage/lcov.info ] || [ ! -s coverage/lcov.info ]; then
+            echo "Coverage file is missing or empty"
+            exit 1
+          fi
+          COVERAGE=$(grep -oP '\d+\.\d+' coverage/lcov.info | awk '{s+=$1} END {print s/NR}')
+          echo "Total Coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 40" | bc -l) )); then
+            echo "Coverage is below 40%"
+            exit 1
+          fi
+        shell: bash
