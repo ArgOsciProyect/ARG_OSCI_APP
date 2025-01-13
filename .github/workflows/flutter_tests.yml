@@ -27,10 +27,11 @@ jobs:
           ${{ runner.os }}-flutter-
 
     - name: Set up Flutter
+      if: steps.flutter-cache.outputs.cache-hit != 'true'
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: 'stable'
-
+        channel: stable
+        
     - name: Dart version
       run: dart --version
 
