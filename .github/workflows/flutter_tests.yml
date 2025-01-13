@@ -57,21 +57,12 @@ jobs:
         # Generate lcov report
         genhtml coverage/lcov.info -o coverage/html
 
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: coverage/lcov.info
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: true
-
     - name: Upload Coverage Report as Artifact
       uses: actions/upload-artifact@v3
       with:
         name: coverage-report
         path: coverage/html
 
-    # Optional: Enforce Coverage Threshold
     - name: Enforce Coverage Threshold
       run: |
         COVERAGE=$(grep -oP '\d+\.\d+' coverage/lcov.info | awk '{s+=$1} END {print s/NR}')
