@@ -30,8 +30,9 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> initializeGlobalHttpConfig(String baseUrl, {http.Client? client}) async {
-    globalHttpConfig = HttpConfig(baseUrl, client : client);
+  Future<void> initializeGlobalHttpConfig(String baseUrl,
+      {http.Client? client}) async {
+    globalHttpConfig = HttpConfig(baseUrl, client: client);
     localHttpService = HttpService(globalHttpConfig);
   }
 
@@ -43,10 +44,11 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> connectToWiFi(WiFiCredentials credentials) async {
-    final response = await localHttpService.post('/connect_wifi', credentials.toJson());
+    final response =
+        await localHttpService.post('/connect_wifi', credentials.toJson());
     extIp = response['IP'];
     extPort = response['Port'];
-    
+
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
   }
@@ -69,7 +71,8 @@ class SetupService implements SetupRepository {
     if (_publicKey == null) {
       throw Exception('Public key is not set');
     }
-    final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
+    final encrypter =
+        Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
     final encrypted = encrypter.encrypt(message);
     return encrypted.base64;
   }
@@ -90,7 +93,8 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> handleNetworkChangeAndConnect(String ssid, {http.Client? client}) async {
+  Future<void> handleNetworkChangeAndConnect(String ssid,
+      {http.Client? client}) async {
     await waitForNetworkChange(ssid);
     print("Connected to $ssid");
     await Future.delayed(Duration(seconds: 3));
@@ -98,7 +102,7 @@ class SetupService implements SetupRepository {
 
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
     while (true) {
-      try{
+      try {
         final response = await localHttpService.get('/test');
         print(response);
         break;
@@ -107,7 +111,8 @@ class SetupService implements SetupRepository {
         await Future.delayed(Duration(seconds: 1));
       }
     }
-    await initializeGlobalSocketConnection(extIp, extPort); // Esperar a que la conexión del socket se complete
+    await initializeGlobalSocketConnection(
+        extIp, extPort); // Esperar a que la conexión del socket se complete
   }
 
   @override
@@ -118,21 +123,22 @@ class SetupService implements SetupRepository {
       if (Platform.isAndroid && wifiName != null) {
         wifiName = wifiName.replaceAll('"', '');
       }
-  
+
       // Obtener IP del dispositivo
       String? ipAddress = await _networkInfo.getWifiIP();
-      
+
       // Verificar si está conectado a la red ESP32_AP y tiene la IP correcta
       if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
         break;
       }
-  
+
       print('WiFi: $wifiName, IP: $ipAddress');
       await Future.delayed(Duration(seconds: 1));
     }
-  
+
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
   }
+
   @override
   Future<void> waitForNetworkChange(String ssid) async {
     String? wifiName = await _networkInfo.getWifiName();

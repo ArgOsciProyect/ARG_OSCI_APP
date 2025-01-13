@@ -60,7 +60,7 @@ Future<void> showWiFiNetworkDialog() async {
 
 Future<void> askForPassword(String ssid) async {
   final passwordController = TextEditingController();
-  
+
   final password = await Get.dialog<String>(
     AlertDialog(
       title: const Text('Enter WiFi Password'),

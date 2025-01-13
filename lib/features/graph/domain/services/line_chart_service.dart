@@ -21,4 +21,3 @@ class LineChartService {
     _dataController.close();
   }
 }
-

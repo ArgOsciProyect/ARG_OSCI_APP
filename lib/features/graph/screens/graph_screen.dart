@@ -16,26 +16,37 @@ class GraphScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final graphProvider = Get.find<GraphProvider>();
     final triggerLevelController = TextEditingController(
-      text: graphProvider.triggerLevel.value.toString()
-    );
+        text: graphProvider.triggerLevel.value.toString());
     final lineChartProvider = Get.find<LineChartProvider>();
 
-    
     graphProvider.fetchData();
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para el AppBar
+        backgroundColor: Theme.of(context)
+            .scaffoldBackgroundColor, // Fondo uniforme para el AppBar
         title: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text('Graph - $mode Mode', style: TextStyle(fontSize: 15, color: Colors.black, textBaseline: TextBaseline.ideographic),),
+          child: Text(
+            'Graph - $mode Mode',
+            style: TextStyle(
+                fontSize: 15,
+                color: Colors.black,
+                textBaseline: TextBaseline.ideographic),
+          ),
         ),
         leading: Transform.translate(
           offset: Offset(0, -5), // Subir la flecha unos píxeles hacia arriba
           child: IconButton(
-            icon: Icon(Icons.arrow_back, size: 15, color: Colors.black, applyTextScaling: true,), // Ajustar el tamaño del icono y color
+            icon: Icon(
+              Icons.arrow_back,
+              size: 15,
+              color: Colors.black,
+              applyTextScaling: true,
+            ), // Ajustar el tamaño del icono y color
             onPressed: () {
-              graphProvider.stopData(); // Stop data acquisition when navigating back
+              graphProvider
+                  .stopData(); // Stop data acquisition when navigating back
               Get.back();
             },
           ),
@@ -43,7 +54,8 @@ class GraphScreen extends StatelessWidget {
         toolbarHeight: 25.0, // Ajustar la altura del AppBar
       ),
       body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para todo el cuerpo
+        color: Theme.of(context)
+            .scaffoldBackgroundColor, // Fondo uniforme para todo el cuerpo
         child: Row(
           children: [
             Expanded(
@@ -55,9 +67,7 @@ class GraphScreen extends StatelessWidget {
                     if (points.isEmpty) {
                       return const CircularProgressIndicator();
                     } else {
-                      return mode == 'Oscilloscope'
-                          ? LineChart()
-                          : FFTChart();
+                      return mode == 'Oscilloscope' ? LineChart() : FFTChart();
                     }
                   }),
                 ),
@@ -66,7 +76,8 @@ class GraphScreen extends StatelessWidget {
             SizedBox(width: 20), // Espacio entre el graficador y UserSettings
             Container(
               width: 170, // Ajustar el ancho del UserSettings
-              color: Theme.of(context).scaffoldBackgroundColor, // Fondo uniforme para las opciones
+              color: Theme.of(context)
+                  .scaffoldBackgroundColor, // Fondo uniforme para las opciones
               child: UserSettings(
                 lineChartProvider: lineChartProvider,
                 graphProvider: graphProvider,

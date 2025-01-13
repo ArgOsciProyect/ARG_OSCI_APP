@@ -42,20 +42,21 @@ class UserSettings extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Trigger Settings',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-                  ),
+                  const Text('Trigger Settings',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   const Text('Trigger Level:'),
                   Obx(() {
-                    triggerLevelController.text = graphProvider.triggerLevel.value.toStringAsFixed(2);
+                    triggerLevelController.text =
+                        graphProvider.triggerLevel.value.toStringAsFixed(2);
                     return TextField(
                       controller: triggerLevelController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       ),
                       onSubmitted: (value) {
                         final level = double.tryParse(value);
@@ -107,14 +108,14 @@ class UserSettings extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-                  ),
+                  const Text('Information',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   const Text('Frequency:'),
                   Obx(() {
-                    return Text('${graphProvider.frequency.value.toStringAsFixed(2)} Hz');
+                    return Text(
+                        '${graphProvider.frequency.value.toStringAsFixed(2)} Hz');
                   }),
                 ],
               ),
@@ -132,30 +133,31 @@ class UserSettings extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Filter Settings',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-                  ),
+                  const Text('Filter Settings',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   const Text('Filter Type:'),
                   Obx(() => DropdownButton<FilterType>(
-                    value: graphProvider.currentFilter.value,
-                    isExpanded: true,
-                    onChanged: (filter) {
-                      if (filter != null) {
-                        graphProvider.setFilter(filter);
-                      }
-                    },
-                    items: [
-                      NoFilter(),
-                      MovingAverageFilter(),
-                      ExponentialFilter(),
-                      LowPassFilter(),
-                    ].map((type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(type.name),
-                    )).toList(),
-                  )),
+                        value: graphProvider.currentFilter.value,
+                        isExpanded: true,
+                        onChanged: (filter) {
+                          if (filter != null) {
+                            graphProvider.setFilter(filter);
+                          }
+                        },
+                        items: [
+                          NoFilter(),
+                          MovingAverageFilter(),
+                          ExponentialFilter(),
+                          LowPassFilter(),
+                        ]
+                            .map((type) => DropdownMenuItem(
+                                  value: type,
+                                  child: Text(type.name),
+                                ))
+                            .toList(),
+                      )),
                   const SizedBox(height: 8),
                   Obx(() {
                     final currentFilter = graphProvider.currentFilter.value;
@@ -168,7 +170,8 @@ class UserSettings extends StatelessWidget {
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                             ),
                             onSubmitted: (value) {
                               final size = int.tryParse(value);
@@ -188,7 +191,8 @@ class UserSettings extends StatelessWidget {
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                             ),
                             onSubmitted: (value) {
                               final alpha = double.tryParse(value);
@@ -208,7 +212,8 @@ class UserSettings extends StatelessWidget {
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 8),
                             ),
                             onSubmitted: (value) {
                               final freq = double.tryParse(value);

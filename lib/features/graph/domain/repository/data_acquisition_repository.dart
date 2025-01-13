@@ -22,16 +22,16 @@ abstract class DataAcquisitionRepository {
   // Configuration properties
   double get scale;
   set scale(double value);
-  
+
   double get distance;
   set distance(double value);
-  
+
   double get triggerLevel;
   set triggerLevel(double value);
-  
+
   TriggerEdge get triggerEdge;
   set triggerEdge(TriggerEdge value);
-  
+
   double get triggerSensitivity;
   set triggerSensitivity(double value);
 }

@@ -14,13 +14,13 @@ abstract class FFTChartRepository {
   Future<void> initializeIsolate();
 
   /// Computes FFT for given data points
-  /// 
+  ///
   /// [points] List of data points to process
   /// Returns FFT processed data points
   List<DataPoint> computeFFT(List<DataPoint> points);
 
   /// Helper function for logarithmic calculations
-  /// 
+  ///
   /// [x] Value to calculate log10
   double log10(double x);
 

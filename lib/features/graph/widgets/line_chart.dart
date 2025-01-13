@@ -85,8 +85,7 @@ class LineChart extends StatelessWidget {
                 color: Colors.black,
                 onPressed: () {
                   final size = MediaQuery.of(context).size;
-                  graphProvider.autoset(size.height,
-                      size.width);
+                  graphProvider.autoset(size.height, size.width);
                 },
               ),
             ],

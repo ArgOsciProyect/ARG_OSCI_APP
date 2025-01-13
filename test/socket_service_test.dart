@@ -20,23 +20,23 @@ void main() {
   test('Se conecta exitosamente al servidor', () async {
     final server = await ServerSocket.bind('127.0.0.1', 8080);
     final connection = SocketConnection('127.0.0.1', 8080);
-  
+
     await socketService.connect(connection);
-  
+
     try {
       socketService.listen();
       expect(true, isTrue); // Si no se lanza ninguna excepción, el test pasa
     } catch (e) {
       expect(e, isNull); // Si se lanza una excepción, el test falla
     }
-  
+
     expect(socketService.socket, isNotNull);
-  
+
     await server.close();
   });
 
   test('Falla al conectarse con un puerto cerrado', () async {
-    final connection = SocketConnection('127.0.0.1',9999);
+    final connection = SocketConnection('127.0.0.1', 9999);
 
     expect(
       () async => await socketService.connect(connection),
@@ -52,12 +52,12 @@ void main() {
         expect(message, equals(utf8.encode('Hello World\0').toString()));
       });
     });
-  
+
     final connection = SocketConnection('127.0.0.1', 8080);
     await socketService.connect(connection);
     socketService.listen();
     await socketService.sendMessage('Hello World');
-  
+
     await server.close();
   });
 

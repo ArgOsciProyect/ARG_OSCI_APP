@@ -11,7 +11,8 @@ class HttpService implements HttpRepository {
   @override
   Future<dynamic> get(String endpoint) async {
     try {
-      final response = await config.client!.get(Uri.parse('${config.baseUrl}$endpoint'));
+      final response =
+          await config.client!.get(Uri.parse('${config.baseUrl}$endpoint'));
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {

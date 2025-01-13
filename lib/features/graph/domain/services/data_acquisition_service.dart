@@ -10,8 +10,7 @@ import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
-import 'package:meta/meta.dart';  // Add this import
-
+import 'package:meta/meta.dart'; // Add this import
 
 // Message classes for isolate setup
 class SocketIsolateSetup {
@@ -49,7 +48,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _frequencyController = StreamController<double>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   late HttpService httpService;
-  
+
   bool _disposed = false;
 
   // Configuration
@@ -117,8 +116,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   set socketToProcessingSendPort(SendPort? value) {
     _socketToProcessingSendPort = value;
   }
-  
-    // In DataAcquisitionService class
+
+  // In DataAcquisitionService class
   @visibleForTesting
   static List<DataPoint> processDataForTest(
       Queue<int> queue,
@@ -126,21 +125,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       double scale,
       double distance,
       double triggerLevel,
-      TriggerEdge triggerEdge, 
+      TriggerEdge triggerEdge,
       double triggerSensitivity,
       double mid) {
-    return _processData(
-      queue,
-      chunkSize,
-      scale,
-      distance, 
-      triggerLevel,
-      triggerEdge,
-      triggerSensitivity,
-      mid);
+    return _processData(queue, chunkSize, scale, distance, triggerLevel,
+        triggerEdge, triggerSensitivity, mid);
   }
-
-
 
   DataAcquisitionService(this.httpConfig) {
     httpService = HttpService(httpConfig);
@@ -184,7 +174,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       sendPort.send(data);
     });
   }
-    static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
+
+  static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
 
@@ -471,7 +462,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       print('Error closing controllers: $e');
     }
   }
-  
+
   @override
   List<double> autoset(double chartHeight, double chartWidth) {
     if (_currentFrequency <= 0) {

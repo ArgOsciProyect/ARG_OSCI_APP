@@ -86,12 +86,12 @@ void main() {
       (i) => DataPoint(i.toDouble(), 1.0),
     );
     mockProvider.addPoints(points);
-    
+
     // Wait until FFT processing for the first block is complete or timeout after 2 seconds
     await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {
       throw TimeoutException('FFT processing timed out');
     });
-    
+
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);
     expect(fftResults.first.length, greaterThan(0));

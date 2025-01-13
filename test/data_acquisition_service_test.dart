@@ -38,7 +38,8 @@ class MockSocketService extends Mock implements SocketService {
   @override
   Future<void> connect(SocketConnection connection) async {
     // Simular conexión exitosa
-    print("MockSocketService: connect called with ${connection.ip.value}:${connection.port.value}");
+    print(
+        "MockSocketService: connect called with ${connection.ip.value}:${connection.port.value}");
     // Puedes agregar lógica adicional si es necesario
     return;
   }
@@ -92,7 +93,7 @@ void main() {
     mockSocketService = MockSocketService();
     service = DataAcquisitionService(mockHttpConfig);
     await service.initialize();
-    
+
     // Known test configuration
     service.scale = 3.3 / 512;
     service.mid = 512 / 2;
@@ -252,17 +253,17 @@ void main() {
   });
 
 // In the test file, update the isolate handling group:
-group('Isolate Handling', () {
+  group('Isolate Handling', () {
     test('should spawn processing isolate on fetchData', () async {
       const ip = '127.0.0.1';
       final dataReceived = Completer<void>();
       // ignore: unused_local_variable
       final isolateSpawned = Completer<void>();
-      
+
       // Create server and handle connection
       final server = await ServerSocket.bind(ip, 0);
       final port = server.port;
-      
+
       // Listen for data on the stream before calling fetchData
       final subscription = service.dataStream.listen((data) {
         if (!dataReceived.isCompleted) {
@@ -279,7 +280,7 @@ group('Isolate Handling', () {
 
       // Start data acquisition
       await service.fetchData(ip, port);
-      
+
       // Add a small delay to allow isolates to spawn
       await Future.delayed(Duration(milliseconds: 100));
 
@@ -301,7 +302,7 @@ group('Isolate Handling', () {
     test('should handle data received from processing isolate', () async {
       const ip = '127.0.0.1';
       final dataReceived = Completer<List<DataPoint>>();
-      
+
       final server = await ServerSocket.bind(ip, 0);
       final port = server.port;
 
@@ -329,7 +330,8 @@ group('Isolate Handling', () {
       await service.fetchData(ip, port);
 
       try {
-        final receivedData = await dataReceived.future.timeout(Duration(seconds: 5));
+        final receivedData =
+            await dataReceived.future.timeout(Duration(seconds: 5));
         expect(receivedData, isNotEmpty);
 
         // Add a small delay to ensure cleanup works properly
@@ -346,7 +348,7 @@ group('Isolate Handling', () {
       const ip = '127.0.0.1';
       const port = 35642; // Unused port
       final connectionAttempted = Completer<void>();
-      
+
       // Start fetching data
       service.fetchData(ip, port).then((_) {
         if (!connectionAttempted.isCompleted) {
@@ -356,7 +358,7 @@ group('Isolate Handling', () {
 
       // Wait for the first connection attempt
       await connectionAttempted.future.timeout(Duration(seconds: 2));
-      
+
       // Stop data acquisition
       await service.stopData();
 
@@ -364,7 +366,7 @@ group('Isolate Handling', () {
       expect(service.socketIsolate, isNull);
       expect(service.processingIsolate, isNull);
     });
-});
+  });
 
   group('Configuration Updates', () {
     test('should update trigger configuration', () {

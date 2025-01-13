@@ -6,7 +6,7 @@ import '../../graph/screens/mode_selection_screen.dart';
 
 Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
-  
+
   // Mostrar diálogo de espera
   Get.dialog(
     AlertDialog(

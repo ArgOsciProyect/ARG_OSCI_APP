@@ -17,7 +17,8 @@ void main() {
   test('GET exitoso retorna datos correctamente', () async {
     // Configurar un cliente HTTP falso
     final client = MockClient((request) async {
-      if (request.url.toString() == '$baseUrl/endpoint' && request.method == 'GET') {
+      if (request.url.toString() == '$baseUrl/endpoint' &&
+          request.method == 'GET') {
         return http.Response(jsonEncode({'key': 'value'}), 200);
       }
       return http.Response('Not Found', 404);
@@ -45,7 +46,8 @@ void main() {
 
   test('POST exitoso retorna datos correctamente', () async {
     final client = MockClient((request) async {
-      if (request.url.toString() == '$baseUrl/endpoint' && request.method == 'POST') {
+      if (request.url.toString() == '$baseUrl/endpoint' &&
+          request.method == 'POST') {
         return http.Response(jsonEncode({'success': true}), 200);
       }
       return http.Response('Bad Request', 400);

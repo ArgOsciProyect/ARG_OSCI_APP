@@ -4,7 +4,6 @@ import '../domain/services/line_chart_service.dart';
 import '../domain/models/data_point.dart';
 import 'dart:async';
 
-
 class LineChartProvider extends GetxController {
   final LineChartService lineChartService;
   StreamSubscription? _dataSubscription;
@@ -39,6 +38,6 @@ class LineChartProvider extends GetxController {
     super.onClose();
   }
 
-  double getTimeScale() => timeScale.value; 
+  double getTimeScale() => timeScale.value;
   double getValueScale() => valueScale.value;
 }

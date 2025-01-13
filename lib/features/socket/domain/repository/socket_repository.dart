@@ -30,6 +30,6 @@ abstract class SocketRepository {
   /// Gets current IP address
   dynamic get ip;
 
-  /// Gets current port number  
+  /// Gets current port number
   dynamic get port;
 }

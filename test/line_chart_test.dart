@@ -201,7 +201,8 @@ void main() {
       expect(mockLineChartProvider.valueScale.value, equals(1.0));
     });
 
-    testWidgets('should clip points to drawing area', (WidgetTester tester) async {
+    testWidgets('should clip points to drawing area',
+        (WidgetTester tester) async {
       mockLineChartProvider.dataPoints.value = [
         DataPoint(0, 100),
         DataPoint(1, -100),

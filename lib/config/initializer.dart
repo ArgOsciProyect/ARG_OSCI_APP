@@ -32,12 +32,10 @@ class Initializer {
 
     // Initialize providers
     Get.put<SetupProvider>(SetupProvider(setupService));
-    
+
     // Initialize GraphProvider with its dependencies
     final graphProvider = GraphProvider(
-      Get.find<DataAcquisitionService>(),
-      Get.find<SocketConnection>()
-    );
+        Get.find<DataAcquisitionService>(), Get.find<SocketConnection>());
     Get.put<GraphProvider>(graphProvider);
 
     // Initialize and register FFTChartService and FFTChartProvider

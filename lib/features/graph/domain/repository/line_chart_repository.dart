@@ -7,11 +7,12 @@ abstract class LineChartRepository {
   Stream<List<DataPoint>> get dataStream;
 
   /// Applies a moving average filter to the data points
-  /// 
+  ///
   /// [points] List of data points to filter
   /// [windowSize] Size of the moving average window
   /// Returns filtered list of data points
-  List<DataPoint> applyMovingAverageFilter(List<DataPoint> points, int windowSize);
+  List<DataPoint> applyMovingAverageFilter(
+      List<DataPoint> points, int windowSize);
 
   /// Disposes of resources
   void dispose();

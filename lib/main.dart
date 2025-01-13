@@ -12,7 +12,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isAndroid){
+  if (Platform.isAndroid) {
     await requestPermissions();
   }
   // Initialize dependencies

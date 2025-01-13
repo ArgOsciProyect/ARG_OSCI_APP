@@ -8,7 +8,7 @@ import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 
-// Manual mocks 
+// Manual mocks
 class MockFFTChartProvider extends Mock implements FFTChartProvider {
   final _fftPoints = Rx<List<DataPoint>>([]);
   final _timeScale = 1.0.obs;
@@ -57,7 +57,7 @@ void main() {
   setUp(() {
     mockService = MockFFTChartService();
     mockProvider = MockFFTChartProvider();
-    
+
     // Register dependencies
     Get.put<FFTChartService>(mockService);
     Get.put<FFTChartProvider>(mockProvider);
@@ -68,8 +68,8 @@ void main() {
   });
 
   group('FFTChart Widget Tests', () {
-    testWidgets('should show no data message when empty', 
-      (WidgetTester tester) async {
+    testWidgets('should show no data message when empty',
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -81,13 +81,14 @@ void main() {
       expect(find.text('No data'), findsOneWidget);
     });
 
-    testWidgets('should render chart when data is available', (WidgetTester tester) async {
+    testWidgets('should render chart when data is available',
+        (WidgetTester tester) async {
       // Arrange
       mockProvider.fftPoints.value = [
         DataPoint(0, 1),
         DataPoint(1, 2),
       ];
-    
+
       // Act
       await tester.pumpWidget(
         MaterialApp(
@@ -96,7 +97,7 @@ void main() {
           ),
         ),
       );
-    
+
       // Assert
       final customPaintFinder = find.byWidgetPredicate(
         (widget) => widget is CustomPaint && widget.painter is FFTChartPainter,
@@ -106,7 +107,7 @@ void main() {
     });
 
     testWidgets('should call setTimeScale when left/right arrows pressed',
-      (WidgetTester tester) async {
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -125,7 +126,7 @@ void main() {
     });
 
     testWidgets('should call setValueScale when up/down arrows pressed',
-      (WidgetTester tester) async {
+        (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -144,7 +145,7 @@ void main() {
     });
 
     testWidgets('should call resetScales when reset button pressed',
-      (WidgetTester tester) async {
+        (WidgetTester tester) async {
       // Arrange
       mockProvider.setTimeScale(2.0);
       mockProvider.setValueScale(2.0);

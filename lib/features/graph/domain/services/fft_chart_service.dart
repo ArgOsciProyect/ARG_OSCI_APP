@@ -19,7 +19,6 @@ class FFTChartService {
   final _isolateReady = Completer<void>();
   bool _isProcessing = false;
 
-
   final List<DataPoint> _dataBuffer = [];
 
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
@@ -39,10 +38,10 @@ class FFTChartService {
         if (_dataBuffer.length >= blockSize) {
           _isProcessing = true;
           print("Starting FFT processing with ${_dataBuffer.length} points");
-          
+
           final dataToProcess = _dataBuffer.sublist(0, blockSize);
           _dataBuffer.clear(); // Clear buffer immediately
-          
+
           _sendPort.send(dataToProcess);
         }
       });
