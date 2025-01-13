@@ -31,6 +31,9 @@ jobs:
       uses: subosito/flutter-action@v2
       with:
         channel: stable
+
+    - name: Install lcov
+      run: sudo apt-get update && sudo apt-get install -y lcov
         
     - name: Dart version
       run: dart --version
