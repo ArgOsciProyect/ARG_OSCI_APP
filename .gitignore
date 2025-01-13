@@ -48,3 +48,6 @@ logocolor.png
 argoscideb.deb
 argoscideb/
 export_deb.sh
+
+#coverage
+coverage/

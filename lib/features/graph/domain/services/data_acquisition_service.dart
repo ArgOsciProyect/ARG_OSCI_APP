@@ -10,6 +10,8 @@ import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
+import 'package:meta/meta.dart';  // Add this import
+
 
 // Message classes for isolate setup
 class SocketIsolateSetup {
@@ -93,6 +95,52 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return _maxValueController.stream;
   }
 
+  @visibleForTesting
+  Isolate? get socketIsolate => _socketIsolate;
+
+  @visibleForTesting
+  Isolate? get processingIsolate => _processingIsolate;
+
+  @visibleForTesting
+  SendPort? get socketToProcessingSendPort => _socketToProcessingSendPort;
+
+  @visibleForTesting
+  SendPort? get configSendPort => _configSendPort;
+
+  @visibleForTesting
+  set configSendPort(SendPort? value) => _configSendPort = value;
+
+  @visibleForTesting
+  void updateMetrics(List<DataPoint> points) => _updateMetrics(points);
+
+  @visibleForTesting
+  set socketToProcessingSendPort(SendPort? value) {
+    _socketToProcessingSendPort = value;
+  }
+  
+    // In DataAcquisitionService class
+  @visibleForTesting
+  static List<DataPoint> processDataForTest(
+      Queue<int> queue,
+      int chunkSize,
+      double scale,
+      double distance,
+      double triggerLevel,
+      TriggerEdge triggerEdge, 
+      double triggerSensitivity,
+      double mid) {
+    return _processData(
+      queue,
+      chunkSize,
+      scale,
+      distance, 
+      triggerLevel,
+      triggerEdge,
+      triggerSensitivity,
+      mid);
+  }
+
+
 
   DataAcquisitionService(this.httpConfig) {
     httpService = HttpService(httpConfig);
@@ -136,8 +184,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       sendPort.send(data);
     });
   }
-
-  static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
+    static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
 

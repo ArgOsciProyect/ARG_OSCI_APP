@@ -54,8 +54,8 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
 }
 
 class MockGraphProvider extends Mock implements GraphProvider {
-  double _maxValue = 10.0;
-  double _distance = 5.0;
+  final double _maxValue = 10.0;
+  final double _distance = 5.0;
   double _scale = 1.0;
 
   @override
