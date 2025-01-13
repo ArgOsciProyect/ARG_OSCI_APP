@@ -2,6 +2,7 @@
 import 'dart:async';
 import '../models/data_point.dart';
 
+/// Interface for Line chart repository
 abstract class LineChartRepository {
   /// Stream of filtered data points
   Stream<List<DataPoint>> get dataStream;

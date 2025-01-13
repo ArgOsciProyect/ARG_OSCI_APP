@@ -62,6 +62,7 @@ jobs:
         with:
           name: coverage-report
           path: coverage
+          # Subimos toda la carpeta coverage que contiene tanto lcov.info como el directorio html
 
       - name: Enforce Coverage Threshold
         run: |
@@ -69,10 +70,16 @@ jobs:
             echo "Coverage file is missing or empty"
             exit 1
           fi
-          COVERAGE=$(grep -oP '\d+\.\d+' coverage/lcov.info | awk '{s+=$1} END {print s/NR}')
+          
+          COVERAGE=$(grep -oP '\d+\.\d+' coverage/lcov.info | awk '{s+=$1} END {if (NR > 0) print s/NR; else print 0}')
           echo "Total Coverage: $COVERAGE%"
+          
           if (( $(echo "$COVERAGE < 40" | bc -l) )); then
             echo "Coverage is below 40%"
+            echo "Contents of lcov.info:"
+            echo "===================="
+            cat coverage/lcov.info
+            echo "===================="
             exit 1
           fi
         shell: bash

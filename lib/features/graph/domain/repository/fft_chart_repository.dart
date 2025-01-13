@@ -2,6 +2,7 @@
 import 'dart:async';
 import '../models/data_point.dart';
 
+/// Interface for FFT chart repository
 abstract class FFTChartRepository {
   /// Block size for FFT processing
   static const int blockSize = 8192 * 2;
