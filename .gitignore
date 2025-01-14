@@ -10,6 +10,7 @@
 .svn/
 main.c
 migrate_working_dir/
+/log
 
 # IntelliJ related
 *.iml

@@ -77,7 +77,7 @@ void main() {
       logDir.createSync(recursive: true);
     }
 
-    logFile = File('test/integration_test/performance_log.txt');
+    logFile = File('log/data_processing_performance.log');
     if (!logFile.existsSync()) {
       logFile.createSync();
     }
