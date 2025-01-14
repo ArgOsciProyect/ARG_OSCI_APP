@@ -59,7 +59,10 @@ dev_dependencies:
   dio: ^5.7.0
   http_mock_adapter: ^0.6.1
   build_runner: ^2.3.3
-
+  integration_test:
+    sdk: flutter
+  flutter_driver:
+    sdk: flutter
   
 
 # For information on the generic Dart part of this file, see the

@@ -1,5 +1,6 @@
 // lib/features/graph/services/fft_chart_service.dart
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:isolate';
 import '../models/data_point.dart';
 import '../../providers/data_provider.dart';
@@ -122,11 +123,13 @@ class FFTChartService {
 
 // Helper function for log10
   static double log10(double x) => log(x) / ln10;
-  void dispose() {
+  Future <void> dispose() async {
     _dataPointsSubscription?.cancel();
     _receivePortSubscription?.cancel();
-    _isolate.kill();
-    _receivePort.close();
+    if (_isolateReady.isCompleted && _isolate != null) {
+      _isolate.kill();
+      _receivePort.close();
+    }
     _fftController.close();
     _dataBuffer.clear();
   }

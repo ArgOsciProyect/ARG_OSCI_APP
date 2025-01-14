@@ -10,7 +10,7 @@ import '../../../http/domain/services/http_service.dart';
 import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
-import 'package:meta/meta.dart'; // Add this import
+import 'package:meta/meta.dart'; 
 
 // Message classes for isolate setup
 class SocketIsolateSetup {

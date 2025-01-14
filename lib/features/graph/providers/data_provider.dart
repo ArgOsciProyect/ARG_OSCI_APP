@@ -69,6 +69,11 @@ class GraphProvider extends GetxController {
   double getFrequency() => frequency.value;
   double getMaxValue() => maxValue.value;
 
+  void addPoints(List<DataPoint> points) {
+    dataPoints.value = points;
+    _dataPointsController.add(points);
+  }
+
   Future<void> _restartDataAcquisition() async {
     await stopData();
     await fetchData();
