@@ -80,37 +80,77 @@ test('Genera resultados de FFT coherentes para señales conocidas', () async {
 
   expect(fftResults.length, equals(1));
   final fft = fftResults.first;
-  
-  // Helper to find peak near a frequency
-  double findPeakNear(List<DataPoint> fft, double targetFreq, double windowHz) {
-    return fft
-        .where((p) => (p.x - targetFreq).abs() < windowHz)
-        .map((p) => p.y)
-        .reduce(math.max);
+
+  // Tolerances
+  const freqTolerance = 50.0;   // Hz
+  const dbTolerance = 1.0;      // dB
+  const noiseFloor = -100.0;    // dB
+
+  // Find reference peak (10 kHz)
+  final referencePeak = fft
+      .where((p) => (p.x - 10000.0).abs() < freqTolerance)
+      .reduce((a, b) => a.y > b.y ? a : b);
+
+  print('Reference peak at ${referencePeak.x} Hz: ${referencePeak.y} dB');
+
+  // Normalize all values to reference peak
+  final normalizedFft = fft.map((p) => 
+      DataPoint(p.x, p.y - referencePeak.y)).toList();
+
+  // Expected peaks relative to reference
+  final expectedPeaks = {
+    10000.0: 0.0,    // Reference peak normalized to 0dB
+    20000.0: -6.0,   // Half amplitude = -6dB relative to reference
+  };
+
+  // Verify each expected peak
+  expectedPeaks.forEach((freq, expectedDb) {
+    // Find actual peak near expected frequency
+    final actualPeak = normalizedFft
+        .where((p) => (p.x - freq).abs() < freqTolerance)
+        .reduce((a, b) => a.y > b.y ? a : b);
+    
+    print('Testing peak at ${freq} Hz:');
+    print('  Expected: ${expectedDb} dB');
+    print('  Actual: ${actualPeak.y} dB');
+    print('  Frequency: ${actualPeak.x} Hz');
+    
+    expect(actualPeak, isNotNull, reason: 'No peak found near $freq Hz');
+    expect(
+      actualPeak.x, 
+      closeTo(freq, freqTolerance),
+      reason: 'Peak frequency offset at $freq Hz'
+    );
+    expect(
+      actualPeak.y,
+      closeTo(expectedDb, dbTolerance),
+      reason: 'Incorrect amplitude at $freq Hz'
+    );
+  });
+
+  // Verify noise floor relative to reference
+  final noisePoints = normalizedFft.where((p) => 
+    !expectedPeaks.keys.any((freq) => (p.x - freq).abs() < freqTolerance)
+  );
+
+  for (final point in noisePoints) {
+    expect(
+      point.y,
+      lessThan(-noiseFloor),
+      reason: 'High noise at ${point.x} Hz: ${point.y} dB'
+    );
   }
-
-  // Check peaks at expected frequencies
-  final peak10k = findPeakNear(fft, 10000, 100);
-  final peak20k = findPeakNear(fft, 20000, 100);
-  
-  // Verify peak existence
-  expect(peak10k, isNotNull);
-  expect(peak20k, isNotNull);
-
-  // Verify approximate 2:1 ratio in dB scale (6dB difference)
-  final peakRatioDB = peak10k - peak20k;
-  expect(peakRatioDB, closeTo(6.0, 1.0));
 
   // Verify frequency resolution
   final freqResolution = fft[1].x - fft[0].x;
   expect(
     freqResolution, 
-    closeTo(1600000 / FFTChartService.blockSize, 0.1)
+    closeTo(1600000 / FFTChartService.blockSize, 0.1),
+    reason: 'Incorrect frequency resolution'
   );
 
   await sub.cancel();
 });
-
   test('Procesa correctamente al llegar a blockSize', () async {
     final fftResults = <List<DataPoint>>[];
     final completer = Completer<void>();
