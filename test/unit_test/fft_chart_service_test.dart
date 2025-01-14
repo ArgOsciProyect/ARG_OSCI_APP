@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
+import 'dart:math' as math;
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/providers/data_provider.dart'; // Import GraphProvider
@@ -46,6 +47,69 @@ void main() {
     expect(fftResults, isEmpty);
     await sub.cancel();
   });
+
+test('Genera resultados de FFT coherentes para señales conocidas', () async {
+  final fftResults = <List<DataPoint>>[];
+  final completer = Completer<void>();
+  final sub = service.fftStream.listen((fft) {
+    fftResults.add(fft);
+    completer.complete();
+  });
+
+  // Generate test signal with known components:
+  // - 10 kHz component with amplitude 1.0
+  // - 20 kHz component with amplitude 0.5
+  final testSignal = List.generate(
+    FFTChartService.blockSize,
+    (i) {
+      final t = i / 1600000.0; // Time points (sampling rate 1.6MHz)
+      return DataPoint(
+        i.toDouble(),
+        math.sin(2 * math.pi * 10000 * t) +     // 10 kHz
+        0.5 * math.sin(2 * math.pi * 20000 * t) // 20 kHz
+      );
+    }
+  );
+
+  mockProvider.addPoints(testSignal);
+
+  await completer.future.timeout(
+    const Duration(seconds: 10),
+    onTimeout: () => throw TimeoutException('FFT processing timed out')
+  );
+
+  expect(fftResults.length, equals(1));
+  final fft = fftResults.first;
+  
+  // Helper to find peak near a frequency
+  double findPeakNear(List<DataPoint> fft, double targetFreq, double windowHz) {
+    return fft
+        .where((p) => (p.x - targetFreq).abs() < windowHz)
+        .map((p) => p.y)
+        .reduce(math.max);
+  }
+
+  // Check peaks at expected frequencies
+  final peak10k = findPeakNear(fft, 10000, 100);
+  final peak20k = findPeakNear(fft, 20000, 100);
+  
+  // Verify peak existence
+  expect(peak10k, isNotNull);
+  expect(peak20k, isNotNull);
+
+  // Verify approximate 2:1 ratio in dB scale (6dB difference)
+  final peakRatioDB = peak10k - peak20k;
+  expect(peakRatioDB, closeTo(6.0, 1.0));
+
+  // Verify frequency resolution
+  final freqResolution = fft[1].x - fft[0].x;
+  expect(
+    freqResolution, 
+    closeTo(1600000 / FFTChartService.blockSize, 0.1)
+  );
+
+  await sub.cancel();
+});
 
   test('Procesa correctamente al llegar a blockSize', () async {
     final fftResults = <List<DataPoint>>[];
