@@ -5,114 +5,154 @@ import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../../../socket/domain/services/socket_service.dart';
-import '../../../http/domain/models/http_config.dart';
 import '../../../http/domain/services/http_service.dart';
+import '../../../http/domain/models/http_config.dart';
+import 'package:http/http.dart' as http;
 import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
-import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class SetupService implements SetupRepository {
-  final SocketService globalSocketService;
-  HttpService? globalHttpService;
-  final HttpConfig httpConfig;
+  SocketConnection globalSocketConnection;
+  HttpConfig globalHttpConfig;
+  late SocketService localSocketService;
+  late HttpService localHttpService;
+  RSAPublicKey? _publicKey;
   final NetworkInfo _networkInfo = NetworkInfo();
-  // Private instances
-  HttpService? _privateHttpService;
   late dynamic extIp;
   late dynamic extPort;
+  late dynamic extBSSID;
   late dynamic _pubKey;
-  RSAPublicKey? _publicKey;
 
-  SetupService(this.globalSocketService, this.httpConfig, {http.Client? client}) {
-    _privateHttpService = HttpService(httpConfig, client: client);
+  SetupService(this.globalSocketConnection, this.globalHttpConfig) {
+    localSocketService = SocketService();
+    localHttpService = HttpService(globalHttpConfig);
   }
 
-  void initializeGlobalHttpService(String baseUrl, {http.Client? client}) {
-    globalHttpService = HttpService(HttpConfig(baseUrl), client: client);
+  @override
+  Future<void> initializeGlobalHttpConfig(String baseUrl,
+      {http.Client? client}) async {
+    globalHttpConfig = HttpConfig(baseUrl, client: client);
+    localHttpService = HttpService(globalHttpConfig);
   }
 
-  Future<void> initializeGlobalSocketService(String ip, int port) async {
-    await globalSocketService.connect(SocketConnection(ip, port));
-    globalSocketService.listen();
+  @override
+  Future<void> initializeGlobalSocketConnection(String ip, int port) async {
+    globalSocketConnection.updateConnection(ip, port);
+    localSocketService = SocketService();
   }
 
   @override
   Future<void> connectToWiFi(WiFiCredentials credentials) async {
-    final response = await _privateHttpService!.post('/connect_wifi', credentials.toJson());
+    final response =
+        await localHttpService.post('/connect_wifi', credentials.toJson());
     extIp = response['IP'];
     extPort = response['Port'];
+
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
   }
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
-    _pubKey = await _privateHttpService!.get('/get_public_key');
+    final publicKeyResponse = await localHttpService.get('/get_public_key');
+    _pubKey = publicKeyResponse;
     print(_pubKey["PublicKey"]);
     RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
     _publicKey = key as RSAPublicKey;
-    final response = await _privateHttpService!.get('/scan_wifi');
-    return (response as List).map((item) => item['SSID'] as String).toList();
+
+    final wifiResponse = await localHttpService.get('/scan_wifi');
+    final wifiData = wifiResponse as List;
+    return wifiData.map((item) => item['SSID'] as String).toList();
   }
 
+  @override
   String encriptWithPublicKey(String message) {
-      if (_publicKey == null) {
-        throw Exception('Public key is not set');
-      }
-      final encrypter = Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
-      final encrypted = encrypter.encrypt(message);
-      return encrypted.base64;
-  } 
-
-  @override
-  Future<void> sendMessage(String message) async {
-    await globalSocketService.sendMessage(message);
-  }
-
-  @override
-  Future<String> receiveMessage() async {
-    return await globalSocketService.receiveMessage();
-  }
-
-  Future<void> connectToLocalAP({http.Client? client}) async {
-    while (await _networkInfo.getWifiName() != '"ESP32_AP"') {
-      await Future.delayed(Duration(seconds: 1));
+    if (_publicKey == null) {
+      throw Exception('Public key is not set');
     }
-    _privateHttpService ??= HttpService(HttpConfig('http://192.168.4.1:81'), client: client);
+    final encrypter =
+        Encrypter(RSA(publicKey: _publicKey, encoding: RSAEncoding.PKCS1));
+    final encrypted = encrypter.encrypt(message);
+    return encrypted.base64;
   }
 
+  @override
   Future<void> selectMode(String mode, {http.Client? client}) async {
-    final response = await _privateHttpService!.get('/internal_mode');
+    final response = await localHttpService.get('/internal_mode');
     if (mode == 'External AP') {
       // Handle External AP mode
     } else if (mode == 'Internal AP') {
       final ip = response['IP'];
       final port = response['Port'];
-      initializeGlobalHttpService('http://$ip', client: client);
-      initializeGlobalSocketService(ip, port);
+      print("ip recibido: $ip");
+      print("port recibido: $port");
+      await initializeGlobalHttpConfig('http://$ip', client: client);
+      await initializeGlobalSocketConnection(ip, port);
     }
   }
 
-  Future<void> handleNetworkChangeAndConnect(String ssid, {http.Client? client}) async {
+  @override
+  Future<void> handleNetworkChangeAndConnect(String ssid,
+      {http.Client? client}) async {
     await waitForNetworkChange(ssid);
     print("Connected to $ssid");
     await Future.delayed(Duration(seconds: 3));
-    initializeGlobalHttpService('http://$extIp:80', client: client);
+    await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
     // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
-    final response = await globalHttpService!.get("/test");
-    print(response);
-
-    await initializeGlobalSocketService(extIp, extPort); // Esperar a que la conexión del socket se complete
-
-    globalSocketService.messages.listen((message) {
-      print("Received: $message");
-    });
+    while (true) {
+      try {
+        final response = await localHttpService.get('/test');
+        print(response);
+        break;
+      } catch (e) {
+        print(e);
+        await Future.delayed(Duration(seconds: 1));
+      }
+    }
+    await initializeGlobalSocketConnection(
+        extIp, extPort); // Esperar a que la conexión del socket se complete
   }
 
-  Future<void> waitForNetworkChange(String ssid) async {
-    while (await _networkInfo.getWifiName() != '"' + ssid + '"') {
+  @override
+  Future<void> connectToLocalAP({http.Client? client}) async {
+    while (true) {
+      // Obtener nombre de red WiFi
+      String? wifiName = await _networkInfo.getWifiName();
+      if (Platform.isAndroid && wifiName != null) {
+        wifiName = wifiName.replaceAll('"', '');
+      }
+
+      // Obtener IP del dispositivo
+      String? ipAddress = await _networkInfo.getWifiIP();
+
+      // Verificar si está conectado a la red ESP32_AP y tiene la IP correcta
+      if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
+        break;
+      }
+
+      print('WiFi: $wifiName, IP: $ipAddress');
       await Future.delayed(Duration(seconds: 1));
+    }
+
+    await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
+  }
+
+  @override
+  Future<void> waitForNetworkChange(String ssid) async {
+    String? wifiName = await _networkInfo.getWifiName();
+    print(wifiName);
+    if (Platform.isAndroid && wifiName != null) {
+      wifiName = wifiName.replaceAll('"', '');
+    }
+    while (wifiName?.startsWith(ssid) == false) {
+      await Future.delayed(Duration(seconds: 1));
+      wifiName = await _networkInfo.getWifiName();
+      if (Platform.isAndroid && wifiName != null) {
+        wifiName = wifiName.replaceAll('"', '');
+      }
+      print("Current WiFi: $wifiName, Expected WiFi: $ssid");
     }
   }
 }

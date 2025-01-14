@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
+import '../../graph/screens/mode_selection_screen.dart';
 
-void showAPSelectionDialog(BuildContext context) {
+Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
-  
+
   // Mostrar diálogo de espera
   Get.dialog(
     AlertDialog(
-      title: Text('Connecting to ESP32 AP'),
+      title: const Text('Connecting to ESP32 AP'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: const [
           Text('Please wait while connecting to ESP32 AP...'),
           SizedBox(height: 20),
           CircularProgressIndicator(),
@@ -22,35 +23,46 @@ void showAPSelectionDialog(BuildContext context) {
     barrierDismissible: false,
   );
 
-  controller.connectToLocalAP().then((_) {
-    // Cerrar el diálogo de espera
+  try {
+    await controller.connectToLocalAP();
+    // Cerrar el diálogo de espera después de la conexión
     Get.back();
 
     Get.dialog(
       AlertDialog(
-        title: Text('Select AP Mode'),
-        content: Text('Choose your preferred AP mode.'),
+        title: const Text('Select AP Mode'),
+        content: const Text('Choose your preferred AP mode.'),
         actions: [
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               // Handle Local AP selection
               Get.back();
-              controller.handleModeSelection('Internal AP');
+              await controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
+
+              // Navegar a la pantalla de selección de modo
+              Get.to(() => const ModeSelectionScreen());
             },
-            child: Text('Local AP'),
+            child: const Text('Local AP'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               // Handle External AP selection
               Get.back();
-              controller.handleModeSelection('External AP');
-              showWiFiNetworkDialog(context);
+              await controller.handleModeSelection('External AP');
+              Get.snackbar('AP Mode', 'External AP selected.');
+
+              // Mostrar diálogo para seleccionar red WiFi externa
+              await showWiFiNetworkDialog();
             },
-            child: Text('External AP'),
+            child: const Text('External AP'),
           ),
         ],
       ),
     );
-  });
+  } catch (e) {
+    // Manejar errores de conexión
+    Get.back();
+    Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
+  }
 }

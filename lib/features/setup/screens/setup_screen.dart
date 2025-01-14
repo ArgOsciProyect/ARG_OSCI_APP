@@ -1,4 +1,4 @@
-// lib/features/socket/screens/setup_screen.dart
+// lib/features/setup/screens/setup_screen.dart
 import 'package:flutter/material.dart';
 import '../widgets/ap_selection_dialog.dart';
 
@@ -8,16 +8,16 @@ class SetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Oscilloscope')),
+      appBar: AppBar(title: const Text('Oscilloscope')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: () {
-                showAPSelectionDialog(context);
+              onPressed: () async {
+                await showAPSelectionDialog(); // Remove context parameter
               },
-              child: Text('Select AP Mode'),
+              child: const Text('Select AP Mode'),
             ),
           ],
         ),

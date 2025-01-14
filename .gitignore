@@ -8,6 +8,7 @@
 .buildlog/
 .history
 .svn/
+main.c
 migrate_working_dir/
 
 # IntelliJ related
@@ -41,3 +42,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+
+#release
+logocolor.png
+argoscideb.deb
+argoscideb/
+export_deb.sh
+
+#coverage
+coverage/
+coverage_local.sh

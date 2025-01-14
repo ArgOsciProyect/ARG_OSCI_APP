@@ -1,15 +1,20 @@
 // lib/main.dart
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'config/app_theme.dart';
 import 'features/setup/screens/setup_screen.dart';
+import 'features/graph/screens/graph_screen.dart';
+import 'features/graph/screens/mode_selection_screen.dart';
 import 'config/initializer.dart'; // Import the Initializer
 import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await requestPermissions();
-
+  if (Platform.isAndroid) {
+    await requestPermissions();
+  }
   // Initialize dependencies
   await Initializer.init();
 
@@ -18,7 +23,8 @@ void main() async {
 
 Future<void> requestPermissions() async {
   await [
-    Permission.location,
+    Permission.locationAlways,
+    Permission.nearbyWifiDevices,
   ].request();
 }
 
@@ -31,6 +37,11 @@ class MyApp extends StatelessWidget {
       title: 'ARG_OSCI',
       theme: appTheme,
       home: SetupScreen(),
+      getPages: [
+        GetPage(name: '/', page: () => SetupScreen()),
+        GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
+        GetPage(name: '/graph', page: () => GraphScreen(mode: 'Oscilloscope')),
+      ],
     );
   }
 }
