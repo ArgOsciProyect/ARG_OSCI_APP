@@ -11,6 +11,7 @@
 main.c
 migrate_working_dir/
 /log
+test/FFT_REF_GEN.m
 
 # IntelliJ related
 *.iml

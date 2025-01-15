@@ -1,3 +1,4 @@
+// fft_chart.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
@@ -103,27 +104,33 @@ class FFTChartPainter extends CustomPainter {
       ..color = Colors.grey.withOpacity(0.5)
       ..strokeWidth = 0.5;
 
-    final chartArea = Rect.fromLTWH(_offsetX, _offsetY,
-        size.width - _offsetX - 10, size.height - _offsetY - _sqrOffsetBot);
-
-    // Fondo blanco
-    canvas.drawRect(
-      chartArea,
-      Paint()..color = Colors.white,
+    final chartArea = Rect.fromLTWH(
+      _offsetX,
+      _offsetY,
+      size.width - _offsetX - 10,
+      size.height - _offsetY - _sqrOffsetBot,
     );
 
-    // Valores máximos
+    // Fondo blanco
+    canvas.drawRect(chartArea, Paint()..color = Colors.white);
+
+    // Valores máximos y mínimos
     final maxX = fftPoints.map((p) => p.x).reduce((a, b) => a > b ? a : b);
     final minY = fftPoints.map((p) => p.y).reduce((a, b) => a < b ? a : b);
     final maxY = fftPoints.map((p) => p.y).reduce((a, b) => a > b ? a : b);
+
+    // Calcular escalado centrado
+    final centerY = (maxY + minY) / 2;
+    final halfRange = ((maxY - minY) / 2) / valueScale;
+    final scaledMinY = centerY - halfRange;
+    final scaledMaxY = centerY + halfRange;
 
     double toScreenX(double x) {
       return _offsetX + (x / (maxX * timeScale)) * chartArea.width;
     }
 
     double toScreenY(double y) {
-      final range = (maxY - minY) * valueScale;
-      final normalizedY = (y - minY) / range;
+      final normalizedY = (y - scaledMinY) / (scaledMaxY - scaledMinY);
       return chartArea.bottom - (normalizedY * chartArea.height);
     }
 
@@ -137,13 +144,11 @@ class FFTChartPainter extends CustomPainter {
     for (int i = 0; i <= xDivisions; i++) {
       final x = _offsetX + (chartArea.width * i / xDivisions);
       final xValue = (maxX * timeScale * i / xDivisions);
-
       canvas.drawLine(
         Offset(x, chartArea.top),
         Offset(x, chartArea.bottom),
         gridPaint,
       );
-
       textPainter.text = TextSpan(
         text: '${xValue.toStringAsFixed(1)} Hz',
         style: const TextStyle(color: Colors.black, fontSize: 10),
@@ -158,12 +163,13 @@ class FFTChartPainter extends CustomPainter {
     // Grid y etiquetas Y
     const yDivisions = 10;
     for (int i = 0; i <= yDivisions; i++) {
-      final y = chartArea.top + (chartArea.height * i / yDivisions);
-      final yValue = maxY - (i * (maxY - minY) * valueScale / yDivisions);
+      final ratio = i / yDivisions;
+      final yCoord = chartArea.top + chartArea.height * ratio;
+      final yValue = scaledMaxY - ratio * (scaledMaxY - scaledMinY);
 
       canvas.drawLine(
-        Offset(_offsetX, y),
-        Offset(chartArea.right, y),
+        Offset(_offsetX, yCoord),
+        Offset(chartArea.right, yCoord),
         gridPaint,
       );
 
@@ -174,29 +180,21 @@ class FFTChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(_offsetX - textPainter.width - 5, y - textPainter.height / 2),
+        Offset(_offsetX - textPainter.width - 5, yCoord - textPainter.height / 2),
       );
     }
 
-    // Dibujar puntos FFT con clipping
+    // Dibujar curva
     final path = Path();
     bool firstPoint = true;
-
-    for (int i = 0; i < fftPoints.length; i++) {
-      var screenX = toScreenX(fftPoints[i].x);
-      var screenY = toScreenY(fftPoints[i].y);
-
-      // Aplicar clipping
-      if (screenX < _offsetX) screenX = _offsetX;
-      if (screenX > chartArea.right) screenX = chartArea.right;
-      if (screenY < chartArea.top) screenY = chartArea.top;
-      if (screenY > chartArea.bottom) screenY = chartArea.bottom;
-
+    for (final point in fftPoints) {
+      final sx = toScreenX(point.x);
+      final sy = toScreenY(point.y);
       if (firstPoint) {
-        path.moveTo(screenX, screenY);
+        path.moveTo(sx, sy);
         firstPoint = false;
       } else {
-        path.lineTo(screenX, screenY);
+        path.lineTo(sx, sy);
       }
     }
 

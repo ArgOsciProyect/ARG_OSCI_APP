@@ -9,7 +9,6 @@ import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
 
 const bool USE_CUSTOM_FFT = true; // Switch between implementations
-const bool OUTPUT_IN_DB = false;  // Switch between dB and magnitude output
 
 /// Función de nivel superior para usar con `compute`.
 List<DataPoint> performFFT(List<DataPoint> points) {
@@ -61,37 +60,36 @@ List<DataPoint> _computeCustomFFT(List<DataPoint> points) {
   final real = Float32List(n);
   final imag = Float32List(n);
 
-  // Apply window function
+  // Cargar datos sin ventana
   for (var i = 0; i < n; i++) {
-    final window = 0.5 * (1 - math.cos(2 * math.pi * i / (n - 1)));
-    real[i] = points[i].y * window;
+    real[i] = points[i].y;
     imag[i] = 0.0;
   }
 
   _fft(real, imag);
 
+  // Normalizar
+  for (var i = 0; i < n; i++) {
+    real[i] /= n;
+    imag[i] /= n;
+  }
+
   final halfLength = (n / 2).ceil();
   const samplingRate = 1600000.0;
   final freqResolution = samplingRate / n;
-  final scale = 2.0 / n;
 
   return List<DataPoint>.generate(halfLength, (i) {
-    final re = real[i] * scale;
-    final im = imag[i] * scale;
+    final re = real[i];
+    final im = imag[i];
     final magnitude = math.sqrt(re * re + im * im);
 
-    if (!FFTChartService.outputInDb) {
-      return DataPoint(i * freqResolution, magnitude);
-    }
-
-    // Convert to dB
+    // Convertir a dB tal como en el script
     const bitsPerSample = 9.0;
     final fullScale = math.pow(2, bitsPerSample - 1).toDouble();
     final normFactor = 20 * math.log(fullScale) / math.ln10;
-
-    final db = magnitude > 0 
-        ? 20 * math.log(magnitude) / math.ln10 + normFactor
-        : -160.0;
+    final db = magnitude == 0
+        ? -160.0
+        : 20 * math.log(magnitude) / math.ln10 + normFactor;
 
     return DataPoint(i * freqResolution, db);
   });
@@ -202,7 +200,7 @@ class FFTChartService {
 
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
-  static bool _outputInDb = false; // Make static mutable
+  static bool _outputInDb = true; // Make static mutable
 
   final List<DataPoint> _dataBuffer = [];
 

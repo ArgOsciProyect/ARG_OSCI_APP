@@ -1,12 +1,125 @@
+// test/unit_test/fft_chart_service_test.dart
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'dart:math' as math;
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart'; // Import GraphProvider
+import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
 
-// Mocks
+// Helper functions
+void _saveComplexToMagnitude(String inputFile, String outputFile) {
+  final input = File(inputFile);
+  final output = File(outputFile);
+  final buffer = StringBuffer();
+  
+  final lines = input.readAsLinesSync();
+  for (final line in lines) {
+    final parts = line.split(',');
+    if (parts.length == 2) {
+      final real = double.parse(parts[0]);
+      final imag = double.parse(parts[1]);
+      final magnitude = math.sqrt(real * real + imag * imag);
+      buffer.writeln(magnitude.toString());
+    }
+  }
+  
+  output.writeAsStringSync(buffer.toString());
+}
+
+void _saveMagnitudeToDb(String inputFile, String outputFile) {
+  final input = File(inputFile);
+  final output = File(outputFile);
+  final buffer = StringBuffer();
+  
+  final lines = input.readAsLinesSync();
+  for (final line in lines) {
+    final magnitude = double.parse(line);
+    buffer.writeln(_toDb(magnitude).toString());
+  }
+  
+  output.writeAsStringSync(buffer.toString());
+}
+
+double _toDb(double magnitude) {
+  if (magnitude == 0) return -160.0;
+  const bitsPerSample = 9.0;
+  final fullScale = math.pow(2, bitsPerSample - 1).toDouble();
+  final normFactor = 20 * math.log(fullScale) / math.ln10;
+  return 20 * math.log(magnitude) / math.ln10 + normFactor;
+}
+
+void _checkPeak(
+  List<DataPoint> fft,
+  double freq,
+  double expectedValue,
+  double freqTolerance,
+  double valueTolerance
+) {
+  final peak = fft
+      .where((p) => (p.x - freq).abs() < freqTolerance)
+      .reduce((a, b) => a.y.abs() > b.y.abs() ? a : b);
+      
+  expect(peak, isNotNull, reason: 'No peak found near $freq Hz');
+  expect(
+    peak.x,
+    closeTo(freq, freqTolerance),
+    reason: 'Peak frequency offset at $freq Hz'
+  );
+  expect(
+    peak.y,
+    closeTo(expectedValue, valueTolerance),
+    reason: 'Incorrect value at $freq Hz'
+  );
+}
+
+void _saveFftResults(String filename, List<DataPoint> fftPoints) {
+  final file = File(filename);
+  final buffer = StringBuffer();
+  
+  // Save FFT results in dB with imaginary part 0
+  for (final point in fftPoints) {
+    buffer.writeln('${point.y},0.0');
+  }
+  
+  file.writeAsStringSync(buffer.toString());
+}
+
+List<double> _loadReferenceValues(String filename) {
+  final file = File(filename);
+  final lines = file.readAsLinesSync();
+  return lines.map((line) {
+    final value = double.parse(line);
+    return value;
+  }).toList();
+}
+
+List<DataPoint> _loadTestSignal(String filename) {
+  final file = File(filename);
+  final lines = file.readAsLinesSync();
+  return lines.asMap().entries.map((entry) {
+    return DataPoint(entry.key.toDouble(), double.parse(entry.value));
+  }).toList();
+}
+
+Future<List<DataPoint>> _getFftResults(
+  FFTChartService service,
+  MockGraphProvider mockProvider,
+  List<DataPoint> signal
+) async {
+  final completer = Completer<List<DataPoint>>();
+  final sub = service.fftStream.listen((fft) {
+    completer.complete(fft);
+  });
+  
+  mockProvider.addPoints(signal);
+  
+  final results = await completer.future;
+  await sub.cancel();
+  return results;
+}
+
 class MockGraphProvider extends Mock implements GraphProvider {
   final _controller = StreamController<List<DataPoint>>.broadcast();
 
@@ -21,19 +134,20 @@ class MockGraphProvider extends Mock implements GraphProvider {
 void main() {
   late MockGraphProvider mockProvider;
   late FFTChartService service;
-
+  
   setUp(() async {
     mockProvider = MockGraphProvider();
     service = FFTChartService(mockProvider);
-    // Wait for the isolate to initialize
-    // Using Completer to wait until the isolate is ready
     await Future.delayed(const Duration(milliseconds: 300));
+    
+    // Convert test signal files if necessary
+    // _saveComplexToMagnitude('test/Ref_db.csv', 'test/Ref_db_magnitude.csv');
+    // _saveMagnitudeToDb('test/Ref_db_magnitude.csv', 'test/Ref_db_dB.csv');
   });
 
   tearDown(() async {
     service.dispose();
     mockProvider.close();
-    // Wait to ensure dispose completes without errors
     await Future.delayed(const Duration(milliseconds: 100));
   });
 
@@ -48,109 +162,27 @@ void main() {
     await sub.cancel();
   });
 
-test('Genera resultados de FFT coherentes para señales conocidas', () async {
-  final fftResults = <List<DataPoint>>[];
-  final completer = Completer<void>();
-  final sub = service.fftStream.listen((fft) {
-    fftResults.add(fft);
-    completer.complete();
-  });
+  
+  test('Compara resultados de FFT con valores de referencia', () async {
+    final referenceValues = _loadReferenceValues('test/Ref_db.csv');
+    final testSignal = _loadTestSignal('test/test_signal.csv');
 
-  // Generate test signal with known components:
-  // - 10 kHz component with amplitude 1.0
-  // - 20 kHz component with amplitude 0.5
-  final testSignal = List.generate(
-    FFTChartService.blockSize,
-    (i) {
-      final t = i / 1600000.0; // Time points (sampling rate 1.6MHz)
-      return DataPoint(
-        i.toDouble(),
-        math.sin(2 * math.pi * 10000 * t) +     // 10 kHz
-        0.5 * math.sin(2 * math.pi * 20000 * t) // 20 kHz
+    final fftResults = await _getFftResults(service, mockProvider, testSignal);
+    
+    // Save FFT results if needed
+    _saveFftResults('test/internal_fft_results.csv', fftResults);
+    
+    const tolerance = 1.0;
+
+    for (var i = 0; i < math.min(fftResults.length, referenceValues.length); i++) {
+      expect(
+        fftResults[i].y,
+        closeTo(referenceValues[i], tolerance),
+        reason: 'FFT value mismatch at index $i'
       );
     }
-  );
-
-  mockProvider.addPoints(testSignal);
-
-  await completer.future.timeout(
-    const Duration(seconds: 10),
-    onTimeout: () => throw TimeoutException('FFT processing timed out')
-  );
-
-  expect(fftResults.length, equals(1));
-  final fft = fftResults.first;
-
-  // Tolerances
-  const freqTolerance = 50.0;   // Hz
-  const dbTolerance = 1.0;      // dB
-  const noiseFloor = -100.0;    // dB
-
-  // Find reference peak (10 kHz)
-  final referencePeak = fft
-      .where((p) => (p.x - 10000.0).abs() < freqTolerance)
-      .reduce((a, b) => a.y > b.y ? a : b);
-
-  print('Reference peak at ${referencePeak.x} Hz: ${referencePeak.y} dB');
-
-  // Normalize all values to reference peak
-  final normalizedFft = fft.map((p) => 
-      DataPoint(p.x, p.y - referencePeak.y)).toList();
-
-  // Expected peaks relative to reference
-  final expectedPeaks = {
-    10000.0: 0.0,    // Reference peak normalized to 0dB
-    20000.0: -6.0,   // Half amplitude = -6dB relative to reference
-  };
-
-  // Verify each expected peak
-  expectedPeaks.forEach((freq, expectedDb) {
-    // Find actual peak near expected frequency
-    final actualPeak = normalizedFft
-        .where((p) => (p.x - freq).abs() < freqTolerance)
-        .reduce((a, b) => a.y > b.y ? a : b);
-    
-    print('Testing peak at ${freq} Hz:');
-    print('  Expected: ${expectedDb} dB');
-    print('  Actual: ${actualPeak.y} dB');
-    print('  Frequency: ${actualPeak.x} Hz');
-    
-    expect(actualPeak, isNotNull, reason: 'No peak found near $freq Hz');
-    expect(
-      actualPeak.x, 
-      closeTo(freq, freqTolerance),
-      reason: 'Peak frequency offset at $freq Hz'
-    );
-    expect(
-      actualPeak.y,
-      closeTo(expectedDb, dbTolerance),
-      reason: 'Incorrect amplitude at $freq Hz'
-    );
   });
 
-  // Verify noise floor relative to reference
-  final noisePoints = normalizedFft.where((p) => 
-    !expectedPeaks.keys.any((freq) => (p.x - freq).abs() < freqTolerance)
-  );
-
-  for (final point in noisePoints) {
-    expect(
-      point.y,
-      lessThan(-noiseFloor),
-      reason: 'High noise at ${point.x} Hz: ${point.y} dB'
-    );
-  }
-
-  // Verify frequency resolution
-  final freqResolution = fft[1].x - fft[0].x;
-  expect(
-    freqResolution, 
-    closeTo(1600000 / FFTChartService.blockSize, 0.1),
-    reason: 'Incorrect frequency resolution'
-  );
-
-  await sub.cancel();
-});
   test('Procesa correctamente al llegar a blockSize', () async {
     final fftResults = <List<DataPoint>>[];
     final completer = Completer<void>();
@@ -165,10 +197,10 @@ test('Genera resultados de FFT coherentes para señales conocidas', () async {
     );
     mockProvider.addPoints(points);
 
-    // Wait until FFT processing is complete or timeout after 2 seconds
-    await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {
-      throw TimeoutException('FFT processing timed out');
-    });
+    await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('FFT processing timed out')
+    );
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);
@@ -191,10 +223,10 @@ test('Genera resultados de FFT coherentes para señales conocidas', () async {
     );
     mockProvider.addPoints(points);
 
-    // Wait until FFT processing for the first block is complete or timeout after 2 seconds
-    await completer.future.timeout(const Duration(seconds: 10), onTimeout: () {
-      throw TimeoutException('FFT processing timed out');
-    });
+    await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('FFT processing timed out')
+    );
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);
@@ -204,11 +236,7 @@ test('Genera resultados de FFT coherentes para señales conocidas', () async {
   });
 
   test('Dispose cierra isolate y streams sin error', () async {
-    // Ensure the service is initialized before disposing
-    // Additional delay to ensure isolate is ready
     await Future.delayed(const Duration(milliseconds: 200));
-
-    // Attempt to dispose
     expect(() async => service.dispose(), returnsNormally);
   });
 }
