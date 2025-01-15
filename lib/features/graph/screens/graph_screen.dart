@@ -1,7 +1,7 @@
 // lib/features/graph/screens/graph_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/data_provider.dart';
+import '../providers/data_provider.dart'; // Asegúrate de que la ruta es correcta
 import '../widgets/line_chart.dart';
 import '../widgets/fft_chart.dart';
 import '../widgets/user_settings.dart';
@@ -18,8 +18,6 @@ class GraphScreen extends StatelessWidget {
     final triggerLevelController = TextEditingController(
         text: graphProvider.triggerLevel.value.toString());
     final lineChartProvider = Get.find<LineChartProvider>();
-
-    graphProvider.fetchData();
 
     return Scaffold(
       appBar: AppBar(
@@ -42,11 +40,9 @@ class GraphScreen extends StatelessWidget {
               Icons.arrow_back,
               size: 15,
               color: Colors.black,
-              applyTextScaling: true,
             ), // Ajustar el tamaño del icono y color
             onPressed: () {
-              graphProvider
-                  .stopData(); // Stop data acquisition when navigating back
+              //graphProvider.stopData(); // Stop data acquisition when navigating back
               Get.back();
             },
           ),

@@ -180,7 +180,8 @@ class FFTChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(_offsetX - textPainter.width - 5, yCoord - textPainter.height / 2),
+        Offset(
+            _offsetX - textPainter.width - 5, yCoord - textPainter.height / 2),
       );
     }
 

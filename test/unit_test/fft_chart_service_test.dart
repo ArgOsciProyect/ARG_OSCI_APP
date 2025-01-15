@@ -13,7 +13,7 @@ void _saveComplexToMagnitude(String inputFile, String outputFile) {
   final input = File(inputFile);
   final output = File(outputFile);
   final buffer = StringBuffer();
-  
+
   final lines = input.readAsLinesSync();
   for (final line in lines) {
     final parts = line.split(',');
@@ -24,7 +24,7 @@ void _saveComplexToMagnitude(String inputFile, String outputFile) {
       buffer.writeln(magnitude.toString());
     }
   }
-  
+
   output.writeAsStringSync(buffer.toString());
 }
 
@@ -32,13 +32,13 @@ void _saveMagnitudeToDb(String inputFile, String outputFile) {
   final input = File(inputFile);
   final output = File(outputFile);
   final buffer = StringBuffer();
-  
+
   final lines = input.readAsLinesSync();
   for (final line in lines) {
     final magnitude = double.parse(line);
     buffer.writeln(_toDb(magnitude).toString());
   }
-  
+
   output.writeAsStringSync(buffer.toString());
 }
 
@@ -50,39 +50,28 @@ double _toDb(double magnitude) {
   return 20 * math.log(magnitude) / math.ln10 + normFactor;
 }
 
-void _checkPeak(
-  List<DataPoint> fft,
-  double freq,
-  double expectedValue,
-  double freqTolerance,
-  double valueTolerance
-) {
+void _checkPeak(List<DataPoint> fft, double freq, double expectedValue,
+    double freqTolerance, double valueTolerance) {
   final peak = fft
       .where((p) => (p.x - freq).abs() < freqTolerance)
       .reduce((a, b) => a.y.abs() > b.y.abs() ? a : b);
-      
+
   expect(peak, isNotNull, reason: 'No peak found near $freq Hz');
-  expect(
-    peak.x,
-    closeTo(freq, freqTolerance),
-    reason: 'Peak frequency offset at $freq Hz'
-  );
-  expect(
-    peak.y,
-    closeTo(expectedValue, valueTolerance),
-    reason: 'Incorrect value at $freq Hz'
-  );
+  expect(peak.x, closeTo(freq, freqTolerance),
+      reason: 'Peak frequency offset at $freq Hz');
+  expect(peak.y, closeTo(expectedValue, valueTolerance),
+      reason: 'Incorrect value at $freq Hz');
 }
 
 void _saveFftResults(String filename, List<DataPoint> fftPoints) {
   final file = File(filename);
   final buffer = StringBuffer();
-  
+
   // Save FFT results in dB with imaginary part 0
   for (final point in fftPoints) {
     buffer.writeln('${point.y},0.0');
   }
-  
+
   file.writeAsStringSync(buffer.toString());
 }
 
@@ -103,18 +92,15 @@ List<DataPoint> _loadTestSignal(String filename) {
   }).toList();
 }
 
-Future<List<DataPoint>> _getFftResults(
-  FFTChartService service,
-  MockGraphProvider mockProvider,
-  List<DataPoint> signal
-) async {
+Future<List<DataPoint>> _getFftResults(FFTChartService service,
+    MockGraphProvider mockProvider, List<DataPoint> signal) async {
   final completer = Completer<List<DataPoint>>();
   final sub = service.fftStream.listen((fft) {
     completer.complete(fft);
   });
-  
+
   mockProvider.addPoints(signal);
-  
+
   final results = await completer.future;
   await sub.cancel();
   return results;
@@ -134,12 +120,12 @@ class MockGraphProvider extends Mock implements GraphProvider {
 void main() {
   late MockGraphProvider mockProvider;
   late FFTChartService service;
-  
+
   setUp(() async {
     mockProvider = MockGraphProvider();
     service = FFTChartService(mockProvider);
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     // Convert test signal files if necessary
     // _saveComplexToMagnitude('test/Ref_db.csv', 'test/Ref_db_magnitude.csv');
     // _saveMagnitudeToDb('test/Ref_db_magnitude.csv', 'test/Ref_db_dB.csv');
@@ -162,24 +148,22 @@ void main() {
     await sub.cancel();
   });
 
-  
   test('Compara resultados de FFT con valores de referencia', () async {
     final referenceValues = _loadReferenceValues('test/Ref_db.csv');
     final testSignal = _loadTestSignal('test/test_signal.csv');
 
     final fftResults = await _getFftResults(service, mockProvider, testSignal);
-    
+
     // Save FFT results if needed
     _saveFftResults('test/internal_fft_results.csv', fftResults);
-    
+
     const tolerance = 1.0;
 
-    for (var i = 0; i < math.min(fftResults.length, referenceValues.length); i++) {
-      expect(
-        fftResults[i].y,
-        closeTo(referenceValues[i], tolerance),
-        reason: 'FFT value mismatch at index $i'
-      );
+    for (var i = 0;
+        i < math.min(fftResults.length, referenceValues.length);
+        i++) {
+      expect(fftResults[i].y, closeTo(referenceValues[i], tolerance),
+          reason: 'FFT value mismatch at index $i');
     }
   });
 
@@ -197,10 +181,8 @@ void main() {
     );
     mockProvider.addPoints(points);
 
-    await completer.future.timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw TimeoutException('FFT processing timed out')
-    );
+    await completer.future.timeout(const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('FFT processing timed out'));
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);
@@ -223,10 +205,8 @@ void main() {
     );
     mockProvider.addPoints(points);
 
-    await completer.future.timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw TimeoutException('FFT processing timed out')
-    );
+    await completer.future.timeout(const Duration(seconds: 10),
+        onTimeout: () => throw TimeoutException('FFT processing timed out'));
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);

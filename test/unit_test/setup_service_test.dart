@@ -16,7 +16,8 @@ import 'package:encrypt/encrypt.dart';
 class MockSocketService extends Mock implements SocketService {}
 
 final publicKey = File('test/unit_test/public_key_test.pem').readAsStringSync();
-final privateKey = File('test/unit_test/private_key_test.pem').readAsStringSync();
+final privateKey =
+    File('test/unit_test/private_key_test.pem').readAsStringSync();
 
 void main() {
   late SetupService setupService;

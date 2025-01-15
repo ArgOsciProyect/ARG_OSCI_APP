@@ -35,22 +35,24 @@ List<DataPoint> _computeScidartFFT(List<DataPoint> points) {
 
   const samplingRate = 1600000.0;
   final frequencyResolution = samplingRate / points.length;
-  final frequencies = List<double>.generate(halfLength, (i) => i * frequencyResolution);
+  final frequencies =
+      List<double>.generate(halfLength, (i) => i * frequencyResolution);
 
   if (!FFTChartService.outputInDb) {
-    return List<DataPoint>.generate(halfLength, (i) => 
-      DataPoint(frequencies[i], positiveMagnitudes[i])
-    );
+    return List<DataPoint>.generate(
+        halfLength, (i) => DataPoint(frequencies[i], positiveMagnitudes[i]));
   }
 
   // Convert to dB
   const bitsPerSample = 9.0;
-  final normFactor = 20 * math.log(points.length * math.pow(2, bitsPerSample) / 2) / math.ln10;
+  final normFactor =
+      20 * math.log(points.length * math.pow(2, bitsPerSample) / 2) / math.ln10;
 
   return List<DataPoint>.generate(halfLength, (i) {
     final magnitude = positiveMagnitudes[i];
-    final db = magnitude == 0 ? -160.0 : 
-               20 * math.log(magnitude) / math.ln10 - normFactor;
+    final db = magnitude == 0
+        ? -160.0
+        : 20 * math.log(magnitude) / math.ln10 - normFactor;
     return DataPoint(frequencies[i], db);
   });
 }
@@ -133,26 +135,14 @@ void _fft(Float32List real, Float32List imag) {
         final oddImag = Vector4.zero();
 
         // Cargar factores de twiddle para 4 elementos
-        final angles = Vector4(
-          angle * pair,
-          angle * (pair + 1),
-          angle * (pair + 2),
-          angle * (pair + 3)
-        );
+        final angles = Vector4(angle * pair, angle * (pair + 1),
+            angle * (pair + 2), angle * (pair + 3));
 
-        final cosAngles = Vector4(
-          math.cos(angles.x),
-          math.cos(angles.y),
-          math.cos(angles.z),
-          math.cos(angles.w)
-        );
+        final cosAngles = Vector4(math.cos(angles.x), math.cos(angles.y),
+            math.cos(angles.z), math.cos(angles.w));
 
-        final sinAngles = Vector4(
-          math.sin(angles.x),
-          math.sin(angles.y),
-          math.sin(angles.z),
-          math.sin(angles.w)
-        );
+        final sinAngles = Vector4(math.sin(angles.x), math.sin(angles.y),
+            math.sin(angles.z), math.sin(angles.w));
 
         // Cargar datos usando operaciones vectoriales
         for (var i = 0; i < remainingPairs; i++) {
@@ -205,11 +195,11 @@ class FFTChartService {
   final List<DataPoint> _dataBuffer = [];
 
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
-  
+
   static void setOutputFormat(bool inDb) {
     _outputInDb = inDb;
   }
-  
+
   static bool get outputInDb => _outputInDb;
 
   FFTChartService(this.graphProvider) {

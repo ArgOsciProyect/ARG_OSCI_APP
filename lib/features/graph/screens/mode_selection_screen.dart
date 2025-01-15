@@ -22,9 +22,9 @@ class ModeSelectionScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                Get.to(() => GraphScreen(mode: 'Other Mode'));
+                Get.to(() => GraphScreen(mode: 'FFT'));
               },
-              child: Text('Other Mode'),
+              child: Text('FFT Mode'),
             ),
           ],
         ),
