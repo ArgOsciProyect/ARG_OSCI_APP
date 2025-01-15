@@ -7,13 +7,24 @@ class LineChartService {
   final GraphProvider graphProvider;
   final _dataController = StreamController<List<DataPoint>>.broadcast();
   StreamSubscription? _dataSubscription;
+  bool _isPaused = false;
 
   Stream<List<DataPoint>> get dataStream => _dataController.stream;
 
   LineChartService(this.graphProvider) {
     _dataSubscription = graphProvider.dataPointsStream.listen((points) {
-      _dataController.add(points);
+      if (!_isPaused) {
+        _dataController.add(points);
+      }
     });
+  }
+
+  void pause() {
+    _isPaused = true;
+  }
+
+  void resume() {
+    _isPaused = false;
   }
 
   void dispose() {

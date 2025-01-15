@@ -69,7 +69,8 @@ void main() {
     graphProvider = GraphProvider(dataAcquisitionService, socketConnection);
     fftService = FFTChartService(graphProvider);
 
-    final logDir = Directory('test/integration_test');
+    // Create log directory if it doesn't exist
+    final logDir = Directory('log');
     if (!logDir.existsSync()) {
       logDir.createSync(recursive: true);
     }

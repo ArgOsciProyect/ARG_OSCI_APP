@@ -10,6 +10,7 @@ import '../features/graph/domain/services/fft_chart_service.dart';
 import '../features/graph/providers/fft_chart_provider.dart';
 import '../features/graph/domain/services/line_chart_service.dart';
 import '../features/graph/providers/line_chart_provider.dart';
+import '../features/graph/providers/graph_mode_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
@@ -47,5 +48,10 @@ class Initializer {
     final lineChartService = LineChartService(graphProvider);
     Get.put<LineChartService>(lineChartService);
     Get.put<LineChartProvider>(LineChartProvider(lineChartService));
+    // Initialize mode provider
+    Get.put(GraphModeProvider(
+      lineChartService: Get.find<LineChartService>(),
+      fftChartService: Get.find<FFTChartService>(),
+    ));
   }
 }

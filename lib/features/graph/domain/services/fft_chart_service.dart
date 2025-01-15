@@ -190,6 +190,7 @@ class FFTChartService {
 
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
+  bool _isPaused = false;
   static bool _outputInDb = true; // Make static mutable
 
   final List<DataPoint> _dataBuffer = [];
@@ -205,8 +206,8 @@ class FFTChartService {
   FFTChartService(this.graphProvider) {
     print("Starting FFT Service");
     _dataPointsSubscription = graphProvider.dataPointsStream.listen((points) {
-      if (_isProcessing) {
-        return; // Ignorar nuevos datos mientras se procesa
+      if (_isProcessing || _isPaused) {
+        return;
       }
 
       _dataBuffer.addAll(points);
@@ -214,18 +215,28 @@ class FFTChartService {
       if (_dataBuffer.length >= blockSize) {
         _isProcessing = true;
         final dataToProcess = _dataBuffer.sublist(0, blockSize);
-        _dataBuffer.clear(); // Limpiar el buffer inmediatamente
+        _dataBuffer.clear();
 
-        // Usar compute para procesar la FFT en un isolate separado
         compute(performFFT, dataToProcess).then((fftPoints) {
-          _fftController.add(fftPoints);
-          _isProcessing = false; // Resetear la bandera de procesamiento
+          if (!_isPaused) {
+            _fftController.add(fftPoints);
+          }
+          _isProcessing = false;
         }).catchError((error) {
           print('Error processing FFT: $error');
           _isProcessing = false;
         });
       }
     });
+  }
+
+  void pause() {
+    _isPaused = true;
+    _dataBuffer.clear(); // Clear buffer when paused
+  }
+
+  void resume() {
+    _isPaused = false;
   }
 
   Future<void> dispose() async {

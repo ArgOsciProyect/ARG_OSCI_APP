@@ -80,7 +80,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   double distance = 1 / 1600000;
   @override
-  double triggerLevel = 0.0;
+  double triggerLevel = 1;
   @override
   TriggerEdge triggerEdge = TriggerEdge.positive;
   @override
