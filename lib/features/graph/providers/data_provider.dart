@@ -20,6 +20,7 @@ class GraphProvider extends GetxController {
   final maxValue = Rx<double>(1.0);
   final triggerLevel = Rx<double>(0.0);
   final triggerEdge = Rx<TriggerEdge>(TriggerEdge.positive);
+  final triggerMode = Rx<TriggerMode>(TriggerMode.hysteresis);
   final timeScale = Rx<double>(1.0);
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
@@ -93,6 +94,12 @@ class GraphProvider extends GetxController {
     } catch (e) {
       print('Error stopping data: $e');
     }
+  }
+
+  void setTriggerMode(TriggerMode mode) {
+    triggerMode.value = mode;
+    dataAcquisitionService.triggerMode = mode;
+    dataAcquisitionService.updateConfig();
   }
 
   List<double> autoset(double chartHeight, double chartWidth) {

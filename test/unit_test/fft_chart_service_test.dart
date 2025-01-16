@@ -2,72 +2,17 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 import 'dart:math' as math;
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
 
-// Helper functions
-void _saveComplexToMagnitude(String inputFile, String outputFile) {
-  final input = File(inputFile);
-  final output = File(outputFile);
-  final buffer = StringBuffer();
-
-  final lines = input.readAsLinesSync();
-  for (final line in lines) {
-    final parts = line.split(',');
-    if (parts.length == 2) {
-      final real = double.parse(parts[0]);
-      final imag = double.parse(parts[1]);
-      final magnitude = math.sqrt(real * real + imag * imag);
-      buffer.writeln(magnitude.toString());
-    }
-  }
-
-  output.writeAsStringSync(buffer.toString());
-}
-
-void _saveMagnitudeToDb(String inputFile, String outputFile) {
-  final input = File(inputFile);
-  final output = File(outputFile);
-  final buffer = StringBuffer();
-
-  final lines = input.readAsLinesSync();
-  for (final line in lines) {
-    final magnitude = double.parse(line);
-    buffer.writeln(_toDb(magnitude).toString());
-  }
-
-  output.writeAsStringSync(buffer.toString());
-}
-
-double _toDb(double magnitude) {
-  if (magnitude == 0) return -160.0;
-  const bitsPerSample = 9.0;
-  final fullScale = math.pow(2, bitsPerSample - 1).toDouble();
-  final normFactor = 20 * math.log(fullScale) / math.ln10;
-  return 20 * math.log(magnitude) / math.ln10 + normFactor;
-}
-
-void _checkPeak(List<DataPoint> fft, double freq, double expectedValue,
-    double freqTolerance, double valueTolerance) {
-  final peak = fft
-      .where((p) => (p.x - freq).abs() < freqTolerance)
-      .reduce((a, b) => a.y.abs() > b.y.abs() ? a : b);
-
-  expect(peak, isNotNull, reason: 'No peak found near $freq Hz');
-  expect(peak.x, closeTo(freq, freqTolerance),
-      reason: 'Peak frequency offset at $freq Hz');
-  expect(peak.y, closeTo(expectedValue, valueTolerance),
-      reason: 'Incorrect value at $freq Hz');
-}
-
 void _saveFftResults(String filename, List<DataPoint> fftPoints) {
   final file = File(filename);
   final buffer = StringBuffer();
 
-  // Save FFT results in dB with imaginary part 0
   for (final point in fftPoints) {
     buffer.writeln('${point.y},0.0');
   }
@@ -78,10 +23,7 @@ void _saveFftResults(String filename, List<DataPoint> fftPoints) {
 List<double> _loadReferenceValues(String filename) {
   final file = File(filename);
   final lines = file.readAsLinesSync();
-  return lines.map((line) {
-    final value = double.parse(line);
-    return value;
-  }).toList();
+  return lines.map((line) => double.parse(line)).toList();
 }
 
 List<DataPoint> _loadTestSignal(String filename) {
@@ -107,14 +49,28 @@ Future<List<DataPoint>> _getFftResults(FFTChartService service,
 }
 
 class MockGraphProvider extends Mock implements GraphProvider {
-  final _controller = StreamController<List<DataPoint>>.broadcast();
+  final _dataController = StreamController<List<DataPoint>>.broadcast();
+  final _maxValueController = StreamController<double>.broadcast();
+  final _maxValue = Rx<double>(3.3);
 
   @override
-  Stream<List<DataPoint>> get dataPointsStream => _controller.stream;
+  Stream<List<DataPoint>> get dataPointsStream => _dataController.stream;
 
-  void addPoints(List<DataPoint> points) => _controller.add(points);
+  @override
+  Rx<double> get maxValue => _maxValue;
 
-  void close() => _controller.close();
+  void addPoints(List<DataPoint> points) {
+    if (points.isNotEmpty) {
+      _maxValue.value = points.map((p) => p.y.abs()).reduce(math.max);
+      _maxValueController.add(_maxValue.value);
+    }
+    _dataController.add(points);
+  }
+
+  void close() {
+    _dataController.close();
+    _maxValueController.close();
+  }
 }
 
 void main() {
@@ -128,7 +84,7 @@ void main() {
   });
 
   tearDown(() async {
-    service.dispose();
+    await service.dispose();
     mockProvider.close();
     await Future.delayed(const Duration(milliseconds: 100));
   });
@@ -138,28 +94,23 @@ void main() {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
 
-      // First send data and verify it's processed
       final initialPoints = List.generate(
         FFTChartService.blockSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(initialPoints);
 
-      // Wait for initial processing
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(1), reason: 'Initial data not processed');
 
-      // Pause the service
       service.pause();
 
-      // Send more data
       final additionalPoints = List.generate(
         FFTChartService.blockSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(additionalPoints);
 
-      // Wait to verify no processing occurs
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(1), reason: 'Data processed while paused');
 
@@ -170,25 +121,20 @@ void main() {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
 
-      // Pause immediately
       service.pause();
 
-      // Send data while paused
       final initialPoints = List.generate(
         FFTChartService.blockSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(initialPoints);
 
-      // Wait to verify no processing
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, isEmpty, reason: 'Data processed while paused');
 
-      // Resume and send new data
       service.resume();
       mockProvider.addPoints(initialPoints);
 
-      // Wait for processing
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(1),
           reason: 'Data not processed after resume');
@@ -205,24 +151,20 @@ void main() {
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
 
-      // First cycle
       mockProvider.addPoints(testPoints);
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(1), reason: 'First cycle failed');
 
-      // Pause and verify
       service.pause();
       mockProvider.addPoints(testPoints);
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(1), reason: 'Pause failed');
 
-      // Resume and verify
       service.resume();
       mockProvider.addPoints(testPoints);
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, hasLength(2), reason: 'Resume failed');
 
-      // Second pause cycle
       service.pause();
       mockProvider.addPoints(testPoints);
       await Future.delayed(const Duration(milliseconds: 500));
@@ -235,20 +177,15 @@ void main() {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
 
-      // Send partial data
       final partialPoints = List.generate(
         FFTChartService.blockSize ~/ 2,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(partialPoints);
 
-      // Pause immediately
       service.pause();
-
-      // Complete the block size
       mockProvider.addPoints(partialPoints);
 
-      // Wait to verify no processing occurs
       await Future.delayed(const Duration(milliseconds: 500));
       expect(fftResults, isEmpty, reason: 'Data processed after buffer clear');
 
@@ -272,8 +209,6 @@ void main() {
     final testSignal = _loadTestSignal('test/test_signal.csv');
 
     final fftResults = await _getFftResults(service, mockProvider, testSignal);
-
-    // Save FFT results if needed
     _saveFftResults('test/internal_fft_results.csv', fftResults);
 
     const tolerance = 1.0;
@@ -300,8 +235,10 @@ void main() {
     );
     mockProvider.addPoints(points);
 
-    await completer.future.timeout(const Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException('FFT processing timed out'));
+    await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('FFT processing timed out'),
+    );
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);
@@ -324,8 +261,10 @@ void main() {
     );
     mockProvider.addPoints(points);
 
-    await completer.future.timeout(const Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException('FFT processing timed out'));
+    await completer.future.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => throw TimeoutException('FFT processing timed out'),
+    );
 
     expect(fftResults.length, 1);
     expect(fftResults.first, isNotEmpty);

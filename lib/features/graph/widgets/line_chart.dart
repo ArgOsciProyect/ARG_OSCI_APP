@@ -193,7 +193,17 @@ class LineChartPainter extends CustomPainter {
         var p2 = Offset(dataPoints[i + 1].x * timeScale + offsetX,
             centerY - (dataPoints[i + 1].y * valueScale * drawingHeight / 2));
 
-        // Recortar puntos al área de dibujo
+        // Skip if both points are outside left boundary
+        if (p1.dx < offsetX && p2.dx < offsetX) {
+          continue;
+        }
+
+        // Skip if both points are outside right boundary
+        if (p1.dx > size.width && p2.dx > size.width) {
+          continue;
+        }
+
+        // Clip vertical boundaries
         if (p1.dy < offsetY) {
           p1 = Offset(p1.dx, offsetY);
         } else if (p1.dy > size.height - sqrOffsetBot) {
@@ -206,12 +216,26 @@ class LineChartPainter extends CustomPainter {
           p2 = Offset(p2.dx, size.height - sqrOffsetBot);
         }
 
-        // Recortar puntos al borde derecho
-        if (p1.dx > size.width) {
-          p1 = Offset(size.width, p1.dy);
+        // Clip horizontal boundaries
+        if (p1.dx < offsetX) {
+          // Calculate intersection with left boundary
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final y = p1.dy + (offsetX - p1.dx) * slope;
+          p1 = Offset(offsetX, y);
+        } else if (p1.dx > size.width) {
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final y = p1.dy + (size.width - p1.dx) * slope;
+          p1 = Offset(size.width, y);
         }
-        if (p2.dx > size.width) {
-          p2 = Offset(size.width, p2.dy);
+
+        if (p2.dx < offsetX) {
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final y = p2.dy + (offsetX - p2.dx) * slope;
+          p2 = Offset(offsetX, y);
+        } else if (p2.dx > size.width) {
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final y = p2.dy + (size.width - p2.dx) * slope;
+          p2 = Offset(size.width, y);
         }
 
         canvas.drawLine(p1, p2, paint);

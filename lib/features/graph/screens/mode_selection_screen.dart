@@ -11,9 +11,10 @@ class ModeSelectionScreen extends StatefulWidget {
   State<ModeSelectionScreen> createState() => _ModeSelectionScreenState();
 }
 
-class _ModeSelectionScreenState extends State<ModeSelectionScreen> with WidgetsBindingObserver {
+class _ModeSelectionScreenState extends State<ModeSelectionScreen>
+    with WidgetsBindingObserver {
   final dataProvider = Get.find<GraphProvider>();
-  
+
   @override
   void initState() {
     super.initState();

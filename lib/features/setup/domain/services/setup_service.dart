@@ -145,28 +145,27 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> handleNetworkChangeAndConnect(String ssid, String password, {http.Client? client}) async {
+  Future<void> handleNetworkChangeAndConnect(String ssid, String password,
+      {http.Client? client}) async {
     print("Testing connection to network");
-  
+
     if (Platform.isAndroid) {
       await WiFiForIoTPlugin.forceWifiUsage(false);
     }
-  
+
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
-  
+
     int maxTestRetries = 100;
     String testWord = _generateRandomWord();
     String encryptedWord = encriptWithPublicKey(testWord);
-  
+
     // Create JSON with same format as WiFiCredentials
-    final testRequest = {
-      'word': encryptedWord
-    };
-  
+    final testRequest = {'word': encryptedWord};
+
     for (int i = 0; i < maxTestRetries; i++) {
       try {
         final response = await localHttpService.post('/test', testRequest);
-  
+
         if (response['decrypted'] == testWord) {
           print("Connection verified - correct network");
           await initializeGlobalSocketConnection(extIp, extPort);
@@ -179,12 +178,13 @@ class SetupService implements SetupRepository {
       } catch (e) {
         print("Connection test attempt ${i + 1} failed: $e");
         if (i == maxTestRetries - 1) {
-          throw Exception('Failed to verify connection after $maxTestRetries attempts');
+          throw Exception(
+              'Failed to verify connection after $maxTestRetries attempts');
         }
         await Future.delayed(const Duration(seconds: 1));
       }
     }
-  
+
     throw Exception('Failed to verify connection to correct network');
   }
 

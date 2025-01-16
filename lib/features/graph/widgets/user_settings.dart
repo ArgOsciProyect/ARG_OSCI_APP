@@ -91,6 +91,27 @@ class UserSettings extends StatelessWidget {
                       }).toList(),
                     );
                   }),
+                  const SizedBox(height: 12),
+                  const Text('Noise Reduction:'),
+                  Obx(() {
+                    return DropdownButton<TriggerMode>(
+                      value: graphProvider.triggerMode.value,
+                      isExpanded: true,
+                      onChanged: (mode) {
+                        if (mode != null) {
+                          graphProvider.setTriggerMode(mode);
+                        }
+                      },
+                      items: TriggerMode.values.map((mode) {
+                        return DropdownMenuItem(
+                          value: mode,
+                          child: Text(mode == TriggerMode.hysteresis
+                              ? 'Hysteresis'
+                              : 'Low-Pass 50kHz'),
+                        );
+                      }).toList(),
+                    );
+                  }),
                 ],
               ),
             ),

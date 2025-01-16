@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
 import 'package:meta/meta.dart';
@@ -13,7 +14,7 @@ import '../models/trigger_data.dart';
 
 // Configurations
 const int _processingChunkSize = 8192 * 2;
-const int _maxQueueSize = 8192 * 4;
+const int _maxQueueSize = _processingChunkSize * 6;
 const Duration _reconnectionDelay = Duration(seconds: 5);
 
 // Message classes for isolate communication
@@ -39,6 +40,7 @@ class DataProcessingConfig {
   final TriggerEdge triggerEdge;
   final double triggerSensitivity;
   final double mid;
+  final TriggerMode triggerMode;
 
   const DataProcessingConfig({
     required this.scale,
@@ -47,6 +49,7 @@ class DataProcessingConfig {
     required this.triggerEdge,
     required this.triggerSensitivity,
     required this.mid,
+    this.triggerMode = TriggerMode.hysteresis,
   });
 }
 
@@ -55,12 +58,14 @@ class UpdateConfigMessage {
   final double triggerLevel;
   final TriggerEdge triggerEdge;
   final double triggerSensitivity;
+  final TriggerMode triggerMode;
 
   const UpdateConfigMessage({
     required this.scale,
     required this.triggerLevel,
     required this.triggerEdge,
     required this.triggerSensitivity,
+    required this.triggerMode,
   });
 }
 
@@ -85,6 +90,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   TriggerEdge triggerEdge = TriggerEdge.positive;
   @override
   double triggerSensitivity = 70.0;
+  TriggerMode triggerMode = TriggerMode.hysteresis;
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -166,7 +172,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
-  
+
     // Add exit handler
     final exitPort = ReceivePort();
     Isolate.current.addOnExitListener(exitPort.sendPort);
@@ -175,10 +181,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       receivePort.close();
       exitPort.close();
     });
-  
+
     var config = setup.config;
     final queue = Queue<int>();
-  
+
     receivePort.listen((message) {
       if (message == 'stop') {
         // Process remaining data
@@ -194,7 +200,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       }
     });
   }
-  
+
   static void _processIncomingData(
     List<int> data,
     Queue<int> queue,
@@ -272,62 +278,79 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   ) {
     final points = <DataPoint>[];
     var firstTriggerX = 0.0;
-    var secondTriggerX = 0.0;
-    var firstTriggerIndex = -1;
     var lastTriggerIndex = -1;
-    var secondTriggerIndex = -1;
     var foundFirstTrigger = false;
-    var foundSecondTrigger = false;
     var waitingForHysteresis = false;
-    var lastTriggerY = 0.0;
+
+    // Low-pass filter coefficients for 50kHz
+    const double dt = 1.0 / 1600000.0; // Sampling period
+    const double rc = 1.0 / (2.0 * pi * 50000.0); // Time constant for 50kHz
+    const double alpha = dt / (rc + dt);
+    var filteredY = 0.0;
 
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
 
-      final (uint12Value, channel) = _readDataFromQueue(queue);
+      final (uint12Value, _) = _readDataFromQueue(queue);
       final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
 
-      if (points.isNotEmpty) {
-        final prevY = points.length > 1 ? points[points.length - 2].y : y;
-        final currentY = y;
+      // Apply low-pass filter only for trigger detection
+      filteredY = config.triggerMode == TriggerMode.lowPassFilter
+          ? alpha * y + (1 - alpha) * (points.isEmpty ? y : filteredY)
+          : y;
 
-        if (!waitingForHysteresis) {
-          if (_shouldTrigger(
-              prevY, currentY, config.triggerLevel, config.triggerEdge)) {
-            if (!foundFirstTrigger) {
-              firstTriggerIndex = points.length;
-              firstTriggerX = x;
-              foundFirstTrigger = true;
-              points.add(DataPoint(x, y, isTrigger: true));
-            } else {
-              lastTriggerIndex = points.length;
-              if (!foundSecondTrigger) {
-                secondTriggerIndex = points.length;
-                secondTriggerX = x;
-                foundSecondTrigger = true;
-              }
-              points.add(DataPoint(x, y, isTrigger: true));
-            }
-            waitingForHysteresis = true;
-            lastTriggerY = currentY;
-            continue;
-          }
-        } else {
-          if (config.triggerEdge == TriggerEdge.positive) {
-            if (currentY <
-                (config.triggerLevel -
-                    (config.triggerSensitivity * config.scale))) {
-              waitingForHysteresis = false;
+      if (points.isNotEmpty) {
+        final prevY = points.length > 1
+            ? (config.triggerMode == TriggerMode.lowPassFilter
+                ? filteredY
+                : points[points.length - 2].y)
+            : filteredY;
+        final currentY =
+            config.triggerMode == TriggerMode.lowPassFilter ? filteredY : y;
+
+        bool shouldAddTrigger = false;
+
+        if (config.triggerMode == TriggerMode.hysteresis) {
+          if (!waitingForHysteresis) {
+            if (_shouldTrigger(
+                prevY, currentY, config.triggerLevel, config.triggerEdge)) {
+              shouldAddTrigger = true;
+              waitingForHysteresis = true;
             }
           } else {
-            if (currentY >
-                (config.triggerLevel +
-                    (config.triggerSensitivity * config.scale))) {
-              waitingForHysteresis = false;
+            if (config.triggerEdge == TriggerEdge.positive) {
+              if (currentY <
+                  (config.triggerLevel -
+                      (config.triggerSensitivity * config.scale))) {
+                waitingForHysteresis = false;
+              }
+            } else {
+              if (currentY >
+                  (config.triggerLevel +
+                      (config.triggerSensitivity * config.scale))) {
+                waitingForHysteresis = false;
+              }
             }
           }
+        } else {
+          // Using filtered signal only for trigger detection
+          if (_shouldTrigger(
+              prevY, currentY, config.triggerLevel, config.triggerEdge)) {
+            shouldAddTrigger = true;
+          }
+        }
+
+        if (shouldAddTrigger) {
+          if (!foundFirstTrigger) {
+            firstTriggerX = x;
+            foundFirstTrigger = true;
+          }
+          lastTriggerIndex = points.length;
+          points.add(DataPoint(x, y, isTrigger: true));
+          continue;
         }
       }
+
       points.add(DataPoint(x, y));
     }
 
@@ -335,7 +358,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final endIndex =
           lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
       return points
-          .sublist(firstTriggerIndex, endIndex)
+          .sublist(0, endIndex)
           .map((point) => DataPoint(point.x - firstTriggerX, point.y,
               isTrigger: point.isTrigger))
           .toList();
@@ -428,24 +451,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerLevel: triggerLevel,
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
+      triggerMode: triggerMode, // Add missing parameter
     ));
   }
 
   @override
   Future<void> stopData() async {
     try {
-      // Send stop signal to isolates
       _configSendPort?.send('stop');
       _socketToProcessingSendPort?.send('stop');
-      
-      // Give isolates time to process final data and cleanup
+
       await Future.delayed(const Duration(milliseconds: 100));
-  
-      // Create completion flags for each isolate
+
       final processingDone = Completer<void>();
       final socketDone = Completer<void>();
-  
-      // Setup exit listeners
+
       if (_processingIsolate != null) {
         final exitPort = ReceivePort();
         _processingIsolate!.addOnExitListener(exitPort.sendPort);
@@ -456,7 +476,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       } else {
         processingDone.complete();
       }
-  
+
       if (_socketIsolate != null) {
         final exitPort = ReceivePort();
         _socketIsolate!.addOnExitListener(exitPort.sendPort);
@@ -467,12 +487,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       } else {
         socketDone.complete();
       }
-  
-      // Kill isolates with immediate priority
+
       _processingIsolate?.kill(priority: Isolate.immediate);
       _socketIsolate?.kill(priority: Isolate.immediate);
-  
-      // Wait for both isolates to complete with timeout
+
       await Future.wait([
         processingDone.future.timeout(
           const Duration(seconds: 2),
@@ -483,23 +501,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           onTimeout: () => print('Socket isolate kill timeout'),
         ),
       ]);
-  
-      // Reset all state
+
       _processingIsolate = null;
       _socketIsolate = null;
       _processingReceivePort?.close();
       _processingReceivePort = null;
       _socketToProcessingSendPort = null;
       _configSendPort = null;
-  
-      // Reset metrics
+
       _currentFrequency = 0.0;
       _currentMaxValue = 0.0;
       _currentAverage = 0.0;
-      _frequencyController.add(0.0);
-      _maxValueController.add(0.0);
-      _dataController.add([]);
-  
+
+      // Only add final values if controllers are not closed
+      if (!_disposed) {
+        _frequencyController.add(0.0);
+        _maxValueController.add(0.0);
+        _dataController.add([]);
+      }
     } catch (e) {
       print('Error stopping data: $e');
       rethrow;

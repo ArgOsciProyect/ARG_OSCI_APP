@@ -1,6 +1,8 @@
 // test/integration_test/data_processing_profilling_test.dart
 
 import 'dart:math';
+import 'dart:io';
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
@@ -9,8 +11,25 @@ import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
-import 'dart:io';
-import 'dart:async';
+
+// Test signal generation helpers
+List<DataPoint> generateSineWave(
+    int size, double frequency, double amplitude, double sampleRate) {
+  return List.generate(
+      size,
+      (i) => DataPoint(i / sampleRate,
+          amplitude * sin(2 * pi * frequency * i / sampleRate)));
+}
+
+List<DataPoint> generateComplexSignal(int size, double sampleRate) {
+  return List.generate(
+      size,
+      (i) => DataPoint(
+          i / sampleRate,
+          sin(2 * pi * 10 * i / sampleRate) +
+              0.5 * sin(2 * pi * 20 * i / sampleRate) +
+              0.25 * sin(2 * pi * 40 * i / sampleRate)));
+}
 
 void main() {
   late DataAcquisitionService dataAcquisitionService;
@@ -19,6 +38,7 @@ void main() {
   late File logFile;
   final stopwatch = Stopwatch();
 
+  // Performance metrics calculation
   Map<String, double> calculateStats(List<DataPoint> points) {
     final n = points.length;
     if (n == 0) return {'mean': 0.0, 'std': 0.0};
@@ -30,27 +50,34 @@ void main() {
     return {'mean': mean, 'std': sqrt(variance)};
   }
 
-  void logPerformance(String operation, int dataSize, int durationMicros,
+  // Enhanced logging with test case info
+  void logPerformance(
+      String testCase, String operation, int dataSize, int durationMicros,
       {String? error, Map<String, dynamic>? extraData}) {
     final timestamp = DateTime.now();
     final logEntry = StringBuffer()
-      ..writeln('=== $operation ===')
+      ..writeln('\n=== Test Case: $testCase ===')
+      ..writeln('Operation: $operation')
       ..writeln('Timestamp: $timestamp')
       ..writeln('Data Size: $dataSize points')
-      ..writeln('Duration: ${durationMicros}µs');
+      ..writeln(
+          'Block Info: ${dataSize ~/ FFTChartService.blockSize} blocks of ${FFTChartService.blockSize} points')
+      ..writeln(
+          'Duration: ${durationMicros}µs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
 
     if (extraData != null) {
-      logEntry.writeln('Additional Data:');
+      logEntry.writeln('\nPerformance Metrics:');
       extraData.forEach((key, value) {
         logEntry.writeln('  $key: ${value.toStringAsFixed(6)}');
       });
     }
 
     if (error != null) {
-      logEntry.writeln('Error: $error');
+      logEntry.writeln('\nError:');
+      logEntry.writeln('  $error');
     }
 
-    logEntry.writeln('-' * 50);
+    logEntry.writeln('\n${'=' * 80}\n');
 
     try {
       logFile.writeAsStringSync(logEntry.toString(), mode: FileMode.append);
@@ -60,6 +87,7 @@ void main() {
   }
 
   setUp(() async {
+    // Setup services
     final httpConfig = HttpConfig('http://localhost:8080');
     final socketConnection = SocketConnection('localhost', 8080);
 
@@ -69,34 +97,34 @@ void main() {
     graphProvider = GraphProvider(dataAcquisitionService, socketConnection);
     fftService = FFTChartService(graphProvider);
 
-    // Create log directory if it doesn't exist
+    // Setup logging
     final logDir = Directory('log');
     if (!logDir.existsSync()) {
       logDir.createSync(recursive: true);
     }
 
-    logFile = File('log/data_processing_performance.log');
+    logFile = File('log/data_processing_performance_python.log');
     if (!logFile.existsSync()) {
       logFile.createSync();
     }
 
-    logFile.writeAsStringSync('\n=== Test Run ${DateTime.now()} ===\n',
+    logFile.writeAsStringSync(
+        '\n${'#' * 100}\nTest Run: ${DateTime.now()}\n${'#' * 100}\n',
         mode: FileMode.append);
-    await Future.delayed(const Duration(milliseconds: 500));
   });
 
-  group('Data Processing Performance Tests', () {
-    test('Filter Performance Test', () async {
+  group('Digital Signal Processing Performance Tests', () {
+    test('Filter Performance - Various Data Sizes', () async {
       final dataSizes = [1000, 10000, 100000];
       final filters = [
         MovingAverageFilter(),
         ExponentialFilter(),
         LowPassFilter()
       ];
+      const sampleRate = 1600000.0;
 
       for (final size in dataSizes) {
-        final points = List.generate(
-            size, (i) => DataPoint(i * 0.001, sin(2 * pi * i / 100)));
+        final points = generateSineWave(size, 1000.0, 1.0, sampleRate);
 
         for (final filter in filters) {
           try {
@@ -112,18 +140,24 @@ void main() {
             final inputStats = calculateStats(points);
             final outputStats = calculateStats(filtered);
 
-            logPerformance('Filter: ${filter.runtimeType}', size,
+            logPerformance(
+                'Filter Benchmark',
+                '${filter.runtimeType} with $size points',
+                size,
                 stopwatch.elapsedMicroseconds,
                 extraData: {
                   'input_mean': inputStats['mean']!,
                   'input_std': inputStats['std']!,
                   'output_mean': outputStats['mean']!,
-                  'output_std': outputStats['std']!
+                  'output_std': outputStats['std']!,
+                  'points_per_second':
+                      size / (stopwatch.elapsedMicroseconds / 1000000)
                 });
 
             expect(filtered.length, equals(points.length));
           } catch (e) {
-            logPerformance('Filter: ${filter.runtimeType}', size, -1,
+            logPerformance('Filter Error',
+                '${filter.runtimeType} with $size points', size, -1,
                 error: e.toString());
             rethrow;
           }
@@ -131,42 +165,108 @@ void main() {
       }
     });
 
-    test('FFT Processing Performance Test', () async {
+    test('Single FFT Block Performance', () async {
       final fftResults = <List<DataPoint>>[];
       final completer = Completer<void>();
+      const sampleRate = 1600000.0;
 
       final sub = fftService.fftStream.listen((fft) {
         fftResults.add(fft);
         completer.complete();
       });
 
-      final points = List.generate(
-          FFTChartService.blockSize,
-          (i) => DataPoint(
-              i.toDouble(),
-              sin(2 * pi * 10 * i / FFTChartService.blockSize) +
-                  0.5 * sin(2 * pi * 20 * i / FFTChartService.blockSize)));
-
-      stopwatch.reset();
-      stopwatch.start();
-
-      graphProvider.addPoints(points);
-
       try {
-        await completer.future.timeout(const Duration(seconds: 10));
+        final points =
+            generateComplexSignal(FFTChartService.blockSize, sampleRate);
 
+        stopwatch.reset();
+        stopwatch.start();
+        graphProvider.addPoints(points);
+        await completer.future.timeout(const Duration(seconds: 10));
         stopwatch.stop();
 
         final fftStats = calculateStats(fftResults.first);
 
-        logPerformance('FFT Processing', FFTChartService.blockSize,
-            stopwatch.elapsedMicroseconds, extraData: {
-          'fft_mean': fftStats['mean']!,
-          'fft_std': fftStats['std']!
-        });
+        logPerformance('Single FFT Block', 'FFT Processing',
+            FFTChartService.blockSize, stopwatch.elapsedMicroseconds,
+            extraData: {
+              'fft_mean': fftStats['mean']!,
+              'fft_std': fftStats['std']!,
+              'processing_time_ms': stopwatch.elapsedMicroseconds / 1000.0
+            });
 
         expect(fftResults.length, equals(1));
         expect(fftResults.first.isNotEmpty, isTrue);
+      } finally {
+        await sub.cancel();
+      }
+    });
+
+    test('Continuous Stream FFT Performance', () async {
+      const numBlocks = 5;
+      final allFftResults = <List<DataPoint>>[];
+      final processingTimes = <int>[];
+      var blocksReceived = 0;
+      var blocksSent = 0;
+      const sampleRate = 1600000.0;
+
+      final sub = fftService.fftStream.listen((fft) {
+        allFftResults.add(fft);
+        processingTimes.add(stopwatch.elapsedMicroseconds);
+        blocksReceived++;
+      });
+
+      try {
+        final points =
+            generateComplexSignal(FFTChartService.blockSize, sampleRate);
+        stopwatch.start();
+
+        // Simulate real-time data stream
+        for (var i = 0; i < numBlocks && blocksReceived < numBlocks; i++) {
+          graphProvider.addPoints(points);
+          blocksSent++;
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+
+        // Wait for processing completion
+        while (blocksReceived < blocksSent) {
+          await Future.delayed(const Duration(milliseconds: 10));
+          if (stopwatch.elapsed > const Duration(seconds: 20)) {
+            print('Timeout waiting for FFT processing');
+            break;
+          }
+        }
+
+        stopwatch.stop();
+        final totalTime = stopwatch.elapsedMicroseconds;
+        final throughput = (blocksReceived * FFTChartService.blockSize) /
+            (totalTime / 1000000);
+        final averageProcessingTime =
+            blocksReceived > 0 ? totalTime / blocksReceived : 0;
+
+        logPerformance('Continuous FFT Stream', 'Multiple Blocks Processing',
+            blocksReceived * FFTChartService.blockSize, totalTime,
+            extraData: {
+              'blocks_sent': blocksSent.toDouble(),
+              'blocks_received': blocksReceived.toDouble(),
+              'total_time_ms': totalTime / 1000.0,
+              'throughput_points_per_second': throughput,
+              'average_block_time_ms': averageProcessingTime / 1000.0,
+              'processing_ratio': blocksReceived / blocksSent.toDouble(),
+              'min_block_time_ms': processingTimes.isNotEmpty
+                  ? processingTimes.reduce(min) / 1000.0
+                  : 0,
+              'max_block_time_ms': processingTimes.isNotEmpty
+                  ? processingTimes.reduce(max) / 1000.0
+                  : 0,
+              'data_rate_mbps':
+                  (FFTChartService.blockSize * 4 * 8 * blocksReceived) /
+                      (totalTime / 1000000) /
+                      1000000
+            });
+
+        expect(blocksReceived, greaterThan(0));
+        expect(allFftResults.every((block) => block.isNotEmpty), isTrue);
       } finally {
         await sub.cancel();
       }
