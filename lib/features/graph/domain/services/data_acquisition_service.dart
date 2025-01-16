@@ -13,7 +13,7 @@ import '../models/trigger_data.dart';
 
 // Configurations
 const int _processingChunkSize = 8192 * 2;
-const int _maxQueueSize = 8192 * 32;
+const int _maxQueueSize = 8192 * 4;
 const Duration _reconnectionDelay = Duration(seconds: 5);
 
 // Message classes for isolate communication

@@ -11,6 +11,87 @@ import 'package:http/http.dart' as http;
 import '../models/wifi_credentials.dart';
 import '../repository/setup_repository.dart';
 import 'dart:io';
+import 'package:wifi_iot/wifi_iot.dart';
+
+class NetworkInfoService {
+  final NetworkInfo _networkInfo = NetworkInfo();
+
+  Future<bool> connectToESP32() async {
+    if (Platform.isAndroid) {
+      try {
+        print("Connecting to ESP32_AP");
+
+        // Disconnect from current network
+        print("Disconnecting from current network");
+        await WiFiForIoTPlugin.disconnect();
+        await Future.delayed(const Duration(seconds: 2));
+
+        // Try to connect
+        print("Attempting connection to ESP32_AP");
+        bool connected = await WiFiForIoTPlugin.connect(
+          'ESP32_AP',
+          password: 'password123',
+          security: NetworkSecurity.WPA,
+          joinOnce: true,
+          withInternet: false,
+        );
+
+        if (!connected) {
+          print("Failed to connect to ESP32_AP");
+          return false;
+        }
+
+        await Future.delayed(const Duration(seconds: 3));
+        return await WiFiForIoTPlugin.forceWifiUsage(true);
+      } catch (e) {
+        print('Error connecting to ESP32: $e');
+        return false;
+      }
+    }
+    return false;
+  }
+
+Future<bool> isConnectedToBSSID(String expectedBSSID) async {
+  try {
+    String? currentBSSID;
+    
+    if (Platform.isAndroid) {
+      currentBSSID = await WiFiForIoTPlugin.getBSSID();
+      if (currentBSSID != null) {
+        currentBSSID = currentBSSID.toLowerCase();
+      }
+    } else {
+      currentBSSID = await _networkInfo.getWifiBSSID();
+    }
+    
+    print("Current BSSID: $currentBSSID");
+    print("Expected BSSID: $expectedBSSID");
+    if (currentBSSID?.toLowerCase() == expectedBSSID.toLowerCase()){
+      WiFiForIoTPlugin.forceWifiUsage(true);
+      return true;
+    }
+    else{
+      return false;
+    }
+    
+  } catch (e) {
+    print('Error checking BSSID: $e');
+    return false;
+  }
+}
+
+  Future<String?> getWifiName() async {
+    return _networkInfo.getWifiName();
+  }
+
+  Future<String?> getWifiIP() async {
+    return _networkInfo.getWifiIP();
+  }
+
+  Future<String?> getBSSID() async {
+    return _networkInfo.getWifiBSSID();
+  }
+}
 
 class SetupService implements SetupRepository {
   SocketConnection globalSocketConnection;
@@ -18,7 +99,9 @@ class SetupService implements SetupRepository {
   late SocketService localSocketService;
   late HttpService localHttpService;
   RSAPublicKey? _publicKey;
-  final NetworkInfo _networkInfo = NetworkInfo();
+  //final NetworkInfo _networkInfo = NetworkInfo();
+  final NetworkInfoService _networkInfo = NetworkInfoService();
+
   late dynamic extIp;
   late dynamic extPort;
   late dynamic extBSSID;
@@ -48,13 +131,16 @@ class SetupService implements SetupRepository {
         await localHttpService.post('/connect_wifi', credentials.toJson());
     extIp = response['IP'];
     extPort = response['Port'];
+    extBSSID = response['BSSID'];
 
     print("ip recibido: $extIp");
     print("port recibido: $extPort");
+    print("bssid recibido: $extBSSID");
   }
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
+    print("Scannig wifis");
     final publicKeyResponse = await localHttpService.get('/get_public_key');
     _pubKey = publicKeyResponse;
     print(_pubKey["PublicKey"]);
@@ -93,47 +179,77 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> handleNetworkChangeAndConnect(String ssid,
+  Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client}) async {
-    await waitForNetworkChange(ssid);
-    print("Connected to $ssid");
-    await Future.delayed(Duration(seconds: 3));
-    await initializeGlobalHttpConfig('http://$extIp:80', client: client);
+    print("Waiting for connection to $ssid");
 
-    // Hacer una solicitud GET de prueba a /test y imprimir la respuesta
-    while (true) {
-      try {
-        final response = await localHttpService.get('/test');
-        print(response);
-        break;
-      } catch (e) {
-        print(e);
-        await Future.delayed(Duration(seconds: 1));
+    // Wait for user to connect to the network and verify BSSID
+    bool connected = false;
+    int maxRetries = 100; // 30 seconds timeout
+
+    for (int i = 0; i < maxRetries && !connected; i++) {
+      connected = await _networkInfo.isConnectedToBSSID(extBSSID);
+      if (!connected) {
+        print("Waiting for network connection... ($i/$maxRetries)");
+        await Future.delayed(const Duration(seconds: 1));
       }
     }
-    await initializeGlobalSocketConnection(
-        extIp, extPort); // Esperar a que la conexión del socket se complete
+
+    if (!connected) {
+      throw Exception(
+          'Failed to connect to correct network after $maxRetries seconds');
+    }
+
+    print("Connected to correct network");
+    await Future.delayed(const Duration(seconds: 2));
+    await initializeGlobalHttpConfig('http://$extIp:80', client: client);
+
+    // Test connection with retries
+    //int maxTestRetries = 10;
+    //for (int i = 0; i < maxTestRetries; i++) {
+    //  try {
+    //    final response = await localHttpService.get('/test');
+    //    print("Connection test successful: $response");
+    //    break;
+    //  } catch (e) {
+    //    print("Connection test attempt ${i + 1} failed: $e");
+    //    if (i == maxTestRetries - 1) {
+    //      throw Exception(
+    //          'Failed to establish connection after $maxTestRetries attempts');
+    //    }
+    //    await Future.delayed(const Duration(seconds: 1));
+    //  }
+    //}
+
+    await initializeGlobalSocketConnection(extIp, extPort);
   }
 
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {
-    while (true) {
-      // Obtener nombre de red WiFi
-      String? wifiName = await _networkInfo.getWifiName();
-      if (Platform.isAndroid && wifiName != null) {
-        wifiName = wifiName.replaceAll('"', '');
+    if (Platform.isAndroid) {
+      final connected = await _networkInfo.connectToESP32();
+      if (!connected) {
+        throw Exception('Failed to connect to ESP32_AP');
       }
+      // Wait for connection to stabilize
+      await Future.delayed(const Duration(seconds: 2));
+      print(await _networkInfo.getWifiName());
+      print(await _networkInfo.getWifiIP());
+    } else {
+      // Original manual connection check
+      while (true) {
+        String? wifiName = await _networkInfo.getWifiName();
+        if (Platform.isAndroid && wifiName != null) {
+          wifiName = wifiName.replaceAll('"', '');
+        }
 
-      // Obtener IP del dispositivo
-      String? ipAddress = await _networkInfo.getWifiIP();
+        if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
+          break;
+        }
 
-      // Verificar si está conectado a la red ESP32_AP y tiene la IP correcta
-      if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
-        break;
+        print('Please connect manually to ESP32_AP network');
+        await Future.delayed(const Duration(seconds: 1));
       }
-
-      print('WiFi: $wifiName, IP: $ipAddress');
-      await Future.delayed(Duration(seconds: 1));
     }
 
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
@@ -142,10 +258,10 @@ class SetupService implements SetupRepository {
   @override
   Future<void> waitForNetworkChange(String ssid) async {
     String? wifiName = await _networkInfo.getWifiName();
-    print(wifiName);
     if (Platform.isAndroid && wifiName != null) {
       wifiName = wifiName.replaceAll('"', '');
     }
+
     while (wifiName?.startsWith(ssid) == false) {
       await Future.delayed(Duration(seconds: 1));
       wifiName = await _networkInfo.getWifiName();

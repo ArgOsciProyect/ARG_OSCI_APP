@@ -7,13 +7,13 @@ import '../../graph/screens/mode_selection_screen.dart';
 Future<void> showWiFiNetworkDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
 
-  // Mostrar diálogo de espera
+  // First dialog - Scanning
   Get.dialog(
     AlertDialog(
       title: const Text('Scanning for WiFi Networks'),
-      content: Column(
+      content: const Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Text('Please wait while scanning for available WiFi networks...'),
           SizedBox(height: 20),
           CircularProgressIndicator(),
@@ -24,32 +24,31 @@ Future<void> showWiFiNetworkDialog() async {
   );
 
   await controller.handleExternalAPSelection();
-
-  // Cerrar el diálogo de espera
   Get.back();
 
+  // Second dialog - Network Selection
   final selectedSSID = await Get.dialog<String>(
     AlertDialog(
       title: const Text('Select WiFi Network'),
-      content: Obx(() {
-        return SizedBox(
-          height: 300,
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Column(
-              children: controller.availableNetworks.map((network) {
-                return ListTile(
-                  title: Text(network),
-                  onTap: () {
-                    final ssid = network.split('SSID:').last.trim();
-                    Get.back(result: ssid);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      }),
+      content: SizedBox(
+        width: 300,
+        height: 400,
+        child: Obx(() {
+          return ListView.builder(
+            itemCount: controller.availableNetworks.length,
+            itemBuilder: (context, index) {
+              final network = controller.availableNetworks[index];
+              return ListTile(
+                title: Text(network),
+                onTap: () {
+                  final ssid = network.split('SSID:').last.trim();
+                  Get.back(result: ssid);
+                },
+              );
+            },
+          );
+        }),
+      ),
     ),
   );
 
@@ -62,21 +61,30 @@ Future<void> askForPassword(String ssid) async {
   final passwordController = TextEditingController();
 
   final password = await Get.dialog<String>(
-    AlertDialog(
-      title: const Text('Enter WiFi Password'),
-      content: TextField(
-        controller: passwordController,
-        decoration: const InputDecoration(hintText: "Enter Password"),
-        obscureText: true,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Get.back(result: passwordController.text);
-          },
-          child: const Text('OK'),
+    Material(
+      type: MaterialType.transparency,
+      child: AlertDialog(
+        title: Text('Enter Password for $ssid'),
+        content: TextField(
+          controller: passwordController,
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            border: OutlineInputBorder(),
+          ),
+          obscureText: true,
+          autofocus: true,
         ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Get.back(result: passwordController.text),
+            child: const Text('Connect'),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -84,14 +92,13 @@ Future<void> askForPassword(String ssid) async {
     final SetupProvider controller = Get.find<SetupProvider>();
     await controller.connectToExternalAP(ssid, password);
 
-    // Mostrar diálogo de espera
     Get.dialog(
       AlertDialog(
-        title: const Text('Waiting for network change'),
+        title: const Text('Connecting to Network'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Please change your Wi-Fi network to $ssid.'),
+            Text('Connecting to $ssid...'),
             const SizedBox(height: 20),
             const CircularProgressIndicator(),
           ],
@@ -100,13 +107,8 @@ Future<void> askForPassword(String ssid) async {
       barrierDismissible: false,
     );
 
-    // Esperar a que la red cambie y conectar al socket
-    await controller.handleNetworkChangeAndConnect(ssid);
-
-    // Cerrar el diálogo de espera
+    await controller.handleNetworkChangeAndConnect(ssid, password);
     Get.back();
-
-    // Navegar a la pantalla de selección de modo
     Get.to(() => const ModeSelectionScreen());
   }
 }

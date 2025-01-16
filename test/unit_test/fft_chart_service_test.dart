@@ -125,16 +125,135 @@ void main() {
     mockProvider = MockGraphProvider();
     service = FFTChartService(mockProvider);
     await Future.delayed(const Duration(milliseconds: 300));
-
-    // Convert test signal files if necessary
-    // _saveComplexToMagnitude('test/Ref_db.csv', 'test/Ref_db_magnitude.csv');
-    // _saveMagnitudeToDb('test/Ref_db_magnitude.csv', 'test/Ref_db_dB.csv');
   });
 
   tearDown(() async {
     service.dispose();
     mockProvider.close();
     await Future.delayed(const Duration(milliseconds: 100));
+  });
+
+  group('Pause/Resume Tests', () {
+    test('pause stops processing new data', () async {
+      final fftResults = <List<DataPoint>>[];
+      final sub = service.fftStream.listen(fftResults.add);
+
+      // First send data and verify it's processed
+      final initialPoints = List.generate(
+        FFTChartService.blockSize,
+        (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
+      );
+      mockProvider.addPoints(initialPoints);
+
+      // Wait for initial processing
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(1), reason: 'Initial data not processed');
+
+      // Pause the service
+      service.pause();
+
+      // Send more data
+      final additionalPoints = List.generate(
+        FFTChartService.blockSize,
+        (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
+      );
+      mockProvider.addPoints(additionalPoints);
+
+      // Wait to verify no processing occurs
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(1), reason: 'Data processed while paused');
+
+      await sub.cancel();
+    });
+
+    test('resume restarts data processing', () async {
+      final fftResults = <List<DataPoint>>[];
+      final sub = service.fftStream.listen(fftResults.add);
+
+      // Pause immediately
+      service.pause();
+
+      // Send data while paused
+      final initialPoints = List.generate(
+        FFTChartService.blockSize,
+        (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
+      );
+      mockProvider.addPoints(initialPoints);
+
+      // Wait to verify no processing
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, isEmpty, reason: 'Data processed while paused');
+
+      // Resume and send new data
+      service.resume();
+      mockProvider.addPoints(initialPoints);
+
+      // Wait for processing
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(1),
+          reason: 'Data not processed after resume');
+
+      await sub.cancel();
+    });
+
+    test('multiple pause/resume cycles work correctly', () async {
+      final fftResults = <List<DataPoint>>[];
+      final sub = service.fftStream.listen(fftResults.add);
+
+      final testPoints = List.generate(
+        FFTChartService.blockSize,
+        (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
+      );
+
+      // First cycle
+      mockProvider.addPoints(testPoints);
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(1), reason: 'First cycle failed');
+
+      // Pause and verify
+      service.pause();
+      mockProvider.addPoints(testPoints);
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(1), reason: 'Pause failed');
+
+      // Resume and verify
+      service.resume();
+      mockProvider.addPoints(testPoints);
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(2), reason: 'Resume failed');
+
+      // Second pause cycle
+      service.pause();
+      mockProvider.addPoints(testPoints);
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, hasLength(2), reason: 'Second pause failed');
+
+      await sub.cancel();
+    });
+
+    test('buffer is cleared on pause', () async {
+      final fftResults = <List<DataPoint>>[];
+      final sub = service.fftStream.listen(fftResults.add);
+
+      // Send partial data
+      final partialPoints = List.generate(
+        FFTChartService.blockSize ~/ 2,
+        (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
+      );
+      mockProvider.addPoints(partialPoints);
+
+      // Pause immediately
+      service.pause();
+
+      // Complete the block size
+      mockProvider.addPoints(partialPoints);
+
+      // Wait to verify no processing occurs
+      await Future.delayed(const Duration(milliseconds: 500));
+      expect(fftResults, isEmpty, reason: 'Data processed after buffer clear');
+
+      await sub.cancel();
+    });
   });
 
   test('Inicia correctamente y no procesa si no llega al blockSize', () async {

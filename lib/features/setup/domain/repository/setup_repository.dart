@@ -23,7 +23,7 @@ abstract class SetupRepository {
   Future<void> selectMode(String mode, {http.Client? client});
 
   /// Handles network change and establishes connection
-  Future<void> handleNetworkChangeAndConnect(String ssid,
+  Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client});
 
   /// Connects to the local access point

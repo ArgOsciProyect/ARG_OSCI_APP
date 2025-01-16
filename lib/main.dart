@@ -2,6 +2,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'config/app_theme.dart';
 import 'features/setup/screens/setup_screen.dart';
@@ -12,6 +13,12 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Force landscape orientation
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
   if (Platform.isAndroid) {
     await requestPermissions();
   }
@@ -25,6 +32,7 @@ Future<void> requestPermissions() async {
   await [
     Permission.locationAlways,
     Permission.nearbyWifiDevices,
+    Permission.location,
   ].request();
 }
 

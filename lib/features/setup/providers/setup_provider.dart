@@ -31,7 +31,8 @@ class SetupProvider extends GetxController {
     await setupService.waitForNetworkChange(ssid);
   }
 
-  Future<void> handleNetworkChangeAndConnect(String ssid) async {
-    await setupService.handleNetworkChangeAndConnect(ssid);
+  Future<void> handleNetworkChangeAndConnect(
+      String ssid, String password) async {
+    await setupService.handleNetworkChangeAndConnect(ssid, password);
   }
 }
