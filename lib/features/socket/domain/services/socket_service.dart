@@ -87,7 +87,8 @@ class SocketService implements SocketRepository {
       await subscription.cancel();
     }
     _subscriptions.clear();
-    await _socket?.close();
+    await socket?.flush();
+    _socket?.destroy();
     await _controller.close();
   }
 

@@ -136,6 +136,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final socketService = SocketService();
     final connection = SocketConnection(setup.ip, setup.port);
 
+    // Add exit handler
+    final exitPort = ReceivePort();
+    Isolate.current.addOnExitListener(exitPort.sendPort);
+    exitPort.listen((_) async {
+      print('Socket isolate exiting, cleaning up...');
+      await socketService.close();
+      exitPort.close();
+    });
+
     while (true) {
       try {
         await socketService.connect(connection);
@@ -157,19 +166,35 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
-
+  
+    // Add exit handler
+    final exitPort = ReceivePort();
+    Isolate.current.addOnExitListener(exitPort.sendPort);
+    exitPort.listen((_) {
+      print('Processing isolate exiting, cleaning up...');
+      receivePort.close();
+      exitPort.close();
+    });
+  
     var config = setup.config;
     final queue = Queue<int>();
-
+  
     receivePort.listen((message) {
-      if (message is List<int>) {
+      if (message == 'stop') {
+        // Process remaining data
+        if (queue.isNotEmpty) {
+          final points = _processData(queue, queue.length, config);
+          setup.sendPort.send(points);
+          queue.clear();
+        }
+      } else if (message is List<int>) {
         _processIncomingData(message, queue, config, setup.sendPort);
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
       }
     });
   }
-
+  
   static void _processIncomingData(
     List<int> data,
     Queue<int> queue,
@@ -408,17 +433,77 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<void> stopData() async {
-    _processingIsolate?.kill();
-    _socketIsolate?.kill();
-
-    _processingIsolate = null;
-    _socketIsolate = null;
-
-    _processingReceivePort?.close();
-    _processingReceivePort = null;
-
-    _socketToProcessingSendPort = null;
-    _configSendPort = null;
+    try {
+      // Send stop signal to isolates
+      _configSendPort?.send('stop');
+      _socketToProcessingSendPort?.send('stop');
+      
+      // Give isolates time to process final data and cleanup
+      await Future.delayed(const Duration(milliseconds: 100));
+  
+      // Create completion flags for each isolate
+      final processingDone = Completer<void>();
+      final socketDone = Completer<void>();
+  
+      // Setup exit listeners
+      if (_processingIsolate != null) {
+        final exitPort = ReceivePort();
+        _processingIsolate!.addOnExitListener(exitPort.sendPort);
+        exitPort.listen((_) {
+          exitPort.close();
+          processingDone.complete();
+        });
+      } else {
+        processingDone.complete();
+      }
+  
+      if (_socketIsolate != null) {
+        final exitPort = ReceivePort();
+        _socketIsolate!.addOnExitListener(exitPort.sendPort);
+        exitPort.listen((_) {
+          exitPort.close();
+          socketDone.complete();
+        });
+      } else {
+        socketDone.complete();
+      }
+  
+      // Kill isolates with immediate priority
+      _processingIsolate?.kill(priority: Isolate.immediate);
+      _socketIsolate?.kill(priority: Isolate.immediate);
+  
+      // Wait for both isolates to complete with timeout
+      await Future.wait([
+        processingDone.future.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => print('Processing isolate kill timeout'),
+        ),
+        socketDone.future.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => print('Socket isolate kill timeout'),
+        ),
+      ]);
+  
+      // Reset all state
+      _processingIsolate = null;
+      _socketIsolate = null;
+      _processingReceivePort?.close();
+      _processingReceivePort = null;
+      _socketToProcessingSendPort = null;
+      _configSendPort = null;
+  
+      // Reset metrics
+      _currentFrequency = 0.0;
+      _currentMaxValue = 0.0;
+      _currentAverage = 0.0;
+      _frequencyController.add(0.0);
+      _maxValueController.add(0.0);
+      _dataController.add([]);
+  
+    } catch (e) {
+      print('Error stopping data: $e');
+      rethrow;
+    }
   }
 
   @override

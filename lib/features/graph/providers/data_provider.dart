@@ -53,8 +53,8 @@ class GraphProvider extends GetxController {
     });
 
     // Observe changes in socket connection
-    ever(socketConnection.ip, (_) => _restartDataAcquisition());
-    ever(socketConnection.port, (_) => _restartDataAcquisition());
+    ever(socketConnection.ip, (_) => restartDataAcquisition());
+    ever(socketConnection.port, (_) => restartDataAcquisition());
 
     // Sync initial values
     triggerLevel.value = dataAcquisitionService.triggerLevel;
@@ -74,7 +74,7 @@ class GraphProvider extends GetxController {
     _dataPointsController.add(points);
   }
 
-  Future<void> _restartDataAcquisition() async {
+  Future<void> restartDataAcquisition() async {
     await stopData();
     await fetchData();
   }
