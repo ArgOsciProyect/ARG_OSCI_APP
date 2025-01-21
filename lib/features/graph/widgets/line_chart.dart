@@ -31,14 +31,14 @@ class LineChart extends StatelessWidget {
                   height: constraints.maxHeight,
                   width: constraints.maxWidth,
                   child: Obx(() {
-                    final dataPoints = lineChartProvider.dataPoints.value;
+                    final dataPoints = lineChartProvider.dataPoints;
                     return dataPoints.isEmpty
                         ? const Center(child: Text('No data'))
                         : CustomPaint(
                             painter: LineChartPainter(
                               dataPoints,
-                              lineChartProvider.getTimeScale(),
-                              lineChartProvider.getValueScale(),
+                              lineChartProvider.timeScale,
+                              lineChartProvider.valueScale,
                               graphProvider.getMaxValue(),
                               graphProvider.getDistance(),
                               graphProvider.getScale(),
@@ -60,25 +60,25 @@ class LineChart extends StatelessWidget {
                 icon: const Icon(Icons.arrow_left),
                 color: Colors.black,
                 onPressed: () => lineChartProvider
-                    .setTimeScale(lineChartProvider.timeScale.value * 0.9),
+                    .setTimeScale(lineChartProvider.timeScale * 0.9),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_right),
                 color: Colors.black,
                 onPressed: () => lineChartProvider
-                    .setTimeScale(lineChartProvider.timeScale.value * 1.1),
+                    .setTimeScale(lineChartProvider.timeScale * 1.1),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_upward),
                 color: Colors.black,
                 onPressed: () => lineChartProvider
-                    .setValueScale(lineChartProvider.valueScale.value * 1.1),
+                    .setValueScale(lineChartProvider.valueScale * 1.1),
               ),
               IconButton(
                 icon: const Icon(Icons.arrow_downward),
                 color: Colors.black,
                 onPressed: () => lineChartProvider
-                    .setValueScale(lineChartProvider.valueScale.value * 0.9),
+                    .setValueScale(lineChartProvider.valueScale * 0.9),
               ),
               IconButton(
                 icon: const Icon(Icons.autorenew),

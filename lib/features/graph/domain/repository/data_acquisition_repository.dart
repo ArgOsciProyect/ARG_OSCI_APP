@@ -2,8 +2,8 @@
 import 'dart:async';
 import '../models/data_point.dart';
 import '../models/trigger_data.dart';
+import '../models/voltage_scale.dart';
 
-/// Interface for data acquisition repository
 abstract class DataAcquisitionRepository {
   // Stream getters
 
@@ -76,4 +76,26 @@ abstract class DataAcquisitionRepository {
 
   /// Sets the trigger sensitivity
   set triggerSensitivity(double value);
+
+  /// Gets the middle point value
+  double get mid;
+
+  /// Sets the middle point value
+  set mid(double value);
+
+  /// Gets the current voltage scale
+  VoltageScale get currentVoltageScale;
+
+  /// Sets the voltage scale and updates related configurations
+  ///
+  /// [voltageScale] The new voltage scale to set
+  void setVoltageScale(VoltageScale voltageScale);
+
+  /// Gets the trigger mode
+  TriggerMode get triggerMode;
+
+  /// Sets the trigger mode
+  ///
+  /// [value] The new trigger mode to set
+  set triggerMode(TriggerMode value);
 }

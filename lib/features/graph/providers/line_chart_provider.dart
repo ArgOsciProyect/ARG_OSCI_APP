@@ -5,39 +5,49 @@ import '../domain/models/data_point.dart';
 import 'dart:async';
 
 class LineChartProvider extends GetxController {
-  final LineChartService lineChartService;
+  final LineChartService _lineChartService;
   StreamSubscription? _dataSubscription;
 
-  final dataPoints = Rx<List<DataPoint>>([]);
-  final timeScale = RxDouble(1.0);
-  final valueScale = RxDouble(1.0);
+  final _dataPoints = Rx<List<DataPoint>>([]);
+  final _timeScale = RxDouble(1.0);
+  final _valueScale = RxDouble(1.0);
 
-  LineChartProvider(this.lineChartService) {
-    _dataSubscription = lineChartService.dataStream.listen((points) {
-      dataPoints.value = points;
+  // Getters
+  List<DataPoint> get dataPoints => _dataPoints.value;
+  double get timeScale => _timeScale.value;
+  double get valueScale => _valueScale.value;
+  
+  LineChartProvider(this._lineChartService) {
+    _dataSubscription = _lineChartService.dataStream.listen((points) {
+      _dataPoints.value = points;
     });
   }
 
   void setTimeScale(double scale) {
-    timeScale.value = scale;
+    if (scale > 0) {
+      _timeScale.value = scale;
+    }
   }
 
   void setValueScale(double scale) {
-    valueScale.value = scale;
+    if (scale > 0) {
+      _valueScale.value = scale;
+    }
   }
 
   void resetScales() {
-    timeScale.value = 1.0;
-    valueScale.value = 1.0;
+    _timeScale.value = 1.0;
+    _valueScale.value = 1.0;
   }
+
+  void pause() => _lineChartService.pause();
+  
+  void resume() => _lineChartService.resume();
 
   @override
   void onClose() {
     _dataSubscription?.cancel();
-    lineChartService.dispose();
+    _lineChartService.dispose();
     super.onClose();
   }
-
-  double getTimeScale() => timeScale.value;
-  double getValueScale() => valueScale.value;
 }

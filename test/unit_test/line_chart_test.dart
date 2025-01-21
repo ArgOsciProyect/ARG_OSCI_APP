@@ -7,20 +7,19 @@ import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
 
-// Manual mocks
 class MockLineChartProvider extends Mock implements LineChartProvider {
   final _dataPoints = Rx<List<DataPoint>>([]);
   final _timeScale = 1.0.obs;
   final _valueScale = 1.0.obs;
 
   @override
-  Rx<List<DataPoint>> get dataPoints => _dataPoints;
+  List<DataPoint> get dataPoints => _dataPoints.value;
 
   @override
-  RxDouble get timeScale => _timeScale;
+  double get timeScale => _timeScale.value;
 
   @override
-  RxDouble get valueScale => _valueScale;
+  double get valueScale => _valueScale.value;
 
   @override
   void setTimeScale(double scale) {
@@ -38,11 +37,10 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
     _valueScale.value = 1.0;
   }
 
-  @override
-  double getTimeScale() => _timeScale.value;
-
-  @override
-  double getValueScale() => _valueScale.value;
+  // Método auxiliar para tests
+  void updateDataPoints(List<DataPoint> points) {
+    _dataPoints.value = points;
+  }
 
   @override
   InternalFinalCallback<void> get onStart =>
@@ -113,7 +111,7 @@ void main() {
   group('LineChart Widget Tests', () {
     testWidgets('should show no data message when dataPoints is empty',
         (WidgetTester tester) async {
-      mockLineChartProvider.dataPoints.value = [];
+      mockLineChartProvider.updateDataPoints([]);
 
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
@@ -127,10 +125,10 @@ void main() {
 
     testWidgets('should render chart when dataPoints is available',
         (WidgetTester tester) async {
-      mockLineChartProvider.dataPoints.value = [
+     mockLineChartProvider.updateDataPoints([
         DataPoint(0, 1),
         DataPoint(1, 2),
-      ];
+      ]);
 
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
@@ -149,7 +147,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_left));
       await tester.pump();
 
-      expect(mockLineChartProvider.timeScale.value, closeTo(0.9, 0.01));
+      expect(mockLineChartProvider.timeScale, closeTo(0.9, 0.01));
     });
 
     testWidgets('should update timeScale when right arrow is pressed',
@@ -159,7 +157,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_right));
       await tester.pump();
 
-      expect(mockLineChartProvider.timeScale.value, closeTo(1.1, 0.01));
+      expect(mockLineChartProvider.timeScale, closeTo(1.1, 0.01));
     });
 
     testWidgets('should update valueScale when up arrow is pressed',
@@ -169,7 +167,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();
 
-      expect(mockLineChartProvider.valueScale.value, closeTo(1.1, 0.01));
+      expect(mockLineChartProvider.valueScale, closeTo(1.1, 0.01));
     });
 
     testWidgets('should update valueScale when down arrow is pressed',
@@ -179,7 +177,7 @@ void main() {
       await tester.tap(find.byIcon(Icons.arrow_downward));
       await tester.pump();
 
-      expect(mockLineChartProvider.valueScale.value, closeTo(0.9, 0.01));
+      expect(mockLineChartProvider.valueScale, closeTo(0.9, 0.01));
     });
 
     testWidgets('should reset scales when reset button is pressed',
@@ -197,17 +195,17 @@ void main() {
       mockLineChartProvider.setTimeScale(result[0]);
       mockLineChartProvider.setValueScale(result[1]);
 
-      expect(mockLineChartProvider.timeScale.value, equals(1.0));
-      expect(mockLineChartProvider.valueScale.value, equals(1.0));
+      expect(mockLineChartProvider.timeScale, equals(1.0));
+      expect(mockLineChartProvider.valueScale, equals(1.0));
     });
 
     testWidgets('should clip points to drawing area',
         (WidgetTester tester) async {
-      mockLineChartProvider.dataPoints.value = [
+     mockLineChartProvider.updateDataPoints([
         DataPoint(0, 100),
         DataPoint(1, -100),
         DataPoint(1000, 1),
-      ];
+      ]);
 
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();
@@ -219,10 +217,10 @@ void main() {
     });
 
     testWidgets('should handle window resize', (WidgetTester tester) async {
-      mockLineChartProvider.dataPoints.value = [
+     mockLineChartProvider.updateDataPoints([
         DataPoint(0, 1),
         DataPoint(1, 2),
-      ];
+      ]);
 
       await tester.pumpWidget(createWidgetUnderTest());
       await tester.pumpAndSettle();

@@ -80,18 +80,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   bool _disposed = false;
 
   // Configuration with default values
-  @override
-  double scale = 0;
-  double mid = 512 / 2;
-  @override
-  double distance = 1 / 1650000;
-  @override
-  double triggerLevel = 1;
-  @override
-  TriggerEdge triggerEdge = TriggerEdge.positive;
-  @override
-  double triggerSensitivity = 70.0;
-  TriggerMode triggerMode = TriggerMode.hysteresis;
+  double _scale = 0;
+  double _mid = 512 / 2;
+  double _distance = 1 / 1650000;
+  double _triggerLevel = 1;
+  TriggerEdge _triggerEdge = TriggerEdge.positive;
+  double _triggerSensitivity = 70.0;
+  TriggerMode _triggerMode = TriggerMode.hysteresis;
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -109,6 +104,70 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   DataAcquisitionService(this.httpConfig) {
     httpService = HttpService(httpConfig);
     setVoltageScale(VoltageScales.volt_1);
+  }
+
+  @override
+  double get mid => _mid;
+
+  @override
+  set mid(double value) {
+    _mid = value;
+    updateConfig();
+  }
+
+  @override
+  double get scale => _scale;
+  
+  @override
+  set scale(double value) {
+    _scale = value;
+    updateConfig();
+  }
+
+  @override
+  double get distance => _distance;
+  
+  @override
+  set distance(double value) {
+    _distance = value;
+    updateConfig();
+  }
+
+  @override
+  double get triggerLevel => _triggerLevel;
+  
+  @override
+  set triggerLevel(double value) {
+    _triggerLevel = value;
+    updateConfig();
+  }
+
+  @override
+  TriggerEdge get triggerEdge => _triggerEdge;
+  
+  @override
+  set triggerEdge(TriggerEdge value) {
+    _triggerEdge = value;
+    updateConfig();
+  }
+
+  @override
+  double get triggerSensitivity => _triggerSensitivity;
+  
+  @override
+  set triggerSensitivity(double value) {
+    _triggerSensitivity = value;
+    updateConfig();
+  }
+
+  
+  @override
+  TriggerMode get triggerMode => _triggerMode;
+  
+  @override
+  set triggerMode(TriggerMode value) {
+    _triggerMode = value;
+    updateConfig();
   }
 
   // Stream getters with disposal check
