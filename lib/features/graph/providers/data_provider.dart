@@ -1,4 +1,5 @@
 // lib/features/graph/providers/graph_provider.dart
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
@@ -25,11 +26,12 @@ class GraphProvider extends GetxController {
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
   final distance = RxDouble(1 / 1600000);
-  final scale = RxDouble(3.3 / 512);
+  final scale = RxDouble(0);
   final currentFilter = Rx<FilterType>(NoFilter());
   final windowSize = RxInt(5);
   final alpha = RxDouble(0.2);
   final cutoffFrequency = RxDouble(100.0);
+  final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
 
   // Kalman filter instance
   final SimpleKalman kalman =
@@ -62,6 +64,7 @@ class GraphProvider extends GetxController {
     triggerEdge.value = dataAcquisitionService.triggerEdge;
     distance.value = dataAcquisitionService.distance;
     scale.value = dataAcquisitionService.scale;
+    currentVoltageScale.value = dataAcquisitionService.currentVoltageScale;
   }
 
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
@@ -78,6 +81,22 @@ class GraphProvider extends GetxController {
   Future<void> restartDataAcquisition() async {
     await stopData();
     await fetchData();
+  }
+
+  void setVoltageScale(VoltageScale scale) {
+    currentVoltageScale.value = scale;
+
+    // Update service scale
+    dataAcquisitionService.setVoltageScale(scale);
+
+    // Update reactive values
+    this.scale.value = scale.scale;
+
+    // Update trigger level after scale change
+    triggerLevel.value = dataAcquisitionService.triggerLevel;
+
+    // Force config update
+    dataAcquisitionService.updateConfig();
   }
 
   Future<void> fetchData() async {
@@ -105,14 +124,13 @@ class GraphProvider extends GetxController {
   List<double> autoset(double chartHeight, double chartWidth) {
     final result = dataAcquisitionService.autoset(chartHeight, chartWidth);
 
-    // Notificar al LineChartProvider sobre el cambio de escalas
+    // Update scales in line chart provider
     final lineChartProvider = Get.find<LineChartProvider>();
     lineChartProvider.setTimeScale(result[0]);
     lineChartProvider.setValueScale(result[1]);
 
-    // Actualizar trigger
+    // Update trigger level
     triggerLevel.value = dataAcquisitionService.triggerLevel;
-    dataAcquisitionService.updateConfig();
 
     return result;
   }

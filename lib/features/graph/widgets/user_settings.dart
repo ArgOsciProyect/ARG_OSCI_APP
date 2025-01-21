@@ -5,6 +5,7 @@ import '../providers/data_provider.dart';
 import '../providers/line_chart_provider.dart';
 import '../domain/models/trigger_data.dart';
 import '../domain/models/filter_types.dart';
+import '../domain/models/voltage_scale.dart';
 
 class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
@@ -18,6 +19,41 @@ class UserSettings extends StatelessWidget {
     super.key,
   });
 
+  Widget _buildScaleSelector() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Voltage Scale',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Obx(() => DropdownButton<VoltageScale>(
+                value: graphProvider.currentVoltageScale.value,
+                isExpanded: true,
+                onChanged: (scale) {
+                  if (scale != null) {
+                    graphProvider.setVoltageScale(scale);
+                  }
+                },
+                items: VoltageScales.values.map((scale) {
+                  return DropdownMenuItem(
+                    value: scale,
+                    child: Text(scale.displayName),
+                  );
+                }).toList(),
+              )),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -29,6 +65,8 @@ class UserSettings extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildScaleSelector(),
+
             // Trigger Settings
             Container(
               width: double.infinity,

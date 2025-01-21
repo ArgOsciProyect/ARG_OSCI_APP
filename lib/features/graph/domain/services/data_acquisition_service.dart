@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import '../models/data_point.dart';
@@ -80,7 +81,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   // Configuration with default values
   @override
-  double scale = 3.3 / 512;
+  double scale = 0;
   double mid = 512 / 2;
   @override
   double distance = 1 / 1600000;
@@ -96,6 +97,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double _currentFrequency = 0.0;
   double _currentMaxValue = 0.0;
   double _currentAverage = 0.0;
+  VoltageScale _currentVoltageScale = VoltageScales.volts_2;
 
   // Isolates and ports
   Isolate? _socketIsolate;
@@ -106,6 +108,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   DataAcquisitionService(this.httpConfig) {
     httpService = HttpService(httpConfig);
+    setVoltageScale(VoltageScales.volt_1);
   }
 
   // Stream getters with disposal check
@@ -122,6 +125,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
+  VoltageScale get currentVoltageScale => _currentVoltageScale;
+
+  @override
   Stream<double> get maxValueStream {
     _checkDisposed();
     return _maxValueController.stream;
@@ -131,6 +137,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (_disposed) {
       throw StateError('Service has been disposed');
     }
+  }
+
+  @override
+  void setVoltageScale(VoltageScale voltageScale) {
+    final oldScale = _currentVoltageScale.scale;
+    _currentVoltageScale = voltageScale;
+    scale = voltageScale.scale;
+
+    // Adjust trigger level proportionally to new scale
+    final ratio = voltageScale.scale / oldScale;
+    triggerLevel *= ratio;
+
+    // Clamp trigger level to new voltage range
+    final voltageRange = voltageScale.scale * 512;
+    final halfRange = voltageRange / 2;
+    triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
+
+    updateConfig();
   }
 
   @override
@@ -541,14 +565,23 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   List<double> autoset(double chartHeight, double chartWidth) {
     if (_currentFrequency <= 0) return [1.0, 1.0];
 
+    // Time scale calculation - igual que antes
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
     final timeScale = chartWidth / totalTime;
 
+    // Value scale calculation - ajustado para la escala actual
     final valueScale =
         _currentMaxValue != 0 ? 1.0 / _currentMaxValue.abs() : 1.0;
 
+    // Set trigger to average - ajustado para la escala actual
     triggerLevel = _currentAverage;
+
+    // Ensure trigger is within voltage range
+    final voltageRange = _currentVoltageScale.scale * 512;
+    final halfRange = voltageRange / 2;
+    triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
+
     updateConfig();
 
     return [timeScale, valueScale];
