@@ -1,7 +1,5 @@
 // lib/features/graph/domain/models/filter_types.dart
 import 'data_point.dart';
-import 'package:vector_math/vector_math_64.dart';
-import 'dart:typed_data';
 
 abstract class FilterType {
   String get name;

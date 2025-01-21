@@ -84,7 +84,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double scale = 0;
   double mid = 512 / 2;
   @override
-  double distance = 1 / 1600000;
+  double distance = 1 / 1650000;
   @override
   double triggerLevel = 1;
   @override
@@ -592,6 +592,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   // Testing utilities
   @visibleForTesting
   Isolate? get socketIsolate => _socketIsolate;
+
+  @visibleForTesting
+  static DataProcessingConfig updateConfigForTest(
+    DataProcessingConfig currentConfig,
+    UpdateConfigMessage message,
+  ) {
+    return _updateConfig(currentConfig, message);
+  }
 
   @visibleForTesting
   Isolate? get processingIsolate => _processingIsolate;

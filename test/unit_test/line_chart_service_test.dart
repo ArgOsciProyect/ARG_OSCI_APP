@@ -102,4 +102,76 @@ void main() {
     // Attempt to dispose
     expect(() => service.dispose(), returnsNormally);
   });
+
+  // Add these tests to line_chart_service_test.dart
+  test('pause stops data emission', () async {
+    final emittedData = <List<DataPoint>>[];
+    final sub = service.dataStream.listen(emittedData.add);
+
+    // Initial data
+    final points1 = [DataPoint(0.0, 1.0)];
+    mockProvider.addPoints(points1);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 1);
+
+    // Pause and send more data
+    service.pause();
+    final points2 = [DataPoint(1.0, 2.0)];
+    mockProvider.addPoints(points2);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 1); // Should not receive new data
+
+    await sub.cancel();
+  });
+
+  test('resume restarts data emission', () async {
+    final emittedData = <List<DataPoint>>[];
+    final sub = service.dataStream.listen(emittedData.add);
+
+    service.pause();
+    final points1 = [DataPoint(0.0, 1.0)];
+    mockProvider.addPoints(points1);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.isEmpty, true);
+
+    service.resume();
+    final points2 = [DataPoint(1.0, 2.0)];
+    mockProvider.addPoints(points2);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 1);
+    expect(emittedData.first, points2);
+
+    await sub.cancel();
+  });
+
+  test('handles multiple pause/resume cycles', () async {
+    final emittedData = <List<DataPoint>>[];
+    final sub = service.dataStream.listen(emittedData.add);
+
+    // Cycle 1
+    service.pause();
+    mockProvider.addPoints([DataPoint(0.0, 1.0)]);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.isEmpty, true);
+
+    service.resume();
+    final points1 = [DataPoint(1.0, 2.0)];
+    mockProvider.addPoints(points1);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 1);
+
+    // Cycle 2
+    service.pause();
+    mockProvider.addPoints([DataPoint(2.0, 3.0)]);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 1);
+
+    service.resume();
+    final points2 = [DataPoint(3.0, 4.0)];
+    mockProvider.addPoints(points2);
+    await Future.delayed(const Duration(milliseconds: 100));
+    expect(emittedData.length, 2);
+
+    await sub.cancel();
+  });
 }
