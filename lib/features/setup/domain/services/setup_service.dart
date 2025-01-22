@@ -21,7 +21,6 @@ class NetworkInfoService {
     if (Platform.isAndroid) {
       try {
         print("Connecting to ESP32_AP");
-        await WiFiForIoTPlugin.disconnect();
         await Future.delayed(const Duration(seconds: 2));
 
         bool connected = await WiFiForIoTPlugin.connect(

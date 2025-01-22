@@ -48,6 +48,17 @@ class FFTChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
+                icon: Obx(() => Icon(
+                      fftChartProvider.isPaused
+                          ? Icons.play_arrow
+                          : Icons.pause,
+                    )),
+                color: Colors.black,
+                onPressed: () => fftChartProvider.isPaused
+                    ? fftChartProvider.resume()
+                    : fftChartProvider.pause(),
+              ),
+              IconButton(
                 icon: const Icon(Icons.arrow_left),
                 color: Colors.black,
                 onPressed: () => fftChartProvider

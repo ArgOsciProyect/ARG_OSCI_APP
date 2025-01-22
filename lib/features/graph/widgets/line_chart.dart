@@ -57,6 +57,17 @@ class LineChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
+                icon: Obx(() => Icon(
+                      lineChartProvider.isPaused
+                          ? Icons.play_arrow
+                          : Icons.pause,
+                    )),
+                color: Colors.black,
+                onPressed: () => lineChartProvider.isPaused
+                    ? lineChartProvider.resume()
+                    : lineChartProvider.pause(),
+              ),
+              IconButton(
                 icon: const Icon(Icons.arrow_left),
                 color: Colors.black,
                 onPressed: () => lineChartProvider

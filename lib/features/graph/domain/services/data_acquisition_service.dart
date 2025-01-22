@@ -315,7 +315,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       mid: currentConfig.mid,
     );
   }
-
+  
   static (int value, int channel) _readDataFromQueue(Queue<int> queue) {
     final bytes = [queue.removeFirst(), queue.removeFirst()];
     final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
@@ -323,7 +323,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     final uint12Value = uint16Value & 0x0FFF;
     final channel = (uint16Value >> 12) & 0x0F;
-
     return (uint12Value, channel);
   }
 

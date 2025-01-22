@@ -10,6 +10,8 @@ class FFTChartProvider extends GetxController {
   final fftPoints = Rx<List<DataPoint>>([]);
   final timeScale = RxDouble(1.0);
   final valueScale = RxDouble(1.0);
+  final _isPaused = false.obs;
+  bool get isPaused => _isPaused.value;
 
   FFTChartProvider(this.fftChartService) {
     // Subscribe to filtered data stream
@@ -29,6 +31,16 @@ class FFTChartProvider extends GetxController {
   void resetScales() {
     timeScale.value = 1.0;
     valueScale.value = 1.0;
+  }
+
+  void pause() {
+    _isPaused.value = true;
+    fftChartService.pause();
+  }
+
+  void resume() {
+    _isPaused.value = false;
+    fftChartService.resume();
   }
 
   @override
