@@ -1,5 +1,8 @@
 // fft_chart.dart
+import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/fft_chart_provider.dart';
@@ -14,6 +17,7 @@ class FFTChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fftChartProvider = Get.find<FFTChartProvider>();
+    final graphProvider = Get.find<GraphProvider>();
 
     return Column(
       children: [
@@ -29,11 +33,58 @@ class FFTChart extends StatelessWidget {
                     final fftPoints = fftChartProvider.fftPoints.value;
                     return fftPoints.isEmpty
                         ? const Center(child: Text('No data'))
-                        : CustomPaint(
-                            painter: FFTChartPainter(
-                              fftPoints,
-                              fftChartProvider.timeScale.value,
-                              fftChartProvider.valueScale.value,
+                        : Listener(
+                            onPointerSignal: (pointerSignal) {
+                              if (pointerSignal is PointerScrollEvent) {
+                                final delta = pointerSignal.scrollDelta.dy;
+                                if (pointerSignal.kind == PointerDeviceKind.mouse) {
+                                  if (RawKeyboard.instance.keysPressed.contains(
+                                      LogicalKeyboardKey.controlLeft)) {
+                                    fftChartProvider.setTimeScale(
+                                      fftChartProvider.timeScale.value * (1 - delta / 500),
+                                    );
+                                  } else if (RawKeyboard.instance.keysPressed
+                                      .contains(LogicalKeyboardKey.shiftLeft)) {
+                                    fftChartProvider.setValueScale(
+                                      fftChartProvider.valueScale.value * (1 - delta / 500),
+                                    );
+                                  } else {
+                                    final scale = 1 - delta / 500;
+                                    fftChartProvider.setTimeScale(
+                                      fftChartProvider.timeScale.value * scale,
+                                    );
+                                    fftChartProvider.setValueScale(
+                                      fftChartProvider.valueScale.value * scale,
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            child: GestureDetector(
+                              onScaleStart: (details) {
+                                fftChartProvider.setInitialScales();
+                              },
+                              onScaleUpdate: (details) {
+                                if (details.pointerCount == 2) {
+                                  fftChartProvider.handleZoom(details, constraints.biggest);
+                                } else if (details.pointerCount == 1) {
+                                  fftChartProvider.setHorizontalOffset(
+                                    fftChartProvider.horizontalOffset +
+                                        details.focalPointDelta.dx / constraints.maxWidth,
+                                  );
+                                  fftChartProvider.setVerticalOffset(
+                                    fftChartProvider.verticalOffset -
+                                        details.focalPointDelta.dy / constraints.maxHeight,
+                                  );
+                                }
+                              },
+                              child: CustomPaint(
+                                painter: FFTChartPainter(
+                                  fftPoints,
+                                  fftChartProvider.timeScale.value,
+                                  fftChartProvider.valueScale.value,
+                                ),
+                              ),
                             ),
                           );
                   }),
@@ -47,6 +98,7 @@ class FFTChart extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Existing controls
               IconButton(
                 icon: Obx(() => Icon(
                       fftChartProvider.isPaused
@@ -58,34 +110,107 @@ class FFTChart extends StatelessWidget {
                     ? fftChartProvider.resume()
                     : fftChartProvider.pause(),
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_left),
-                color: Colors.black,
-                onPressed: () => fftChartProvider
-                    .setTimeScale(fftChartProvider.timeScale.value * 0.9),
+              GestureDetector(
+                onTapDown: (_) => fftChartProvider.decrementTimeScale(),
+                onLongPress: () => fftChartProvider.startIncrementing(
+                    fftChartProvider.decrementTimeScale),
+                onLongPressUp: fftChartProvider.stopIncrementing,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_left),
+                  color: Colors.black,
+                  onPressed: null,
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_right),
-                color: Colors.black,
-                onPressed: () => fftChartProvider
-                    .setTimeScale(fftChartProvider.timeScale.value * 1.1),
+              GestureDetector(
+                onTapDown: (_) => fftChartProvider.incrementTimeScale(),
+                onLongPress: () => fftChartProvider.startIncrementing(
+                    fftChartProvider.incrementTimeScale),
+                onLongPressUp: fftChartProvider.stopIncrementing,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_right),
+                  color: Colors.black,
+                  onPressed: null,
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_upward),
-                color: Colors.black,
-                onPressed: () => fftChartProvider
-                    .setValueScale(fftChartProvider.valueScale.value * 1.1),
+              GestureDetector(
+                onTapDown: (_) => fftChartProvider.incrementValueScale(),
+                onLongPress: () => fftChartProvider.startIncrementing(
+                    fftChartProvider.incrementValueScale),
+                onLongPressUp: fftChartProvider.stopIncrementing,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_upward),
+                  color: Colors.black,
+                  onPressed: null,
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_downward),
-                color: Colors.black,
-                onPressed: () => fftChartProvider
-                    .setValueScale(fftChartProvider.valueScale.value * 0.9),
+              GestureDetector(
+                onTapDown: (_) => fftChartProvider.decrementValueScale(),
+                onLongPress: () => fftChartProvider.startIncrementing(
+                    fftChartProvider.decrementValueScale),
+                onLongPressUp: fftChartProvider.stopIncrementing,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_downward),
+                  color: Colors.black,
+                  onPressed: null,
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.autorenew),
                 color: Colors.black,
-                onPressed: () => fftChartProvider.resetScales(),
+                onPressed: () {
+                  final size = MediaQuery.of(context).size;
+                  fftChartProvider.autoset(size, graphProvider.frequency.value);
+                },
+              ),
+              const SizedBox(width: 20),
+              // Pan controls
+              Row(
+                children: [
+                  GestureDetector(
+                    onTapDown: (_) => fftChartProvider.decrementHorizontalOffset(),
+                    onLongPress: () => fftChartProvider.startIncrementing(
+                        fftChartProvider.decrementHorizontalOffset),
+                    onLongPressUp: fftChartProvider.stopIncrementing,
+                    child: IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_left),
+                      color: Colors.black,
+                      onPressed: null,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTapDown: (_) => fftChartProvider.incrementHorizontalOffset(),
+                    onLongPress: () => fftChartProvider.startIncrementing(
+                        fftChartProvider.incrementHorizontalOffset),
+                    onLongPressUp: fftChartProvider.stopIncrementing,
+                    child: IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_right),
+                      color: Colors.black,
+                      onPressed: null,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTapDown: (_) => fftChartProvider.incrementVerticalOffset(),
+                    onLongPress: () => fftChartProvider.startIncrementing(
+                        fftChartProvider.incrementVerticalOffset),
+                    onLongPressUp: fftChartProvider.stopIncrementing,
+                    child: IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_up),
+                      color: Colors.black,
+                      onPressed: null,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTapDown: (_) => fftChartProvider.decrementVerticalOffset(),
+                    onLongPress: () => fftChartProvider.startIncrementing(
+                        fftChartProvider.decrementVerticalOffset),
+                    onLongPressUp: fftChartProvider.stopIncrementing,
+                    child: IconButton(
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      color: Colors.black,
+                      onPressed: null,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -94,7 +219,6 @@ class FFTChart extends StatelessWidget {
     );
   }
 }
-
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;

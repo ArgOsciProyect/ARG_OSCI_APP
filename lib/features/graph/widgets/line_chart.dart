@@ -17,11 +17,6 @@ const double _sqrOffsetBot = 15;
 class LineChart extends StatelessWidget {
   const LineChart({super.key});
 
-  void _startIncrementing(Function() callback) {
-    callback();
-    Timer.periodic(const Duration(milliseconds: 100), (_) => callback());
-  }
-
   @override
   Widget build(BuildContext context) {
     final lineChartProvider = Get.find<LineChartProvider>();
@@ -44,26 +39,19 @@ class LineChart extends StatelessWidget {
                         : Listener(
                             onPointerSignal: (pointerSignal) {
                               if (pointerSignal is PointerScrollEvent) {
-                                // Mouse wheel
                                 final delta = pointerSignal.scrollDelta.dy;
-                                if (pointerSignal.kind ==
-                                    PointerDeviceKind.mouse) {
+                                if (pointerSignal.kind == PointerDeviceKind.mouse) {
                                   if (RawKeyboard.instance.keysPressed.contains(
                                       LogicalKeyboardKey.controlLeft)) {
-                                    // Ctrl + wheel = Zoom X
                                     lineChartProvider.setTimeScale(
-                                      lineChartProvider.timeScale *
-                                          (1 - delta / 500),
+                                      lineChartProvider.timeScale * (1 - delta / 500),
                                     );
                                   } else if (RawKeyboard.instance.keysPressed
                                       .contains(LogicalKeyboardKey.shiftLeft)) {
-                                    // Shift + wheel = Zoom Y
                                     lineChartProvider.setValueScale(
-                                      lineChartProvider.valueScale *
-                                          (1 - delta / 500),
+                                      lineChartProvider.valueScale * (1 - delta / 500),
                                     );
                                   } else {
-                                    // Just wheel = Zoom both
                                     final scale = 1 - delta / 500;
                                     lineChartProvider.setTimeScale(
                                       lineChartProvider.timeScale * scale,
@@ -81,18 +69,15 @@ class LineChart extends StatelessWidget {
                               },
                               onScaleUpdate: (details) {
                                 if (details.pointerCount == 2) {
-                                  lineChartProvider.handleZoom(
-                                      details, constraints.biggest);
+                                  lineChartProvider.handleZoom(details, constraints.biggest);
                                 } else if (details.pointerCount == 1) {
                                   lineChartProvider.setHorizontalOffset(
                                     lineChartProvider.horizontalOffset +
-                                        details.focalPointDelta.dx /
-                                            constraints.maxWidth,
+                                        details.focalPointDelta.dx / constraints.maxWidth,
                                   );
                                   lineChartProvider.setVerticalOffset(
                                     lineChartProvider.verticalOffset -
-                                        details.focalPointDelta.dy /
-                                            constraints.maxHeight,
+                                        details.focalPointDelta.dy / constraints.maxHeight,
                                   );
                                 }
                               },
@@ -125,7 +110,6 @@ class LineChart extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Controles principales
                 Row(
                   children: [
                     IconButton(
@@ -195,12 +179,10 @@ class LineChart extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(width: 20),
-                // Controles de desplazamiento
                 Row(
                   children: [
                     GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.decrementHorizontalOffset(),
+                      onTapDown: (_) => lineChartProvider.decrementHorizontalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
                           lineChartProvider.decrementHorizontalOffset),
                       onLongPressUp: lineChartProvider.stopIncrementing,
@@ -211,8 +193,7 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.incrementHorizontalOffset(),
+                      onTapDown: (_) => lineChartProvider.incrementHorizontalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
                           lineChartProvider.incrementHorizontalOffset),
                       onLongPressUp: lineChartProvider.stopIncrementing,
@@ -223,8 +204,7 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.incrementVerticalOffset(),
+                      onTapDown: (_) => lineChartProvider.incrementVerticalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
                           lineChartProvider.incrementVerticalOffset),
                       onLongPressUp: lineChartProvider.stopIncrementing,
@@ -235,8 +215,7 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.decrementVerticalOffset(),
+                      onTapDown: (_) => lineChartProvider.decrementVerticalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
                           lineChartProvider.decrementVerticalOffset),
                       onLongPressUp: lineChartProvider.stopIncrementing,
@@ -251,7 +230,7 @@ class LineChart extends StatelessWidget {
               ],
             ),
           ),
-        )
+        ),
       ],
     );
   }

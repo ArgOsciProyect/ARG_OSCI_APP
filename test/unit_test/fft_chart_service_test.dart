@@ -203,17 +203,19 @@ void main() {
     expect(fftResults, isEmpty);
     await sub.cancel();
   });
-  
+
   test('Compara resultados de FFT con valores de referencia', () async {
     final referenceValues = _loadReferenceValues('test/Ref_db.csv');
     final testSignal = _loadTestSignal('test/test_signal.csv');
-  
+
     final fftResults = await _getFftResults(service, mockProvider, testSignal);
     _saveFftResults('test/internal_fft_results.csv', fftResults);
-  
+
     const tolerance = 1.0; // Keep same tolerance for dBV comparison
-  
-    for (var i = 0; i < math.min(fftResults.length, referenceValues.length); i++) {
+
+    for (var i = 0;
+        i < math.min(fftResults.length, referenceValues.length);
+        i++) {
       expect(fftResults[i].y, closeTo(referenceValues[i], tolerance),
           reason: 'FFT value mismatch at index $i');
     }

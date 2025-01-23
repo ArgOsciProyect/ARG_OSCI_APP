@@ -91,6 +91,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   // Metrics
   double _currentFrequency = 0.0;
   double _currentMaxValue = 0.0;
+  double _currentMinValue = 0.0;
   double _currentAverage = 0.0;
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
 
@@ -364,7 +365,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     var waitingForHysteresis = false;
 
     // Low-pass filter coefficients for 50kHz
-    const double dt = 1.0 / 1600000.0; // Sampling period
+    const double dt = 1.0 / 1650000.0; // Sampling period
     const double rc = 1.0 / (2.0 * pi * 50000.0); // Time constant for 50kHz
     const double alpha = dt / (rc + dt);
     var filteredY = 0.0;
@@ -453,6 +454,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     _currentFrequency = _calculateFrequency(points);
     _currentMaxValue = points.map((p) => p.y).reduce(max);
+    _currentMinValue = points.map((p) => p.y).reduce(min);
     _currentAverage =
         points.map((p) => p.y).reduce((a, b) => a + b) / points.length;
 
@@ -619,20 +621,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
+  @override
   List<double> autoset(double chartHeight, double chartWidth) {
     if (_currentFrequency <= 0) return [1.0, 1.0];
 
-    // Time scale calculation - igual que antes
+    // Time scale calculation
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
     final timeScale = chartWidth / totalTime;
 
-    // Value scale calculation - ajustado para la escala actual
+    // Value scale calculation
     final valueScale =
         _currentMaxValue != 0 ? 1.0 / _currentMaxValue.abs() : 1.0;
 
-    // Set trigger to average - ajustado para la escala actual
-    triggerLevel = _currentAverage;
+    // Set trigger to midpoint between max and min
+    triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
 
     // Ensure trigger is within voltage range
     final voltageRange = _currentVoltageScale.scale * 512;

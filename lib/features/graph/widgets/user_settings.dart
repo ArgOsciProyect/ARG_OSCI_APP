@@ -288,10 +288,11 @@ class UserSettings extends StatelessWidget {
           const SizedBox(height: 12),
           const Text('Frequency:'),
           StreamBuilder(
-            stream: Stream.periodic(_frequencyUpdateInterval),
-            builder: (context, _) => Obx(() => Text(
-                  '${graphProvider.frequency.value.toStringAsFixed(2)} Hz',
-                )),
+            // Define un Stream que emite cada 2 segundos
+            stream: Stream.periodic(const Duration(seconds: 2)),
+            builder: (context, _) => Text(
+              '${graphProvider.frequency.value.toStringAsFixed(2)} Hz',
+            ),
           ),
         ],
       ),

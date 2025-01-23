@@ -25,7 +25,8 @@ class GraphProvider extends GetxController {
   final timeScale = Rx<double>(1.0);
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
-  final distance = RxDouble(1 / 1600000);
+  final samplingFrequency = Rx<double>(1650000);
+  final distance = RxDouble(1 / 1650000);
   final scale = RxDouble(0);
   final currentFilter = Rx<FilterType>(NoFilter());
   final windowSize = RxInt(5);
@@ -140,6 +141,7 @@ class GraphProvider extends GetxController {
       'windowSize': windowSize.value,
       'alpha': alpha.value,
       'cutoffFrequency': cutoffFrequency.value,
+      'samplingFrequency': samplingFrequency.value
     };
     return currentFilter.value.apply(points, params);
   }

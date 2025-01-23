@@ -1,4 +1,6 @@
 // lib/features/graph/domain/models/filter_types.dart
+import 'dart:math';
+
 import 'data_point.dart';
 
 abstract class FilterType {
@@ -165,21 +167,18 @@ class ExponentialFilter extends FilterType {
 }
 
 class LowPassFilter extends FilterType {
-  static final LowPassFilter _instance = LowPassFilter._internal();
-  factory LowPassFilter() => _instance;
-  LowPassFilter._internal();
-
   @override
   String get name => 'Low Pass';
 
   @override
   List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
     final cutoffFreq = params['cutoffFrequency'] as double;
+    final samplingFreq = params['samplingFrequency'] as double;
     final filteredPoints = <DataPoint>[];
     if (points.isEmpty) return filteredPoints;
 
-    final dt = points[1].x - points[0].x;
-    final rc = 1 / (2 * 3.14159 * cutoffFreq);
+    final dt = 1.0 / samplingFreq;
+    final rc = 1.0 / (2 * pi * cutoffFreq);
     final alpha = dt / (rc + dt);
 
     filteredPoints.add(points.first);
