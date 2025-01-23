@@ -13,7 +13,8 @@ class UserSettings extends StatelessWidget {
   final TextEditingController triggerLevelController;
   final TextEditingController windowSizeController = TextEditingController();
   final TextEditingController alphaController = TextEditingController();
-  final TextEditingController cutoffFrequencyController = TextEditingController();
+  final TextEditingController cutoffFrequencyController =
+      TextEditingController();
   final FocusNode _triggerLevelFocus = FocusNode();
   final FocusNode _windowSizeFocus = FocusNode();
   final FocusNode _alphaFocus = FocusNode();
@@ -78,7 +79,7 @@ class UserSettings extends StatelessWidget {
           const SizedBox(height: 12),
           const Text('Trigger Level:'),
           Obx(() {
-            triggerLevelController.text = 
+            triggerLevelController.text =
                 graphProvider.triggerLevel.value.toStringAsFixed(2);
             return TextField(
               controller: triggerLevelController,
@@ -86,7 +87,8 @@ class UserSettings extends StatelessWidget {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
                 isDense: true,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
               onSubmitted: (value) {
                 _triggerLevelFocus.unfocus();
@@ -182,7 +184,7 @@ class UserSettings extends StatelessWidget {
                 children: [
                   const Text('Window Size:'),
                   Obx(() {
-                    windowSizeController.text = 
+                    windowSizeController.text =
                         graphProvider.windowSize.value.toString();
                     return TextField(
                       controller: windowSizeController,
@@ -210,8 +212,7 @@ class UserSettings extends StatelessWidget {
                 children: [
                   const Text('Alpha:'),
                   Obx(() {
-                    alphaController.text = 
-                        graphProvider.alpha.value.toString();
+                    alphaController.text = graphProvider.alpha.value.toString();
                     return TextField(
                       controller: alphaController,
                       focusNode: _alphaFocus,
@@ -238,7 +239,7 @@ class UserSettings extends StatelessWidget {
                 children: [
                   const Text('Cutoff Frequency (Hz):'),
                   Obx(() {
-                    cutoffFrequencyController.text = 
+                    cutoffFrequencyController.text =
                         graphProvider.cutoffFrequency.value.toString();
                     return TextField(
                       controller: cutoffFrequencyController,
@@ -293,7 +294,8 @@ class UserSettings extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Information',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   const Text('Frequency:'),
                   Obx(() => Text(

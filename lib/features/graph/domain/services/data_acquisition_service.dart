@@ -117,7 +117,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   double get scale => _scale;
-  
+
   @override
   set scale(double value) {
     _scale = value;
@@ -126,7 +126,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   double get distance => _distance;
-  
+
   @override
   set distance(double value) {
     _distance = value;
@@ -135,7 +135,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   double get triggerLevel => _triggerLevel;
-  
+
   @override
   set triggerLevel(double value) {
     _triggerLevel = value;
@@ -144,7 +144,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   TriggerEdge get triggerEdge => _triggerEdge;
-  
+
   @override
   set triggerEdge(TriggerEdge value) {
     _triggerEdge = value;
@@ -153,17 +153,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   double get triggerSensitivity => _triggerSensitivity;
-  
+
   @override
   set triggerSensitivity(double value) {
     _triggerSensitivity = value;
     updateConfig();
   }
 
-  
   @override
   TriggerMode get triggerMode => _triggerMode;
-  
+
   @override
   set triggerMode(TriggerMode value) {
     _triggerMode = value;
@@ -315,7 +314,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       mid: currentConfig.mid,
     );
   }
-  
+
   static (int value, int channel) _readDataFromQueue(Queue<int> queue) {
     final bytes = [queue.removeFirst(), queue.removeFirst()];
     final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))

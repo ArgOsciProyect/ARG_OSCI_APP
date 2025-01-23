@@ -11,6 +11,9 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
   final _dataPoints = Rx<List<DataPoint>>([]);
   final _timeScale = 1.0.obs;
   final _valueScale = 1.0.obs;
+  final _horizontalOffset = 0.0.obs;
+  final _verticalOffset = 0.0.obs;
+  final _isPaused = false.obs;
 
   @override
   List<DataPoint> get dataPoints => _dataPoints.value;
@@ -22,8 +25,61 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
   double get valueScale => _valueScale.value;
 
   @override
+  double get horizontalOffset => _horizontalOffset.value;
+
+  @override
+  double get verticalOffset => _verticalOffset.value;
+
+  @override
+  bool get isPaused => _isPaused.value;
+
+  @override
   void setTimeScale(double scale) {
-    _timeScale.value = scale;
+    if (scale > 0) {
+      _timeScale.value = scale;
+    }
+  }
+
+  @override
+  void incrementTimeScale() {
+    setTimeScale(timeScale * 1.1);
+  }
+
+  @override
+  void decrementTimeScale() {
+    setTimeScale(timeScale * 0.9);
+  }
+
+  @override
+  void incrementValueScale() {
+    setValueScale(valueScale * 1.1);
+  }
+
+  @override
+  void decrementValueScale() {
+    setValueScale(valueScale * 0.9);
+  }
+
+  @override
+  void incrementHorizontalOffset() {
+    setHorizontalOffset(horizontalOffset + 0.01);
+  }
+
+  @override
+  void decrementHorizontalOffset() {
+    setHorizontalOffset(horizontalOffset - 0.01);
+  }
+
+  @override
+  void incrementVerticalOffset() {
+    final newOffset = _verticalOffset.value + 0.1;
+    setVerticalOffset(newOffset);
+  }
+
+  @override
+  void decrementVerticalOffset() {
+    final newOffset = _verticalOffset.value - 0.1;
+    setVerticalOffset(newOffset);
   }
 
   @override
@@ -32,16 +88,38 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
   }
 
   @override
+  void setHorizontalOffset(double offset) {
+    _horizontalOffset.value = offset;
+  }
+
+  @override
+  void setVerticalOffset(double offset) {
+    _verticalOffset.value = offset;
+  }
+
+  @override
   void resetScales() {
     _timeScale.value = 1.0;
     _valueScale.value = 1.0;
   }
 
-  // Método auxiliar para tests
-  void updateDataPoints(List<DataPoint> points) {
-    _dataPoints.value = points;
+  @override
+  void resetOffsets() {
+    _horizontalOffset.value = 0.0;
+    _verticalOffset.value = 0.0;
   }
 
+  @override
+  void pause() {
+    _isPaused.value = true;
+  }
+
+  @override
+  void resume() {
+    _isPaused.value = false;
+  }
+
+  // Añadir callbacks requeridos por GetxController
   @override
   InternalFinalCallback<void> get onStart =>
       InternalFinalCallback<void>(callback: () {});
@@ -49,6 +127,11 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
   @override
   InternalFinalCallback<void> get onDelete =>
       InternalFinalCallback<void>(callback: () {});
+
+  // Método auxiliar para tests
+  void updateDataPoints(List<DataPoint> points) {
+    _dataPoints.value = points;
+  }
 }
 
 class MockGraphProvider extends Mock implements GraphProvider {
@@ -103,7 +186,11 @@ void main() {
         scaffoldBackgroundColor: Colors.white,
       ),
       home: Scaffold(
-        body: LineChart(),
+        body: SizedBox(
+          width: 800.0, // Ancho suficiente para todos los botones
+          height: 600.0,
+          child: LineChart(),
+        ),
       ),
     );
   }
@@ -125,7 +212,7 @@ void main() {
 
     testWidgets('should render chart when dataPoints is available',
         (WidgetTester tester) async {
-     mockLineChartProvider.updateDataPoints([
+      mockLineChartProvider.updateDataPoints([
         DataPoint(0, 1),
         DataPoint(1, 2),
       ]);
@@ -143,21 +230,17 @@ void main() {
     testWidgets('should update timeScale when left arrow is pressed',
         (WidgetTester tester) async {
       await tester.pumpWidget(createWidgetUnderTest());
-
       await tester.tap(find.byIcon(Icons.arrow_left));
       await tester.pump();
-
-      expect(mockLineChartProvider.timeScale, closeTo(0.9, 0.01));
+      expect(mockLineChartProvider.timeScale, closeTo(0.9, 0.001));
     });
 
     testWidgets('should update timeScale when right arrow is pressed',
         (WidgetTester tester) async {
       await tester.pumpWidget(createWidgetUnderTest());
-
       await tester.tap(find.byIcon(Icons.arrow_right));
       await tester.pump();
-
-      expect(mockLineChartProvider.timeScale, closeTo(1.1, 0.01));
+      expect(mockLineChartProvider.timeScale, closeTo(1.1, 0.001));
     });
 
     testWidgets('should update valueScale when up arrow is pressed',
@@ -201,7 +284,7 @@ void main() {
 
     testWidgets('should clip points to drawing area',
         (WidgetTester tester) async {
-     mockLineChartProvider.updateDataPoints([
+      mockLineChartProvider.updateDataPoints([
         DataPoint(0, 100),
         DataPoint(1, -100),
         DataPoint(1000, 1),
@@ -217,7 +300,7 @@ void main() {
     });
 
     testWidgets('should handle window resize', (WidgetTester tester) async {
-     mockLineChartProvider.updateDataPoints([
+      mockLineChartProvider.updateDataPoints([
         DataPoint(0, 1),
         DataPoint(1, 2),
       ]);
@@ -234,6 +317,53 @@ void main() {
       expect(customPaintFinder, findsOneWidget);
     });
 
+    testWidgets('should update horizontal offset when arrow keys are pressed',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_left),
+          warnIfMissed: false);
+      await tester.pump();
+      expect(mockLineChartProvider.horizontalOffset, closeTo(-0.01, 0.001));
+
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_right),
+          warnIfMissed: false);
+      await tester.pump();
+      expect(mockLineChartProvider.horizontalOffset, closeTo(0.0, 0.001));
+    });
+
+    testWidgets('should update vertical offset when arrow keys are pressed',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      // Simular tap en el botón hacia arriba
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_up));
+      await tester.pump();
+      expect(mockLineChartProvider.verticalOffset, closeTo(0.001, 0.001));
+
+      // Simular tap en el botón hacia abajo
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_down));
+      await tester.pump();
+      expect(mockLineChartProvider.verticalOffset, closeTo(0.0, 0.001));
+    });
+
+    testWidgets('should reset offsets when reset button is pressed',
+        (WidgetTester tester) async {
+      mockLineChartProvider.setHorizontalOffset(1.0);
+      mockLineChartProvider.setVerticalOffset(1.0);
+
+      await tester.pumpWidget(createWidgetUnderTest());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.autorenew), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(mockLineChartProvider.horizontalOffset, equals(0.0));
+      expect(mockLineChartProvider.verticalOffset, equals(0.0));
+    });
+
     test('LineChartPainter shouldRepaint returns true', () {
       final painter = LineChartPainter(
         [DataPoint(0, 1)],
@@ -243,6 +373,8 @@ void main() {
         5.0,
         1.0,
         Colors.white,
+        0.0, // horizontalOffset
+        0.0, // verticalOffset
       );
 
       expect(painter.shouldRepaint(painter), isTrue);

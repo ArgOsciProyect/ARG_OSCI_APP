@@ -31,7 +31,8 @@ for i = 1:length(magnitude)
     if magnitude(i) == 0
         db_values(i) = -160;
     else
-        db_values(i) = 20 * log10(magnitude(i) / max_value);
+        % Use 1V as reference instead of max_value
+        db_values(i) = 20 * log10(magnitude(i));
     end
 end
 

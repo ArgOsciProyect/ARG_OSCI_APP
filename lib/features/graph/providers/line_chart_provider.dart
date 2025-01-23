@@ -1,6 +1,7 @@
 // lib/features/graph/providers/line_chart_provider.dart
-import 'dart:ui';
+import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/models/data_point.dart';
@@ -10,12 +11,19 @@ class LineChartProvider extends GetxController {
   final LineChartService _lineChartService;
   StreamSubscription? _dataSubscription;
 
+  static const double zoomFactor = 1.02;
+  static const double unzoomFactor = 0.98;
+  Offset? _scaleStartFocalPoint; // Para detectar inicio de zoom
+
   final _dataPoints = Rx<List<DataPoint>>([]);
   final _timeScale = RxDouble(1.0);
   final _valueScale = RxDouble(1.0);
   final _isPaused = false.obs;
   final _horizontalOffset = RxDouble(0.0);
   final _verticalOffset = RxDouble(0.0);
+  double _initialTimeScale = 1.0;
+  double _initialValueScale = 1.0;
+
   Timer? _incrementTimer;
 
   // Getters
@@ -25,11 +33,29 @@ class LineChartProvider extends GetxController {
   bool get isPaused => _isPaused.value;
   double get horizontalOffset => _horizontalOffset.value;
   double get verticalOffset => _verticalOffset.value;
+  double get initialTimeScale => _initialTimeScale;
+  double get initialValueScale => _initialValueScale;
 
   LineChartProvider(this._lineChartService) {
     _dataSubscription = _lineChartService.dataStream.listen((points) {
       _dataPoints.value = points;
     });
+  }
+
+  void handleZoom(ScaleUpdateDetails details, Size constraints) {
+    if (details.pointerCount == 2) {
+      if (_scaleStartFocalPoint == null) {
+        _scaleStartFocalPoint = details.focalPoint;
+        return;
+      }
+
+      // Zoom proporcional a la amplitud del pinch
+      final zoomFactor = pow(details.scale, 2.0);
+      setTimeScale(_initialTimeScale * zoomFactor);
+      setValueScale(_initialValueScale * zoomFactor);
+    } else {
+      _scaleStartFocalPoint = null;
+    }
   }
 
   void setTimeScale(double scale) {
@@ -44,6 +70,11 @@ class LineChartProvider extends GetxController {
     }
   }
 
+  void setInitialScales() {
+    _initialTimeScale = timeScale;
+    _initialValueScale = valueScale;
+  }
+
   void resetScales() {
     _timeScale.value = 1.0;
     _valueScale.value = 1.0;
@@ -55,7 +86,10 @@ class LineChartProvider extends GetxController {
   }
 
   void setHorizontalOffset(double offset) {
-    _horizontalOffset.value = offset;
+    final minX = _dataPoints.value.isEmpty ? 0 : _dataPoints.value.first.x;
+    if ((minX + offset) * timeScale < 0) {
+      _horizontalOffset.value = offset;
+    }
   }
 
   void setVerticalOffset(double offset) {
@@ -79,11 +113,13 @@ class LineChartProvider extends GetxController {
   }
 
   void incrementHorizontalOffset() {
-    setHorizontalOffset(horizontalOffset + 0.01); // Reducir de 0.1 a 0.001
+    final newOffset = horizontalOffset + 0.01;
+    setHorizontalOffset(newOffset);
   }
 
   void decrementHorizontalOffset() {
-    setHorizontalOffset(horizontalOffset - 0.01); // Reducir de 0.1 a 0.001
+    final newOffset = horizontalOffset - 0.01;
+    setHorizontalOffset(newOffset);
   }
 
   void incrementVerticalOffset() {
