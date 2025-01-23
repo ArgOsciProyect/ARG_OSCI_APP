@@ -19,6 +19,7 @@ class UserSettings extends StatelessWidget {
   final FocusNode _windowSizeFocus = FocusNode();
   final FocusNode _alphaFocus = FocusNode();
   final FocusNode _cutoffFrequencyFocus = FocusNode();
+  static const _frequencyUpdateInterval = Duration(seconds: 2);
 
   UserSettings({
     required this.graphProvider,
@@ -270,42 +271,43 @@ class UserSettings extends StatelessWidget {
     );
   }
 
+  Widget _buildInformationSection() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Information',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const Text('Frequency:'),
+          StreamBuilder(
+            stream: Stream.periodic(_frequencyUpdateInterval),
+            builder: (context, _) => Obx(() => Text(
+                  '${graphProvider.frequency.value.toStringAsFixed(2)} Hz',
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      color: Theme.of(context).scaffoldBackgroundColor,
-      width: double.infinity,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildScaleSelector(),
-            _buildTriggerSettings(),
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 16.0),
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Information',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  const Text('Frequency:'),
-                  Obx(() => Text(
-                      '${graphProvider.frequency.value.toStringAsFixed(2)} Hz')),
-                ],
-              ),
-            ),
-            _buildFilterSettings(),
-          ],
-        ),
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildScaleSelector(),
+          _buildTriggerSettings(),
+          _buildInformationSection(), // Usar el nuevo método
+          _buildFilterSettings(),
+        ],
       ),
     );
   }

@@ -93,7 +93,7 @@ class FFTChartService {
   }
 
   static double _toDecibels(double magnitude, double maxValue) {
-    if (magnitude == 0.0) return -160.0; 
+    if (magnitude == 0.0) return -160.0;
     return 20 * math.log(magnitude) / math.ln10;
   }
 
