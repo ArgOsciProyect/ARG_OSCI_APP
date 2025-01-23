@@ -11,8 +11,15 @@ class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
   final LineChartProvider lineChartProvider;
   final TextEditingController triggerLevelController;
+  final TextEditingController windowSizeController = TextEditingController();
+  final TextEditingController alphaController = TextEditingController();
+  final TextEditingController cutoffFrequencyController = TextEditingController();
+  final FocusNode _triggerLevelFocus = FocusNode();
+  final FocusNode _windowSizeFocus = FocusNode();
+  final FocusNode _alphaFocus = FocusNode();
+  final FocusNode _cutoffFrequencyFocus = FocusNode();
 
-  const UserSettings({
+  UserSettings({
     required this.graphProvider,
     required this.lineChartProvider,
     required this.triggerLevelController,
@@ -54,42 +61,132 @@ class UserSettings extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTriggerSettings() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      color: Theme.of(context).scaffoldBackgroundColor,
       width: double.infinity,
-      child: SingleChildScrollView(
-        hitTestBehavior: HitTestBehavior.translucent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildScaleSelector(),
-
-            // Trigger Settings
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 16.0),
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8.0),
-                color: Theme.of(context).scaffoldBackgroundColor,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Trigger Settings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const Text('Trigger Level:'),
+          Obx(() {
+            triggerLevelController.text = 
+                graphProvider.triggerLevel.value.toStringAsFixed(2);
+            return TextField(
+              controller: triggerLevelController,
+              focusNode: _triggerLevelFocus,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
-              child: Column(
+              onSubmitted: (value) {
+                _triggerLevelFocus.unfocus();
+                final level = double.tryParse(value);
+                if (level != null) {
+                  graphProvider.setTriggerLevel(level);
+                }
+              },
+            );
+          }),
+          const SizedBox(height: 12),
+          const Text('Trigger Edge:'),
+          Obx(() => DropdownButton<TriggerEdge>(
+                value: graphProvider.triggerEdge.value,
+                isExpanded: true,
+                onChanged: (edge) {
+                  if (edge != null) {
+                    graphProvider.setTriggerEdge(edge);
+                  }
+                },
+                items: TriggerEdge.values.map((edge) {
+                  return DropdownMenuItem(
+                    value: edge,
+                    child: Text(edge.toString().split('.').last),
+                  );
+                }).toList(),
+              )),
+          const SizedBox(height: 12),
+          const Text('Noise Reduction:'),
+          Obx(() => DropdownButton<TriggerMode>(
+                value: graphProvider.triggerMode.value,
+                isExpanded: true,
+                onChanged: (mode) {
+                  if (mode != null) {
+                    graphProvider.setTriggerMode(mode);
+                  }
+                },
+                items: TriggerMode.values.map((mode) {
+                  return DropdownMenuItem(
+                    value: mode,
+                    child: Text(mode == TriggerMode.hysteresis
+                        ? 'Hysteresis'
+                        : 'Low-Pass 50kHz'),
+                  );
+                }).toList(),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterSettings() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Filter Settings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          const Text('Filter Type:'),
+          Obx(() => DropdownButton<FilterType>(
+                value: graphProvider.currentFilter.value,
+                isExpanded: true,
+                onChanged: (filter) {
+                  if (filter != null) {
+                    graphProvider.setFilter(filter);
+                  }
+                },
+                items: [
+                  NoFilter(),
+                  MovingAverageFilter(),
+                  ExponentialFilter(),
+                  LowPassFilter(),
+                ]
+                    .map((type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type.name),
+                        ))
+                    .toList(),
+              )),
+          const SizedBox(height: 8),
+          Obx(() {
+            final currentFilter = graphProvider.currentFilter.value;
+            if (currentFilter is MovingAverageFilter) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Trigger Settings',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  const Text('Trigger Level:'),
+                  const Text('Window Size:'),
                   Obx(() {
-                    triggerLevelController.text =
-                        graphProvider.triggerLevel.value.toStringAsFixed(2);
+                    windowSizeController.text = 
+                        graphProvider.windowSize.value.toString();
                     return TextField(
-                      controller: triggerLevelController,
+                      controller: windowSizeController,
+                      focusNode: _windowSizeFocus,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         isDense: true,
@@ -97,64 +194,93 @@ class UserSettings extends StatelessWidget {
                             EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       ),
                       onSubmitted: (value) {
-                        final level = double.tryParse(value);
-                        if (level != null) {
-                          graphProvider.setTriggerLevel(level);
+                        _windowSizeFocus.unfocus();
+                        final size = int.tryParse(value);
+                        if (size != null) {
+                          graphProvider.setWindowSize(size);
                         }
                       },
-                      onChanged: (value) {
-                        final level = double.tryParse(value);
-                        if (level != null) {
-                          graphProvider.setTriggerLevel(level);
-                        }
-                      },
-                    );
-                  }),
-                  const SizedBox(height: 12),
-                  const Text('Trigger Edge:'),
-                  Obx(() {
-                    return DropdownButton<TriggerEdge>(
-                      value: graphProvider.triggerEdge.value,
-                      isExpanded: true,
-                      onChanged: (edge) {
-                        if (edge != null) {
-                          graphProvider.setTriggerEdge(edge);
-                        }
-                      },
-                      items: TriggerEdge.values.map((edge) {
-                        return DropdownMenuItem(
-                          value: edge,
-                          child: Text(edge.toString().split('.').last),
-                        );
-                      }).toList(),
-                    );
-                  }),
-                  const SizedBox(height: 12),
-                  const Text('Noise Reduction:'),
-                  Obx(() {
-                    return DropdownButton<TriggerMode>(
-                      value: graphProvider.triggerMode.value,
-                      isExpanded: true,
-                      onChanged: (mode) {
-                        if (mode != null) {
-                          graphProvider.setTriggerMode(mode);
-                        }
-                      },
-                      items: TriggerMode.values.map((mode) {
-                        return DropdownMenuItem(
-                          value: mode,
-                          child: Text(mode == TriggerMode.hysteresis
-                              ? 'Hysteresis'
-                              : 'Low-Pass 50kHz'),
-                        );
-                      }).toList(),
                     );
                   }),
                 ],
-              ),
-            ),
+              );
+            } else if (currentFilter is ExponentialFilter) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Alpha:'),
+                  Obx(() {
+                    alphaController.text = 
+                        graphProvider.alpha.value.toString();
+                    return TextField(
+                      controller: alphaController,
+                      focusNode: _alphaFocus,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      onSubmitted: (value) {
+                        _alphaFocus.unfocus();
+                        final alpha = double.tryParse(value);
+                        if (alpha != null) {
+                          graphProvider.setAlpha(alpha);
+                        }
+                      },
+                    );
+                  }),
+                ],
+              );
+            } else if (currentFilter is LowPassFilter) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Cutoff Frequency (Hz):'),
+                  Obx(() {
+                    cutoffFrequencyController.text = 
+                        graphProvider.cutoffFrequency.value.toString();
+                    return TextField(
+                      controller: cutoffFrequencyController,
+                      focusNode: _cutoffFrequencyFocus,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      onSubmitted: (value) {
+                        _cutoffFrequencyFocus.unfocus();
+                        final freq = double.tryParse(value);
+                        if (freq != null) {
+                          graphProvider.setCutoffFrequency(freq);
+                        }
+                      },
+                    );
+                  }),
+                ],
+              );
+            } else {
+              return const SizedBox.shrink();
+            }
+          }),
+        ],
+      ),
+    );
+  }
 
-            // Information
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      color: Theme.of(context).scaffoldBackgroundColor,
+      width: double.infinity,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildScaleSelector(),
+            _buildTriggerSettings(),
             Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 16.0),
@@ -162,134 +288,20 @@ class UserSettings extends StatelessWidget {
               decoration: BoxDecoration(
                 border: Border.all(color: Colors.grey),
                 borderRadius: BorderRadius.circular(8.0),
-                color: Theme.of(context).scaffoldBackgroundColor,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Information',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   const Text('Frequency:'),
-                  Obx(() {
-                    return Text(
-                        '${graphProvider.frequency.value.toStringAsFixed(2)} Hz');
-                  }),
+                  Obx(() => Text(
+                      '${graphProvider.frequency.value.toStringAsFixed(2)} Hz')),
                 ],
               ),
             ),
-
-            // Filter Settings
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12.0),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8.0),
-                color: Theme.of(context).scaffoldBackgroundColor,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Filter Settings',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  const Text('Filter Type:'),
-                  Obx(() => DropdownButton<FilterType>(
-                        value: graphProvider.currentFilter.value,
-                        isExpanded: true,
-                        onChanged: (filter) {
-                          if (filter != null) {
-                            graphProvider.setFilter(filter);
-                          }
-                        },
-                        items: [
-                          NoFilter(),
-                          MovingAverageFilter(),
-                          ExponentialFilter(),
-                          LowPassFilter(),
-                        ]
-                            .map((type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type.name),
-                                ))
-                            .toList(),
-                      )),
-                  const SizedBox(height: 8),
-                  Obx(() {
-                    final currentFilter = graphProvider.currentFilter.value;
-                    if (currentFilter is MovingAverageFilter) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Window Size:'),
-                          TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 8),
-                            ),
-                            onSubmitted: (value) {
-                              final size = int.tryParse(value);
-                              if (size != null) {
-                                graphProvider.setWindowSize(size);
-                              }
-                            },
-                          ),
-                        ],
-                      );
-                    } else if (currentFilter is ExponentialFilter) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Alpha:'),
-                          TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 8),
-                            ),
-                            onSubmitted: (value) {
-                              final alpha = double.tryParse(value);
-                              if (alpha != null) {
-                                graphProvider.setAlpha(alpha);
-                              }
-                            },
-                          ),
-                        ],
-                      );
-                    } else if (currentFilter is LowPassFilter) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Cutoff Frequency (Hz):'),
-                          TextField(
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 8),
-                            ),
-                            onSubmitted: (value) {
-                              final freq = double.tryParse(value);
-                              if (freq != null) {
-                                graphProvider.setCutoffFrequency(freq);
-                              }
-                            },
-                          ),
-                        ],
-                      );
-                    } else {
-                      return const SizedBox.shrink();
-                    }
-                  }),
-                ],
-              ),
-            ),
+            _buildFilterSettings(),
           ],
         ),
       ),
