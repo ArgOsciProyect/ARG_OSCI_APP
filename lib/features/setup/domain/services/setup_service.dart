@@ -1,5 +1,8 @@
 // lib/features/setup/domain/services/setup_service.dart
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
 import 'package:encrypt/encrypt.dart';
+import 'package:get/get.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
@@ -62,6 +65,8 @@ class SetupService implements SetupRepository {
   late HttpService localHttpService;
   RSAPublicKey? _publicKey;
   final NetworkInfoService _networkInfo = NetworkInfoService();
+  DeviceConfig? _deviceConfig;
+
 
   late dynamic extIp;
   late dynamic extPort;
@@ -78,6 +83,12 @@ class SetupService implements SetupRepository {
     localSocketService = SocketService();
     localHttpService = HttpService(globalHttpConfig);
   }
+
+Future<DeviceConfig> fetchDeviceConfig() async {
+  final response = await localHttpService.get('/config');
+  _deviceConfig = DeviceConfig.fromJson(response);
+  return _deviceConfig!;
+}
 
   @override
   Future<void> initializeGlobalHttpConfig(String baseUrl,
@@ -128,20 +139,27 @@ class SetupService implements SetupRepository {
     return encrypted.base64;
   }
 
-  @override
-  Future<void> selectMode(String mode, {http.Client? client}) async {
-    final response = await localHttpService.get('/internal_mode');
-    if (mode == 'External AP') {
-      // Handle External AP mode
-    } else if (mode == 'Internal AP') {
-      final ip = response['IP'];
-      final port = response['Port'];
-      print("ip recibido: $ip");
-      print("port recibido: $port");
-      await initializeGlobalHttpConfig('http://$ip', client: client);
-      await initializeGlobalSocketConnection(ip, port);
-    }
+Future<void> _initializeDataAcquisition(DeviceConfig config) async {
+  final dataAcquisitionService = Get.find<DataAcquisitionService>();
+  dataAcquisitionService.updateDeviceConfig(config);
+}
+
+@override
+Future<void> selectMode(String mode, {http.Client? client}) async {
+  final response = await localHttpService.get('/internal_mode');
+  if (mode == 'External AP') {
+    // Handle External AP mode
+  } else if (mode == 'Internal AP') {
+    final ip = response['IP'];
+    final port = response['Port'];
+    await initializeGlobalHttpConfig('http://$ip', client: client);
+    await initializeGlobalSocketConnection(ip, port);
+    
+    // Fetch device configuration
+    final config = await fetchDeviceConfig();
+    await _initializeDataAcquisition(config);
   }
+}
 
   @override
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,

@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
@@ -14,8 +15,7 @@ import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
 
 // Configurations
-const int _processingChunkSize = 8192 * 2;
-const int _maxQueueSize = _processingChunkSize * 6;
+const int _maxQueueSizeFactor = 6;
 const Duration _reconnectionDelay = Duration(seconds: 5);
 
 // Message classes for isolate communication
@@ -42,6 +42,11 @@ class DataProcessingConfig {
   final double triggerSensitivity;
   final double mid;
   final TriggerMode triggerMode;
+  final int bitsPerPacket;
+  final int dataMask;
+  final int channelMask;
+  final int usefulBits;
+  final int samplesPerPacket;
 
   const DataProcessingConfig({
     required this.scale,
@@ -51,7 +56,62 @@ class DataProcessingConfig {
     required this.triggerSensitivity,
     required this.mid,
     this.triggerMode = TriggerMode.hysteresis,
+    required this.bitsPerPacket,
+    required this.dataMask,
+    required this.channelMask,
+    required this.usefulBits,
+    required this.samplesPerPacket,
   });
+
+  DataProcessingConfig copyWith({
+    double? scale,
+    double? distance,
+    double? triggerLevel,
+    TriggerEdge? triggerEdge,
+    double? triggerSensitivity,
+    double? mid,
+    TriggerMode? triggerMode,
+  }) {
+    return DataProcessingConfig(
+      scale: scale ?? this.scale,
+      distance: distance ?? this.distance,
+      triggerLevel: triggerLevel ?? this.triggerLevel,
+      triggerEdge: triggerEdge ?? this.triggerEdge,
+      triggerSensitivity: triggerSensitivity ?? this.triggerSensitivity,
+      mid: mid ?? this.mid,
+      triggerMode: triggerMode ?? this.triggerMode,
+      bitsPerPacket: bitsPerPacket,
+      dataMask: dataMask,
+      channelMask: channelMask,
+      usefulBits: usefulBits,
+      samplesPerPacket: samplesPerPacket,
+    );
+  }
+
+  DataProcessingConfig createTestConfig({
+  double scale = 1.0,
+  double distance = 1.0,
+  double triggerLevel = 0.0,
+  TriggerEdge triggerEdge = TriggerEdge.positive,
+  double triggerSensitivity = 70.0,
+  double mid = 256.0,
+  TriggerMode triggerMode = TriggerMode.hysteresis,
+}) {
+  return DataProcessingConfig(
+    scale: scale,
+    distance: distance,
+    triggerLevel: triggerLevel,
+    triggerEdge: triggerEdge,
+    triggerSensitivity: triggerSensitivity,
+    mid: mid,
+    triggerMode: triggerMode,
+    bitsPerPacket: 16,
+    dataMask: 0x0FFF,
+    channelMask: 0xF000,
+    usefulBits: 12,
+    samplesPerPacket: 4096
+  );
+}
 }
 
 class UpdateConfigMessage {
@@ -76,6 +136,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _frequencyController = StreamController<double>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   late final HttpService httpService;
+  DeviceConfig? _deviceConfig;
+  late int _processingChunkSize = 8192 * 2; // Default value until config is received
 
   bool _disposed = false;
 
@@ -87,6 +149,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   TriggerEdge _triggerEdge = TriggerEdge.positive;
   double _triggerSensitivity = 70.0;
   TriggerMode _triggerMode = TriggerMode.hysteresis;
+
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -198,6 +261,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  void updateDeviceConfig(DeviceConfig config) {
+  _deviceConfig = config;
+  _distance = 1 / config.samplingFrequency;
+  _mid = pow(2, config.usefulBits - 1).toDouble();
+  _processingChunkSize = config.samplesPerPacket * 2;
+  updateConfig();
+}
+
   @override
   void setVoltageScale(VoltageScale voltageScale) {
     final oldScale = _currentVoltageScale.scale;
@@ -291,13 +362,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     SendPort sendPort,
   ) {
     queue.addAll(data);
-
-    while (queue.length > _maxQueueSize) {
+  
+    final maxQueueSize = config.samplesPerPacket * 2 * _maxQueueSizeFactor;
+    final processingChunkSize = config.samplesPerPacket * 2;
+  
+    while (queue.length > maxQueueSize) {
       queue.removeFirst();
     }
-
-    while (queue.length >= _processingChunkSize) {
-      final points = _processData(queue, _processingChunkSize, config);
+  
+    while (queue.length >= processingChunkSize) {
+      final points = _processData(queue, processingChunkSize, config);
       sendPort.send(points);
     }
   }
@@ -313,18 +387,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerEdge: message.triggerEdge,
       triggerSensitivity: message.triggerSensitivity,
       mid: currentConfig.mid,
+      triggerMode: message.triggerMode,
+      bitsPerPacket: currentConfig.bitsPerPacket,
+      dataMask: currentConfig.dataMask,
+      channelMask: currentConfig.channelMask,
+      usefulBits: currentConfig.usefulBits,
+      samplesPerPacket: currentConfig.samplesPerPacket,
     );
   }
 
-  static (int value, int channel) _readDataFromQueue(Queue<int> queue) {
-    final bytes = [queue.removeFirst(), queue.removeFirst()];
-    final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
-        .getUint16(0, Endian.little);
+static (int value, int channel) _readDataFromQueue(Queue<int> queue, DataProcessingConfig config) {
+  final bytes = [queue.removeFirst(), queue.removeFirst()];
+  final rawValue = ByteData.sublistView(Uint8List.fromList(bytes))
+      .getUint16(0, Endian.little);
 
-    final uint12Value = uint16Value & 0x0FFF;
-    final channel = (uint16Value >> 12) & 0x0F;
-    return (uint12Value, channel);
-  }
+  final value = rawValue & config.dataMask;
+  final channel = (rawValue & config.channelMask) >> 
+      (config.bitsPerPacket - log2(config.channelMask).ceil());
+  
+  return (value, channel);
+}
+
+static int log2(int x) {
+  return (log(x) / log(2)).ceil();
+}
 
   static (double x, double y) _calculateCoordinates(
     int uint12Value,
@@ -373,7 +459,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
 
-      final (uint12Value, _) = _readDataFromQueue(queue);
+      final (uint12Value, _) = _readDataFromQueue(queue, config);
       final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
 
       // Apply low-pass filter only for trigger detection
@@ -481,10 +567,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> fetchData(String ip, int port) async {
     await stopData();
-
+  
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
-
+  
+    if (_deviceConfig == null) {
+      throw StateError('Device configuration not initialized');
+    }
+  
     final config = DataProcessingConfig(
       scale: scale,
       distance: distance,
@@ -492,13 +582,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
       mid: mid,
+      triggerMode: triggerMode,
+      bitsPerPacket: _deviceConfig!.bitsPerPacket,
+      dataMask: _deviceConfig!.dataMask,
+      channelMask: _deviceConfig!.channelMask,
+      usefulBits: _deviceConfig!.usefulBits,
+      samplesPerPacket: _deviceConfig!.samplesPerPacket,
     );
-
+  
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
       ProcessingIsolateSetup(_processingReceivePort!.sendPort, config),
     );
-
+  
     await _setupProcessingIsolate(processingStream);
     await _setupSocketIsolate(ip, port);
   }
@@ -699,6 +795,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
       mid: mid,
+      bitsPerPacket: 16, // Add default test values
+      dataMask: 0x0FFF,
+      channelMask: 0xF000,
+      usefulBits: 12,
+      samplesPerPacket: 4096,
     );
     return _processData(queue, chunkSize, config);
   }

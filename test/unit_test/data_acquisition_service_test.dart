@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
@@ -90,12 +91,23 @@ void main() {
   // ignore: unused_local_variable
   late MockSocketService mockSocketService;
 
+  // Add at the top of setUp()
   setUp(() async {
     mockHttpConfig = MockHttpConfig();
     mockSocketService = MockSocketService();
     service = DataAcquisitionService(mockHttpConfig);
     await service.initialize();
-
+  
+    // Add device configuration
+    service.updateDeviceConfig(DeviceConfig(
+      samplingFrequency: 1650000,
+      bitsPerPacket: 16,
+      dataMask: 0x0FFF,
+      channelMask: 0xF000,
+      usefulBits: 12,
+      samplesPerPacket: 4096
+    ));
+  
     // Known test configuration
     service.scale = 3.3 / 512;
     service.mid = 512 / 2;
@@ -108,15 +120,13 @@ void main() {
   });
 
   group('Voltage Scale Handling', () {
-    test('should correctly set and update voltage scale', () {
-      final initialScale = service.currentVoltageScale.scale;
-      final newScale = VoltageScales.volts_2;
-
-      service.setVoltageScale(newScale);
-
-      expect(service.currentVoltageScale, equals(newScale));
-      expect(service.scale, equals(newScale.scale));
-    });
+test('should correctly set and update voltage scale', () {
+  // Remove initialScale variable if not used
+  const newScale = VoltageScales.volts_2;
+  service.setVoltageScale(newScale);
+  expect(service.currentVoltageScale, equals(newScale));
+  expect(service.scale, equals(newScale.scale));
+});
 
     test('should adjust trigger level when changing voltage scale', () {
       // Set initial conditions
@@ -144,29 +154,22 @@ void main() {
   });
 
   group('Enhanced Autoset', () {
-    test('should calculate new scales based on signal metrics', () {
-      // Simulate signal with known characteristics
-      final points = [
-        DataPoint(0.0, 0.5, isTrigger: true), // 0.5V
-        DataPoint(1e-6, 1.0), // 1.0V
-        DataPoint(2e-6, 0.5, isTrigger: true), // 0.5V
-        DataPoint(3e-6, 0.0), // 0.0V
-        DataPoint(4e-6, 0.5, isTrigger: true), // 0.5V
-      ];
+test('should calculate new scales based on signal metrics', () {
+  final points = [
+    DataPoint(0.0, 0.5, isTrigger: true),
+    DataPoint(1e-6, 1.0),
+    DataPoint(2e-6, 0.5, isTrigger: true),
+    DataPoint(3e-6, 0.0),
+    DataPoint(4e-6, 0.5, isTrigger: true),
+  ];
 
-      service.updateMetrics(points);
+  service.updateMetrics(points);
+  final [timeScale, valueScale] = service.autoset(300.0, 400.0);
 
-      final result = service.autoset(300.0, 400.0);
-
-      // Verify time scale (3 periods should fit in chart width)
-      expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
-
-      // Verify value scale (should accommodate max value)
-      expect(result[1], closeTo(1.0 / 1.0, 0.1)); // Max value is 1.0V
-
-      // Verify trigger level is set to average
-      expect(service.triggerLevel, closeTo(0.5, 0.1));
-    });
+  expect(timeScale, closeTo(400.0 / (3 / 500000), 1000));
+  expect(valueScale, closeTo(1.0 / 1.0, 0.1));
+  expect(service.triggerLevel, closeTo(0.5, 0.1));
+});
 
     test('autoset should clamp trigger level within voltage range', () {
       service.setVoltageScale(VoltageScales.millivolts_500);
@@ -615,7 +618,7 @@ void main() {
         triggerSensitivity: 50.0,
         triggerMode: TriggerMode.hysteresis,
       );
-
+    
       final oldConfig = DataProcessingConfig(
         scale: 1.0,
         distance: 1.0,
@@ -623,16 +626,21 @@ void main() {
         triggerEdge: TriggerEdge.negative,
         triggerSensitivity: 70.0,
         mid: 256.0,
+        bitsPerPacket: 16,
+        dataMask: 0x0FFF,
+        channelMask: 0xF000,
+        usefulBits: 12,
+        samplesPerPacket: 4096
       );
-
-      final newConfig =
-          DataAcquisitionService.updateConfigForTest(oldConfig, message);
-
+    
+      final newConfig = DataAcquisitionService.updateConfigForTest(oldConfig, message);
+    
       expect(newConfig.scale, equals(message.scale));
       expect(newConfig.triggerLevel, equals(message.triggerLevel));
       expect(newConfig.triggerEdge, equals(message.triggerEdge));
       expect(newConfig.triggerSensitivity, equals(message.triggerSensitivity));
     });
+
     test('should update trigger configuration', () {
       service.triggerLevel = 1.0;
       service.triggerEdge = TriggerEdge.negative;
