@@ -9,6 +9,9 @@ abstract class LineChartRepository {
   /// Gets the pause state of the chart
   bool get isPaused;
 
+  /// Gets the time between samples (1/sampling frequency)
+  double get distance;
+
   /// Pauses the data stream
   void pause();
 

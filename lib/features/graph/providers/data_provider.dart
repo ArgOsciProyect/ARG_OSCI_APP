@@ -1,5 +1,6 @@
 // lib/features/graph/providers/graph_provider.dart
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
@@ -9,6 +10,7 @@ import '../domain/services/data_acquisition_service.dart';
 import '../domain/models/trigger_data.dart';
 import 'line_chart_provider.dart';
 import '../domain/models/filter_types.dart';
+
 
 class GraphProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
@@ -34,6 +36,7 @@ class GraphProvider extends GetxController {
   final cutoffFrequency = RxDouble(100.0);
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
 
+
   // Kalman filter instance
   final SimpleKalman kalman =
       SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
@@ -47,9 +50,9 @@ class GraphProvider extends GetxController {
       _dataPointsController.add(filteredPoints);
     });
 
+
     dataAcquisitionService.frequencyStream.listen((freq) {
-      final filteredFreq = kalman.filtered(freq); // Aplicar el filtro Kalman
-      frequency.value = filteredFreq;
+      frequency.value = freq;
     });
 
     dataAcquisitionService.maxValueStream.listen((max) {

@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
@@ -20,15 +23,33 @@ class MockGraphProvider extends Mock implements GraphProvider {
 void main() {
   late MockGraphProvider mockProvider;
   late LineChartService service;
+  late DeviceConfigProvider deviceConfigProvider;
 
-  setUp(() {
+  setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    
+    // Initialize DeviceConfigProvider first
+    deviceConfigProvider = DeviceConfigProvider();
+    deviceConfigProvider.updateConfig(DeviceConfig(
+      samplingFrequency: 1650000.0,
+      bitsPerPacket: 16,
+      dataMask: 0x0FFF,
+      channelMask: 0xF000,
+      usefulBits: 12,
+      samplesPerPacket: 4096,
+    ));
+    
+    // Put provider before creating service
+    Get.put<DeviceConfigProvider>(deviceConfigProvider);
+    
     mockProvider = MockGraphProvider();
     service = LineChartService(mockProvider);
   });
 
   tearDown(() async {
-    service.dispose();
+    await service.dispose();
     mockProvider.close();
+    Get.reset(); // Clean up GetX bindings
   });
 
   test('Emite datos correctamente al recibir dataPointsStream', () async {

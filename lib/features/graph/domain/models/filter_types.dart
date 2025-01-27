@@ -41,7 +41,7 @@ class MovingAverageFilter extends FilterType {
 
   @override
   List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
-    final windowSize = params['windowSize'] as int;
+    final windowSize = params['windowSize'];
     final filteredPoints = <DataPoint>[];
 
     for (int i = 0; i < points.length; i++) {

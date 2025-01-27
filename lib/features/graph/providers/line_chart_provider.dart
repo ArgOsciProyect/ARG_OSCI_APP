@@ -1,6 +1,7 @@
 // lib/features/graph/providers/line_chart_provider.dart
 import 'dart:math';
 
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
@@ -10,6 +11,7 @@ import 'dart:async';
 class LineChartProvider extends GetxController {
   final LineChartService _lineChartService;
   StreamSubscription? _dataSubscription;
+  final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
   static const double zoomFactor = 1.02;
   static const double unzoomFactor = 0.98;
@@ -40,8 +42,12 @@ class LineChartProvider extends GetxController {
     _dataSubscription = _lineChartService.dataStream.listen((points) {
       _dataPoints.value = points;
     });
-  }
 
+    // Initialize scales based on device config
+    _timeScale.value = 1.0;
+    _valueScale.value = 1.0 / (1 << deviceConfig.usefulBits);
+  }
+  
   void handleZoom(ScaleUpdateDetails details, Size constraints) {
     if (details.pointerCount == 2) {
       if (_scaleStartFocalPoint == null) {

@@ -3,14 +3,15 @@ import 'dart:async';
 import '../models/data_point.dart';
 
 abstract class FFTChartRepository {
-  /// Block size for FFT processing
-  static const int blockSize = 8192 * 2;
-
   /// Stream of processed FFT data points
   Stream<List<DataPoint>> get fftStream;
 
   /// Gets the current output format (dB or linear)
   bool get outputInDb;
+
+  /// Block size for FFT processing
+  /// Obtained from device configuration
+  int get blockSize;
 
   /// Sets the output format
   /// [inDb] true for decibel output, false for linear

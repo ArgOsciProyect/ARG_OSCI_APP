@@ -22,6 +22,8 @@ class FFTChartProvider extends GetxController {
   double _initialTimeScale = 1.0;
   double _initialValueScale = 1.0;
   Timer? _incrementTimer;
+  final frequency = 0.0.obs;
+
 
   // Add getters
   double get horizontalOffset => _horizontalOffset.value;
@@ -30,11 +32,14 @@ class FFTChartProvider extends GetxController {
   double get initialValueScale => _initialValueScale;
 
   FFTChartProvider(this.fftChartService) {
-    // Subscribe to filtered data stream
+    // Subscribe to FFT stream
     fftChartService.fftStream.listen((points) {
       fftPoints.value = points;
+      // Update frequency when new FFT data arrives
+      frequency.value = fftChartService.frequency;
     });
   }
+
 
   void setInitialScales() {
     _initialTimeScale = timeScale.value;

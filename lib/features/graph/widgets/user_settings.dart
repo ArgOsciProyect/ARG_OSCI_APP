@@ -1,4 +1,6 @@
 // lib/features/graph/widgets/user_settings.dart
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/data_provider.dart';
@@ -6,6 +8,7 @@ import '../providers/line_chart_provider.dart';
 import '../domain/models/trigger_data.dart';
 import '../domain/models/filter_types.dart';
 import '../domain/models/voltage_scale.dart';
+
 
 class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
@@ -271,33 +274,52 @@ class UserSettings extends StatelessWidget {
     );
   }
 
-  Widget _buildInformationSection() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16.0),
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          const Text('Frequency:'),
-          StreamBuilder(
-            // Define un Stream que emite cada 2 segundos
-            stream: Stream.periodic(const Duration(seconds: 2)),
-            builder: (context, _) => Text(
-              '${graphProvider.frequency.value.toStringAsFixed(2)} Hz',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+Widget _buildInformationSection() {
+  final modeProvider = Get.find<GraphModeProvider>();
+  
+  return Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 16.0),
+    padding: const EdgeInsets.all(12.0),
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.grey),
+      borderRadius: BorderRadius.circular(8.0),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Information',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Text('Frequency Source:'),
+            const SizedBox(width: 8),
+            Obx(() => DropdownButton<FrequencySource>(
+              value: modeProvider.frequencySource.value,
+              onChanged: (source) {
+                if (source != null) {
+                  modeProvider.setFrequencySource(source);
+                }
+              },
+              items: FrequencySource.values.map((source) {
+                return DropdownMenuItem(
+                  value: source,
+                  child: Text(source == FrequencySource.timeDomain 
+                    ? 'Time Domain' 
+                    : 'FFT'),
+                );
+              }).toList(),
+            )),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const Text('Frequency:'),
+        Obx(() => Text('${modeProvider.frequency.toStringAsFixed(2)} Hz')),
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {

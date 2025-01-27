@@ -1,6 +1,9 @@
 // lib/features/graph/services/fft_chart_service.dart
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:get/get.dart';
+
 import '../models/data_point.dart';
 import '../../providers/data_provider.dart';
 import 'dart:math' as math;
@@ -8,8 +11,11 @@ import 'package:vector_math/vector_math_64.dart';
 
 class FFTChartService {
   final GraphProvider graphProvider;
+  final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final _fftController = StreamController<List<DataPoint>>.broadcast();
-  static const int blockSize = 8192 * 2;
+  
+  // Remove hardcoded blockSize
+  late final int blockSize;
 
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
@@ -21,14 +27,9 @@ class FFTChartService {
 
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
 
-  static void setOutputFormat(bool inDb) {
-    _outputInDb = inDb;
-  }
-
-  static bool get outputInDb => _outputInDb;
-
   FFTChartService(this.graphProvider) {
     print("Starting FFT Service");
+    blockSize = deviceConfig.samplesPerPacket * 2;
 
     _dataPointsSubscription = graphProvider.dataPointsStream.listen((points) {
       if (_isProcessing || _isPaused) return;
@@ -58,6 +59,26 @@ class FFTChartService {
     });
   }
 
+  double get frequency {
+    if (_lastFFTPoints.isEmpty) return 0.0;
+    
+    // Skip DC component (i=0)
+    var maxIndex = 2;
+    var maxMagnitude = _lastFFTPoints[1].y;
+    
+    // Find peak frequency component
+    for (var i = 3; i < _lastFFTPoints.length; i++) {
+      if (_lastFFTPoints[i].y > maxMagnitude) {
+        maxMagnitude = _lastFFTPoints[i].y;
+        maxIndex = i;
+      }
+    }
+    
+    return _lastFFTPoints[maxIndex].x; // x already contains frequency value
+  }
+
+  List<DataPoint> _lastFFTPoints = [];
+
   List<DataPoint> computeFFT(List<DataPoint> points, double maxValue) {
     final n = points.length;
     final real = Float32List(n);
@@ -78,18 +99,20 @@ class FFTChartService {
       imag[i] /= n;
     }
 
-    // Calculate frequency domain points
+    // Calculate frequency domain points using device sampling rate
     final halfLength = (n / 2).ceil();
-    const samplingRate = 1600000.0;
+    final samplingRate = deviceConfig.samplingFrequency;
     final freqResolution = samplingRate / n;
 
-    return List<DataPoint>.generate(halfLength, (i) {
+    _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
       final re = real[i];
       final im = imag[i];
       final magnitude = math.sqrt(re * re + im * im);
       final db = _outputInDb ? _toDecibels(magnitude, maxValue) : magnitude;
       return DataPoint(i * freqResolution, db);
     });
+
+    return _lastFFTPoints;
   }
 
   static double _toDecibels(double magnitude, double maxValue) {

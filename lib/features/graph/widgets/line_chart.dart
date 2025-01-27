@@ -1,6 +1,7 @@
 // lib/features/graph/widgets/line_chart.dart
 import 'dart:math';
 
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -246,6 +247,7 @@ class LineChartPainter extends CustomPainter {
   final Color backgroundColor;
   final double horizontalOffset;
   final double verticalOffset;
+  final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
   LineChartPainter(
     this.dataPoints,
@@ -326,9 +328,9 @@ class LineChartPainter extends CustomPainter {
       canvas.drawLine(Offset(x, _offsetY),
           Offset(x, size.height - _sqrOffsetBot), gridPaint);
 
-      final timeValue = ((x - _offsetX) / timeScale -
-              horizontalOffset * drawingWidth / timeScale) *
-          1e6;
+      final timeValue = ((x - _offsetX) / timeScale - 
+        horizontalOffset * drawingWidth / timeScale) * 
+        (1e6);
       textPainter.text = TextSpan(
         text: '${timeValue.toStringAsFixed(1)} µs',
         style: const TextStyle(color: Colors.black, fontSize: 10),

@@ -3,7 +3,7 @@ clear; clc;
 
 % Parámetros
 filename = '/home/jotalora/Tesis/ARG_OSCI_APP/test/test_signal.csv';  % Nombre del archivo de entrada
-fs = 1.6e6;                      % Frecuencia de muestreo (1.6 MHz)
+fs = 1650000;                      % Frecuencia de muestreo (1.65 MHz)
 
 % Leer los datos del archivo CSV
 data = csvread(filename);

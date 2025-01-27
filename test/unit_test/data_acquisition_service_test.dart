@@ -7,7 +7,9 @@ import 'dart:math';
 
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 import 'package:http/http.dart' as http;
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
@@ -31,6 +33,55 @@ class MockHttpConfig extends Mock implements HttpConfig {
   http.Client? get client => MockHttpClient();
 }
 
+class MockDeviceConfig extends Mock implements DeviceConfig {
+  @override
+  int get dataMask => 0x0FFF;
+
+  @override
+  int get channelMask => 0xF000;
+
+  @override
+  int get bitsPerPacket => 16;
+
+  @override
+  int get usefulBits => 9;
+
+  @override
+  double get samplingFrequency => 1650000.0;
+
+  @override
+  int get samplesPerPacket => 4096;
+}
+
+class MockDeviceConfigProvider extends GetxController implements DeviceConfigProvider {
+  final _config = Rx<DeviceConfig?>(MockDeviceConfig());
+
+  @override
+  DeviceConfig? get config => _config.value;
+
+  @override
+  double get samplingFrequency => 1650000.0;
+
+  @override
+  int get bitsPerPacket => 16;
+
+  @override
+  int get dataMask => 0x0FFF;
+
+  @override
+  int get channelMask => 0xF000;
+
+  @override
+  int get usefulBits => 9;
+
+  @override
+  int get samplesPerPacket => 4096;
+
+  @override
+  void updateConfig(DeviceConfig config) {
+    _config.value = config;
+  }
+}
 // Mock para HttpClient
 class MockHttpClient extends Mock implements http.Client {}
 
@@ -88,45 +139,50 @@ class MockHttpService extends Mock implements HttpService {}
 void main() {
   late DataAcquisitionService service;
   late MockHttpConfig mockHttpConfig;
-  // ignore: unused_local_variable
+  late MockDeviceConfigProvider mockDeviceConfigProvider;
   late MockSocketService mockSocketService;
 
-  // Add at the top of setUp()
   setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    
+    // Reset GetX before each test
+    Get.reset();
+    
+    // Create mocks
     mockHttpConfig = MockHttpConfig();
     mockSocketService = MockSocketService();
+    mockDeviceConfigProvider = MockDeviceConfigProvider();
+    
+    // Initialize the mock provider first
+    Get.put<DeviceConfigProvider>(mockDeviceConfigProvider).onInit();
+    
+    // Create service
     service = DataAcquisitionService(mockHttpConfig);
-    await service.initialize();
-  
-    // Add device configuration
-    service.updateDeviceConfig(DeviceConfig(
-      samplingFrequency: 1650000,
-      bitsPerPacket: 16,
-      dataMask: 0x0FFF,
-      channelMask: 0xF000,
-      usefulBits: 12,
-      samplesPerPacket: 4096
-    ));
-  
-    // Known test configuration
+    
+    // Configure initial values
     service.scale = 3.3 / 512;
-    service.mid = 512 / 2;
     service.triggerLevel = 0.0;
     service.triggerSensitivity = 0.1;
+    
+    // Initialize service
+    await service.initialize();
   });
 
   tearDown(() async {
     await service.dispose();
+    Get.reset();
   });
 
   group('Voltage Scale Handling', () {
-test('should correctly set and update voltage scale', () {
-  // Remove initialScale variable if not used
-  const newScale = VoltageScales.volts_2;
-  service.setVoltageScale(newScale);
-  expect(service.currentVoltageScale, equals(newScale));
-  expect(service.scale, equals(newScale.scale));
-});
+    test('should correctly set and update voltage scale', () {
+      final initialScale = service.currentVoltageScale.scale;
+      final newScale = VoltageScales.volts_2;
+
+      service.setVoltageScale(newScale);
+
+      expect(service.currentVoltageScale, equals(newScale));
+      expect(service.scale, equals(newScale.scale));
+    });
 
     test('should adjust trigger level when changing voltage scale', () {
       // Set initial conditions
@@ -154,22 +210,29 @@ test('should correctly set and update voltage scale', () {
   });
 
   group('Enhanced Autoset', () {
-test('should calculate new scales based on signal metrics', () {
-  final points = [
-    DataPoint(0.0, 0.5, isTrigger: true),
-    DataPoint(1e-6, 1.0),
-    DataPoint(2e-6, 0.5, isTrigger: true),
-    DataPoint(3e-6, 0.0),
-    DataPoint(4e-6, 0.5, isTrigger: true),
-  ];
+    test('should calculate new scales based on signal metrics', () {
+      // Simulate signal with known characteristics
+      final points = [
+        DataPoint(0.0, 0.5, isTrigger: true), // 0.5V
+        DataPoint(1e-6, 1.0), // 1.0V
+        DataPoint(2e-6, 0.5, isTrigger: true), // 0.5V
+        DataPoint(3e-6, 0.0), // 0.0V
+        DataPoint(4e-6, 0.5, isTrigger: true), // 0.5V
+      ];
 
-  service.updateMetrics(points);
-  final [timeScale, valueScale] = service.autoset(300.0, 400.0);
+      service.updateMetrics(points);
 
-  expect(timeScale, closeTo(400.0 / (3 / 500000), 1000));
-  expect(valueScale, closeTo(1.0 / 1.0, 0.1));
-  expect(service.triggerLevel, closeTo(0.5, 0.1));
-});
+      final result = service.autoset(300.0, 400.0);
+
+      // Verify time scale (3 periods should fit in chart width)
+      expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
+
+      // Verify value scale (should accommodate max value)
+      expect(result[1], closeTo(1.0 / 1.0, 0.1)); // Max value is 1.0V
+
+      // Verify trigger level is set to average
+      expect(service.triggerLevel, closeTo(0.5, 0.1));
+    });
 
     test('autoset should clamp trigger level within voltage range', () {
       service.setVoltageScale(VoltageScales.millivolts_500);
@@ -205,16 +268,8 @@ test('should calculate new scales based on signal metrics', () {
 
   group('ProcessData', () {
     test('should handle hysteresis trigger mode', () {
-      // Para cubrir líneas 250-256
       final queue = Queue<int>();
-      queue.addAll([
-        0x00,
-        0x00,
-        0xFF,
-        0x01,
-        0x00,
-        0x00,
-      ]);
+      queue.addAll([0x00, 0x00, 0xFF, 0x01, 0x00, 0x00]);
 
       service.triggerMode = TriggerMode.hysteresis;
 
@@ -227,11 +282,11 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!, // Add device config
       );
 
       expect(points, isNotEmpty);
     });
-
     test('should handle low pass filter trigger mode', () {
       // Para cubrir líneas 222-223, 237, 246
       final queue = Queue<int>();
@@ -255,6 +310,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       expect(points, isNotEmpty);
@@ -276,6 +332,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       print('\nRising Edge Test:');
@@ -308,6 +365,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.negative,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       print('\nFalling Edge Test:');
@@ -345,6 +403,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.negative,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       expect(points, isNotEmpty);
@@ -367,6 +426,7 @@ test('should calculate new scales based on signal metrics', () {
         service.triggerEdge,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
       // Verifica líneas 345-348, 352-354, 361-362
       expect(points, isNotEmpty);
@@ -386,6 +446,7 @@ test('should calculate new scales based on signal metrics', () {
         service.triggerEdge,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
       // Verifica línea 323
       expect(points, isNotEmpty);
@@ -618,7 +679,7 @@ test('should calculate new scales based on signal metrics', () {
         triggerSensitivity: 50.0,
         triggerMode: TriggerMode.hysteresis,
       );
-    
+
       final oldConfig = DataProcessingConfig(
         scale: 1.0,
         distance: 1.0,
@@ -626,21 +687,19 @@ test('should calculate new scales based on signal metrics', () {
         triggerEdge: TriggerEdge.negative,
         triggerSensitivity: 70.0,
         mid: 256.0,
-        bitsPerPacket: 16,
-        dataMask: 0x0FFF,
-        channelMask: 0xF000,
-        usefulBits: 12,
-        samplesPerPacket: 4096
+        deviceConfig: mockDeviceConfigProvider.config!, // Add device config
       );
-    
-      final newConfig = DataAcquisitionService.updateConfigForTest(oldConfig, message);
-    
+
+      final newConfig =
+          DataAcquisitionService.updateConfigForTest(oldConfig, message);
+
       expect(newConfig.scale, equals(message.scale));
       expect(newConfig.triggerLevel, equals(message.triggerLevel));
       expect(newConfig.triggerEdge, equals(message.triggerEdge));
       expect(newConfig.triggerSensitivity, equals(message.triggerSensitivity));
+      expect(newConfig.deviceConfig,
+          equals(oldConfig.deviceConfig)); // Verify config preserved
     });
-
     test('should update trigger configuration', () {
       service.triggerLevel = 1.0;
       service.triggerEdge = TriggerEdge.negative;
@@ -754,6 +813,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       expect(points, isEmpty);
@@ -795,6 +855,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       expect(points, isEmpty);
@@ -816,6 +877,7 @@ test('should calculate new scales based on signal metrics', () {
         TriggerEdge.positive,
         service.triggerSensitivity,
         service.mid,
+        mockDeviceConfigProvider.config!,
       );
 
       expect(points.any((p) => p.isTrigger), isFalse);

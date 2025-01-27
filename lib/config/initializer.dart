@@ -1,4 +1,5 @@
 // lib/config/initializer.dart
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:get/get.dart';
 import '../features/http/domain/models/http_config.dart';
 import '../features/socket/domain/models/socket_connection.dart';
@@ -14,44 +15,46 @@ import '../features/graph/providers/graph_mode_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
-    // Initialize global configurations
+    // 1. Initialize DeviceConfigProvider first
+    final deviceConfigProvider = DeviceConfigProvider();
+    Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
+
+    // 2. Initialize configs
     final globalHttpConfig = HttpConfig('http://192.168.4.1:81');
     final globalSocketConnection = SocketConnection('192.168.4.1', 8080);
-
-    // Register core configurations
     Get.put<HttpConfig>(globalHttpConfig);
     Get.put<SocketConnection>(globalSocketConnection);
 
-    // Initialize and register DataAcquisitionService
+    // 3. Initialize DataAcquisitionService
     final dataAcquisitionService = DataAcquisitionService(globalHttpConfig);
-    await dataAcquisitionService.initialize(); // Initialize configuration
+    await dataAcquisitionService.initialize();
     Get.put<DataAcquisitionService>(dataAcquisitionService);
 
-    // Initialize and register SetupService
-    final setupService = SetupService(globalSocketConnection, globalHttpConfig);
-    Get.put<SetupService>(setupService);
-
-    // Initialize providers
-    Get.put<SetupProvider>(SetupProvider(setupService));
-
-    // Initialize GraphProvider with its dependencies
+    // 4. Initialize GraphProvider first
     final graphProvider = GraphProvider(
-        Get.find<DataAcquisitionService>(), Get.find<SocketConnection>());
+      Get.find<DataAcquisitionService>(),
+      Get.find<SocketConnection>(),
+    );
     Get.put<GraphProvider>(graphProvider);
 
-    // Initialize and register FFTChartService and FFTChartProvider
+    // 5. Initialize FFT services
     final fftChartService = FFTChartService(graphProvider);
     Get.put<FFTChartService>(fftChartService);
     Get.put<FFTChartProvider>(FFTChartProvider(fftChartService));
 
-    // Initialize and register LineChartService and LineChartProvider
+    // 6. Initialize remaining services
     final lineChartService = LineChartService(graphProvider);
     Get.put<LineChartService>(lineChartService);
     Get.put<LineChartProvider>(LineChartProvider(lineChartService));
-    // Initialize mode provider
+
+    // 7. Initialize mode and setup
     Get.put(GraphModeProvider(
       lineChartService: Get.find<LineChartService>(),
       fftChartService: Get.find<FFTChartService>(),
     ));
+
+    final setupService = SetupService(globalSocketConnection, globalHttpConfig);
+    Get.put<SetupService>(setupService);
+    Get.put<SetupProvider>(SetupProvider(setupService));
   }
 }

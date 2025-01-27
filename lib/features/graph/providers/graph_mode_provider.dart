@@ -1,4 +1,6 @@
 // lib/features/graph/providers/graph_mode_provider.dart
+import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/screens/graph_screen.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
 import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
@@ -7,20 +9,34 @@ import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/services/fft_chart_service.dart';
 
-// lib/features/graph/providers/graph_mode_provider.dart
+
+enum FrequencySource {
+  timeDomain,
+  fft
+}
+
 class GraphModeProvider extends GetxController {
   final LineChartService lineChartService;
   final FFTChartService fftChartService;
   final mode = RxString('');
   final title = RxString('');
+  final frequencySource = FrequencySource.timeDomain.obs;
 
-  // Agregar lista de modos disponibles
   final availableModes = <String>['Oscilloscope', 'FFT'];
-
   GraphModeProvider({
     required this.lineChartService,
     required this.fftChartService,
   });
+
+  double get frequency {
+    return frequencySource.value == FrequencySource.timeDomain
+        ? Get.find<GraphProvider>().frequency.value
+        : Get.find<FFTChartProvider>().frequency.value;
+  }
+
+  void setFrequencySource(FrequencySource source) {
+    frequencySource.value = source;
+  }
 
   void setMode(String newMode) {
     mode.value = newMode;

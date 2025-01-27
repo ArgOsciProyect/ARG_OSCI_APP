@@ -1,101 +1,83 @@
-// lib/features/data_acquisition/domain/repository/data_acquisition_repository.dart
+// lib/features/graph/domain/repository/data_acquisition_repository.dart
+
 import 'dart:async';
 import '../models/data_point.dart';
 import '../models/trigger_data.dart';
 import '../models/voltage_scale.dart';
 
+/// Repository interface for data acquisition functionality
 abstract class DataAcquisitionRepository {
   // Stream getters
-
-  /// Stream of data points
+  /// Stream of processed data points
   Stream<List<DataPoint>> get dataStream;
 
-  /// Stream of frequency values
+  /// Stream of calculated signal frequency values
   Stream<double> get frequencyStream;
 
-  /// Stream of maximum values
+  /// Stream of maximum signal values
   Stream<double> get maxValueStream;
 
-  // Data acquisition methods
-
-  /// Fetches data from the specified IP and port
-  ///
-  /// [ip] The IP address to connect to
-  /// [port] The port to connect to
-  Future<void> fetchData(String ip, int port);
-
-  /// Stops data acquisition
-  Future<void> stopData();
-
-  /// Disposes the repository, cleaning up resources
-  void dispose();
-
-  // Configuration and calculations
-
-  /// Initializes the repository
-  Future<void> initialize();
-
-  /// Automatically sets the configuration based on chart dimensions
-  ///
-  /// [chartHeight] The height of the chart
-  /// [chartWidth] The width of the chart
-  /// Returns a list of doubles representing the time scale and value scale
-  List<double> autoset(double chartHeight, double chartWidth);
-
-  /// Updates the configuration
-  void updateConfig();
-
-  // Configuration properties
-
-  /// Gets the scale value
-  double get scale;
-
-  /// Sets the scale value
-  set scale(double value);
-
-  /// Gets the distance value
-  double get distance;
-
-  /// Sets the distance value
-  set distance(double value);
-
-  /// Gets the trigger level
-  double get triggerLevel;
-
-  /// Sets the trigger level
-  set triggerLevel(double value);
-
-  /// Gets the trigger edge
-  TriggerEdge get triggerEdge;
-
-  /// Sets the trigger edge
-  set triggerEdge(TriggerEdge value);
-
-  /// Gets the trigger sensitivity
-  double get triggerSensitivity;
-
-  /// Sets the trigger sensitivity
-  set triggerSensitivity(double value);
-
-  /// Gets the middle point value
-  double get mid;
-
-  /// Sets the middle point value
-  set mid(double value);
-
-  /// Gets the current voltage scale
+  /// Gets the current voltage scale setting
   VoltageScale get currentVoltageScale;
 
-  /// Sets the voltage scale and updates related configurations
-  ///
-  /// [voltageScale] The new voltage scale to set
+  // Required properties
+  /// Signal scaling factor
+  double get scale;
+  set scale(double value);
+
+  /// Time between samples (1/sampling frequency)
+  double get distance;
+  set distance(double value);
+
+  /// Trigger level threshold
+  double get triggerLevel;
+  set triggerLevel(double value);
+
+  /// Trigger edge direction (positive/negative)
+  TriggerEdge get triggerEdge;
+  set triggerEdge(TriggerEdge value);
+
+  /// Trigger sensitivity for hysteresis mode
+  double get triggerSensitivity;
+  set triggerSensitivity(double value);
+
+  /// Signal midpoint value calculated from device config
+  double get mid;
+  set mid(double value);
+
+  /// Current trigger detection mode
+  TriggerMode get triggerMode;
+  set triggerMode(TriggerMode value);
+
+  // Core functionality
+  /// Initializes the repository with device configuration
+  /// Must be called before using other methods
+  Future<void> initialize();
+
+  /// Starts data acquisition from specified network endpoint
+  /// 
+  /// [ip] Target device IP address
+  /// [port] Target device port number
+  Future<void> fetchData(String ip, int port);
+
+  /// Stops ongoing data acquisition and cleans up resources
+  Future<void> stopData();
+
+  /// Updates current configuration in processing pipeline
+  void updateConfig();
+
+  /// Sets voltage scale and updates related configurations
+  /// 
+  /// [voltageScale] New voltage scale to apply
   void setVoltageScale(VoltageScale voltageScale);
 
-  /// Gets the trigger mode
-  TriggerMode get triggerMode;
+  /// Automatically adjusts display settings based on signal
+  /// 
+  /// [chartHeight] Available vertical display space
+  /// [chartWidth] Available horizontal display space
+  /// Returns [timeScale, valueScale] for display
+  List<double> autoset(double chartHeight, double chartWidth);
 
-  /// Sets the trigger mode
-  ///
-  /// [value] The new trigger mode to set
-  set triggerMode(TriggerMode value);
+  /// Releases all resources
+  void dispose();
 }

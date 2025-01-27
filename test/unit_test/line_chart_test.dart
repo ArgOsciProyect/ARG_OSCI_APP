@@ -1,3 +1,5 @@
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -166,14 +168,31 @@ class MockGraphProvider extends Mock implements GraphProvider {
 void main() {
   late MockLineChartProvider mockLineChartProvider;
   late MockGraphProvider mockGraphProvider;
+  late DeviceConfigProvider deviceConfigProvider;
 
   setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    Get.reset();
+
+    // Initialize providers
+    deviceConfigProvider = DeviceConfigProvider();
     mockLineChartProvider = MockLineChartProvider();
     mockGraphProvider = MockGraphProvider();
 
-    // Register providers
+    // Register all providers with GetX
+    Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
     Get.put<LineChartProvider>(mockLineChartProvider);
     Get.put<GraphProvider>(mockGraphProvider);
+
+    // Initialize device config
+    deviceConfigProvider.updateConfig(DeviceConfig(
+      samplingFrequency: 1650000.0,
+      bitsPerPacket: 16,
+      dataMask: 0x0FFF,
+      channelMask: 0xF000,
+      usefulBits: 12,
+      samplesPerPacket: 4096,
+    ));
   });
 
   tearDown(() {
@@ -187,7 +206,7 @@ void main() {
       ),
       home: Scaffold(
         body: SizedBox(
-          width: 800.0, // Ancho suficiente para todos los botones
+          width: 800.0,
           height: 600.0,
           child: LineChart(),
         ),

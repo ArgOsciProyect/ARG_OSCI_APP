@@ -1,6 +1,7 @@
 // test/unit_test/fft_chart_service_test.dart
 import 'dart:async';
 import 'dart:io';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
@@ -76,11 +77,17 @@ class MockGraphProvider extends Mock implements GraphProvider {
 void main() {
   late MockGraphProvider mockProvider;
   late FFTChartService service;
+  late DeviceConfigProvider deviceConfig;
 
   setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    
+    // Initialize device config
+    deviceConfig = DeviceConfigProvider();
+    Get.put<DeviceConfigProvider>(deviceConfig);
+    
     mockProvider = MockGraphProvider();
     service = FFTChartService(mockProvider);
-    await Future.delayed(const Duration(milliseconds: 300));
   });
 
   tearDown(() async {
@@ -93,20 +100,21 @@ void main() {
     test('pause stops processing new data', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
+      final expectedSize = deviceConfig.samplesPerPacket *2;
 
       final initialPoints = List.generate(
-        FFTChartService.blockSize,
+        expectedSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(initialPoints);
 
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 2000));
       expect(fftResults, hasLength(1), reason: 'Initial data not processed');
 
       service.pause();
 
       final additionalPoints = List.generate(
-        FFTChartService.blockSize,
+        expectedSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(additionalPoints);
@@ -122,9 +130,10 @@ void main() {
       final sub = service.fftStream.listen(fftResults.add);
 
       service.pause();
+    final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final initialPoints = List.generate(
-        FFTChartService.blockSize,
+        expectedSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(initialPoints);
@@ -145,9 +154,10 @@ void main() {
     test('multiple pause/resume cycles work correctly', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
+    final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final testPoints = List.generate(
-        FFTChartService.blockSize,
+        expectedSize,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
 
@@ -176,9 +186,10 @@ void main() {
     test('buffer is cleared on pause', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
+    final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final partialPoints = List.generate(
-        FFTChartService.blockSize ~/ 2,
+        expectedSize ~/ 2,
         (i) => DataPoint(i.toDouble(), math.sin(2 * math.pi * i / 100)),
       );
       mockProvider.addPoints(partialPoints);
@@ -228,9 +239,10 @@ void main() {
       fftResults.add(fft);
       completer.complete();
     });
+    final expectedSize = deviceConfig.samplesPerPacket * 2;
 
     final points = List.generate(
-      FFTChartService.blockSize,
+      expectedSize,
       (i) => DataPoint(i.toDouble(), 1.0),
     );
     mockProvider.addPoints(points);
@@ -254,9 +266,10 @@ void main() {
       fftResults.add(fft);
       completer.complete();
     });
+    final expectedSize = deviceConfig.samplesPerPacket * 2;
 
     final points = List.generate(
-      FFTChartService.blockSize * 2,
+      expectedSize * 2,
       (i) => DataPoint(i.toDouble(), 1.0),
     );
     mockProvider.addPoints(points);

@@ -62,7 +62,7 @@ Future<void> showAPSelectionDialog() async {
     );
   } catch (e) {
     // Manejar errores de conexión
-    Get.back();
-    Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
+    //Get.back();
+    //Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
   }
 }

@@ -5,6 +5,9 @@ import 'dart:typed_data';
 import 'dart:collection';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import '../models/data_point.dart';
@@ -15,7 +18,6 @@ import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
 
 // Configurations
-const int _maxQueueSizeFactor = 6;
 const Duration _reconnectionDelay = Duration(seconds: 5);
 
 // Message classes for isolate communication
@@ -30,8 +32,9 @@ class SocketIsolateSetup {
 class ProcessingIsolateSetup {
   final SendPort sendPort;
   final DataProcessingConfig config;
+  final DeviceConfig deviceConfig;
 
-  const ProcessingIsolateSetup(this.sendPort, this.config);
+  const ProcessingIsolateSetup(this.sendPort, this.config, this.deviceConfig);
 }
 
 class DataProcessingConfig {
@@ -42,11 +45,7 @@ class DataProcessingConfig {
   final double triggerSensitivity;
   final double mid;
   final TriggerMode triggerMode;
-  final int bitsPerPacket;
-  final int dataMask;
-  final int channelMask;
-  final int usefulBits;
-  final int samplesPerPacket;
+  final DeviceConfig deviceConfig;
 
   const DataProcessingConfig({
     required this.scale,
@@ -55,12 +54,8 @@ class DataProcessingConfig {
     required this.triggerEdge,
     required this.triggerSensitivity,
     required this.mid,
+    required this.deviceConfig,
     this.triggerMode = TriggerMode.hysteresis,
-    required this.bitsPerPacket,
-    required this.dataMask,
-    required this.channelMask,
-    required this.usefulBits,
-    required this.samplesPerPacket,
   });
 
   DataProcessingConfig copyWith({
@@ -71,6 +66,7 @@ class DataProcessingConfig {
     double? triggerSensitivity,
     double? mid,
     TriggerMode? triggerMode,
+    DeviceConfig? deviceConfig,
   }) {
     return DataProcessingConfig(
       scale: scale ?? this.scale,
@@ -79,39 +75,10 @@ class DataProcessingConfig {
       triggerEdge: triggerEdge ?? this.triggerEdge,
       triggerSensitivity: triggerSensitivity ?? this.triggerSensitivity,
       mid: mid ?? this.mid,
+      deviceConfig: deviceConfig ?? this.deviceConfig,
       triggerMode: triggerMode ?? this.triggerMode,
-      bitsPerPacket: bitsPerPacket,
-      dataMask: dataMask,
-      channelMask: channelMask,
-      usefulBits: usefulBits,
-      samplesPerPacket: samplesPerPacket,
     );
   }
-
-  DataProcessingConfig createTestConfig({
-  double scale = 1.0,
-  double distance = 1.0,
-  double triggerLevel = 0.0,
-  TriggerEdge triggerEdge = TriggerEdge.positive,
-  double triggerSensitivity = 70.0,
-  double mid = 256.0,
-  TriggerMode triggerMode = TriggerMode.hysteresis,
-}) {
-  return DataProcessingConfig(
-    scale: scale,
-    distance: distance,
-    triggerLevel: triggerLevel,
-    triggerEdge: triggerEdge,
-    triggerSensitivity: triggerSensitivity,
-    mid: mid,
-    triggerMode: triggerMode,
-    bitsPerPacket: 16,
-    dataMask: 0x0FFF,
-    channelMask: 0xF000,
-    usefulBits: 12,
-    samplesPerPacket: 4096
-  );
-}
 }
 
 class UpdateConfigMessage {
@@ -132,31 +99,30 @@ class UpdateConfigMessage {
 
 class DataAcquisitionService implements DataAcquisitionRepository {
   final HttpConfig httpConfig;
+  late final DeviceConfigProvider deviceConfig;
   final _dataController = StreamController<List<DataPoint>>.broadcast();
   final _frequencyController = StreamController<double>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   late final HttpService httpService;
-  DeviceConfig? _deviceConfig;
-  late int _processingChunkSize = 8192 * 2; // Default value until config is received
+
+  late final int _processingChunkSize;
+  late final double _distance;
+  late final double _mid;
 
   bool _disposed = false;
-
-  // Configuration with default values
+  bool _initialized = false;
   double _scale = 0;
-  double _mid = 512 / 2;
-  double _distance = 1 / 1650000;
   double _triggerLevel = 1;
   TriggerEdge _triggerEdge = TriggerEdge.positive;
   double _triggerSensitivity = 70.0;
   TriggerMode _triggerMode = TriggerMode.hysteresis;
-
+  VoltageScale _currentVoltageScale = VoltageScales.volts_2;
 
   // Metrics
   double _currentFrequency = 0.0;
   double _currentMaxValue = 0.0;
   double _currentMinValue = 0.0;
   double _currentAverage = 0.0;
-  VoltageScale _currentVoltageScale = VoltageScales.volts_2;
 
   // Isolates and ports
   Isolate? _socketIsolate;
@@ -166,8 +132,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   SendPort? _socketToProcessingSendPort;
 
   DataAcquisitionService(this.httpConfig) {
-    httpService = HttpService(httpConfig);
-    setVoltageScale(VoltageScales.volt_1);
+    try {
+      deviceConfig = Get.find<DeviceConfigProvider>();
+      if (deviceConfig.config == null) {
+        throw StateError('DeviceConfigProvider has no configuration');
+      }
+      httpService = HttpService(httpConfig);
+    } catch (e) {
+      throw StateError('Failed to initialize DataAcquisitionService: $e');
+    }
+  }
+
+  void _initializeFromDeviceConfig() {
+    _processingChunkSize = deviceConfig.samplesPerPacket;
+    _distance = 1 / deviceConfig.samplingFrequency;
+    _mid = (1 << deviceConfig.usefulBits) / 2;
   }
 
   @override
@@ -261,14 +240,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  void updateDeviceConfig(DeviceConfig config) {
-  _deviceConfig = config;
-  _distance = 1 / config.samplingFrequency;
-  _mid = pow(2, config.usefulBits - 1).toDouble();
-  _processingChunkSize = config.samplesPerPacket * 2;
-  updateConfig();
-}
-
   @override
   void setVoltageScale(VoltageScale voltageScale) {
     final oldScale = _currentVoltageScale.scale;
@@ -289,7 +260,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<void> initialize() async {
-    // Configuration will be updated when services are ready
+    if (_initialized) return;
+    setVoltageScale(VoltageScales.volt_1);
+    _initializeFromDeviceConfig();
+    _initialized = true;
   }
 
   static Future<void> _socketIsolateFunction(SocketIsolateSetup setup) async {
@@ -327,28 +301,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
 
-    // Add exit handler
-    final exitPort = ReceivePort();
-    Isolate.current.addOnExitListener(exitPort.sendPort);
-    exitPort.listen((_) {
-      print('Processing isolate exiting, cleaning up...');
-      receivePort.close();
-      exitPort.close();
-    });
-
     var config = setup.config;
+    final processingChunkSize = setup.deviceConfig.samplesPerPacket;
+    final maxQueueSize = processingChunkSize * 6;
     final queue = Queue<int>();
 
     receivePort.listen((message) {
       if (message == 'stop') {
-        // Process remaining data
         if (queue.isNotEmpty) {
           final points = _processData(queue, queue.length, config);
           setup.sendPort.send(points);
           queue.clear();
         }
       } else if (message is List<int>) {
-        _processIncomingData(message, queue, config, setup.sendPort);
+        _processIncomingData(message, queue, config, setup.sendPort,
+            maxQueueSize, processingChunkSize);
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
       }
@@ -360,16 +327,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     Queue<int> queue,
     DataProcessingConfig config,
     SendPort sendPort,
+    int maxQueueSize,
+    int processingChunkSize,
   ) {
     queue.addAll(data);
-  
-    final maxQueueSize = config.samplesPerPacket * 2 * _maxQueueSizeFactor;
-    final processingChunkSize = config.samplesPerPacket * 2;
-  
+
     while (queue.length > maxQueueSize) {
       queue.removeFirst();
     }
-  
+
     while (queue.length >= processingChunkSize) {
       final points = _processData(queue, processingChunkSize, config);
       sendPort.send(points);
@@ -380,37 +346,31 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     DataProcessingConfig currentConfig,
     UpdateConfigMessage message,
   ) {
-    return DataProcessingConfig(
+    return currentConfig.copyWith(
       scale: message.scale,
-      distance: currentConfig.distance,
       triggerLevel: message.triggerLevel,
       triggerEdge: message.triggerEdge,
       triggerSensitivity: message.triggerSensitivity,
-      mid: currentConfig.mid,
       triggerMode: message.triggerMode,
-      bitsPerPacket: currentConfig.bitsPerPacket,
-      dataMask: currentConfig.dataMask,
-      channelMask: currentConfig.channelMask,
-      usefulBits: currentConfig.usefulBits,
-      samplesPerPacket: currentConfig.samplesPerPacket,
     );
   }
 
-static (int value, int channel) _readDataFromQueue(Queue<int> queue, DataProcessingConfig config) {
-  final bytes = [queue.removeFirst(), queue.removeFirst()];
-  final rawValue = ByteData.sublistView(Uint8List.fromList(bytes))
-      .getUint16(0, Endian.little);
+  static (int value, int channel) _readDataFromQueue(
+    Queue<int> queue,
+    DeviceConfig deviceConfig,
+  ) {
+    final bytes = [queue.removeFirst(), queue.removeFirst()];
+    final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
+        .getUint16(0, Endian.little);
 
-  final value = rawValue & config.dataMask;
-  final channel = (rawValue & config.channelMask) >> 
-      (config.bitsPerPacket - log2(config.channelMask).ceil());
-  
-  return (value, channel);
-}
-
-static int log2(int x) {
-  return (log(x) / log(2)).ceil();
-}
+    final dataValue = uint16Value & deviceConfig.dataMask;
+    
+    // Find the lowest 1 bit position in channel mask - that's where channel bits start
+    final channelShift = (deviceConfig.channelMask & -deviceConfig.channelMask).toRadixString(2).length - 1;
+    final channel = (uint16Value & deviceConfig.channelMask) >> channelShift;
+    
+    return (dataValue, channel);
+  }
 
   static (double x, double y) _calculateCoordinates(
     int uint12Value,
@@ -449,24 +409,25 @@ static int log2(int x) {
     var lastTriggerIndex = -1;
     var foundFirstTrigger = false;
     var waitingForHysteresis = false;
-
-    // Low-pass filter coefficients for 50kHz
-    const double dt = 1.0 / 1650000.0; // Sampling period
-    const double rc = 1.0 / (2.0 * pi * 50000.0); // Time constant for 50kHz
-    const double alpha = dt / (rc + dt);
+  
+    // Low-pass filter coefficients calculated from device sampling frequency
+    final dt = 1.0 / config.deviceConfig.samplingFrequency;
+    const cutoffFrequency = 50000.0; // 50kHz cutoff
+    const rc = 1.0 / (2.0 * pi * cutoffFrequency);
+    final alpha = dt / (rc + dt);
     var filteredY = 0.0;
-
+  
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
-
-      final (uint12Value, _) = _readDataFromQueue(queue, config);
+  
+      final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig); 
       final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
-
+  
       // Apply low-pass filter only for trigger detection
       filteredY = config.triggerMode == TriggerMode.lowPassFilter
           ? alpha * y + (1 - alpha) * (points.isEmpty ? y : filteredY)
           : y;
-
+  
       if (points.isNotEmpty) {
         final prevY = points.length > 1
             ? (config.triggerMode == TriggerMode.lowPassFilter
@@ -475,9 +436,9 @@ static int log2(int x) {
             : filteredY;
         final currentY =
             config.triggerMode == TriggerMode.lowPassFilter ? filteredY : y;
-
+  
         bool shouldAddTrigger = false;
-
+  
         if (config.triggerMode == TriggerMode.hysteresis) {
           if (!waitingForHysteresis) {
             if (_shouldTrigger(
@@ -507,7 +468,7 @@ static int log2(int x) {
             shouldAddTrigger = true;
           }
         }
-
+  
         if (shouldAddTrigger) {
           if (!foundFirstTrigger) {
             firstTriggerX = x;
@@ -518,10 +479,11 @@ static int log2(int x) {
           continue;
         }
       }
-
+  
       points.add(DataPoint(x, y));
     }
-
+  
+    // If we found a trigger, return processed points with trigger offset
     if (foundFirstTrigger) {
       final endIndex =
           lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
@@ -531,7 +493,7 @@ static int log2(int x) {
               isTrigger: point.isTrigger))
           .toList();
     }
-
+  
     return points;
   }
 
@@ -567,14 +529,10 @@ static int log2(int x) {
   @override
   Future<void> fetchData(String ip, int port) async {
     await stopData();
-  
+
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
-  
-    if (_deviceConfig == null) {
-      throw StateError('Device configuration not initialized');
-    }
-  
+
     final config = DataProcessingConfig(
       scale: scale,
       distance: distance,
@@ -582,19 +540,15 @@ static int log2(int x) {
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
       mid: mid,
-      triggerMode: triggerMode,
-      bitsPerPacket: _deviceConfig!.bitsPerPacket,
-      dataMask: _deviceConfig!.dataMask,
-      channelMask: _deviceConfig!.channelMask,
-      usefulBits: _deviceConfig!.usefulBits,
-      samplesPerPacket: _deviceConfig!.samplesPerPacket,
+      deviceConfig: deviceConfig.config!, // Pass device config
     );
-  
+
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
-      ProcessingIsolateSetup(_processingReceivePort!.sendPort, config),
+      ProcessingIsolateSetup(
+          _processingReceivePort!.sendPort, config, deviceConfig.config!),
     );
-  
+
     await _setupProcessingIsolate(processingStream);
     await _setupSocketIsolate(ip, port);
   }
@@ -717,7 +671,6 @@ static int log2(int x) {
   }
 
   @override
-  @override
   List<double> autoset(double chartHeight, double chartWidth) {
     if (_currentFrequency <= 0) return [1.0, 1.0];
 
@@ -734,7 +687,7 @@ static int log2(int x) {
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
 
     // Ensure trigger is within voltage range
-    final voltageRange = _currentVoltageScale.scale * 512;
+    final voltageRange = _currentVoltageScale.scale * (8 * deviceConfig.usefulBits);
     final halfRange = voltageRange / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
@@ -787,6 +740,7 @@ static int log2(int x) {
     TriggerEdge triggerEdge,
     double triggerSensitivity,
     double mid,
+    DeviceConfig deviceConfig,
   ) {
     final config = DataProcessingConfig(
       scale: scale,
@@ -795,11 +749,7 @@ static int log2(int x) {
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
       mid: mid,
-      bitsPerPacket: 16, // Add default test values
-      dataMask: 0x0FFF,
-      channelMask: 0xF000,
-      usefulBits: 12,
-      samplesPerPacket: 4096,
+      deviceConfig: deviceConfig,
     );
     return _processData(queue, chunkSize, config);
   }

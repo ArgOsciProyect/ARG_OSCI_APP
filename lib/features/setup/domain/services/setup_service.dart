@@ -1,6 +1,6 @@
 // lib/features/setup/domain/services/setup_service.dart
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
-import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:get/get.dart';
 import 'package:pointycastle/asymmetric/api.dart';
@@ -20,33 +20,57 @@ import 'package:wifi_iot/wifi_iot.dart';
 class NetworkInfoService {
   final NetworkInfo _networkInfo = NetworkInfo();
 
-  Future<bool> connectToESP32() async {
-    if (Platform.isAndroid) {
-      try {
-        print("Connecting to ESP32_AP");
-        await Future.delayed(const Duration(seconds: 2));
+  Future<bool> connectWithRetries() async {
+    const maxRetries = 5;
+    const retryDelay = Duration(seconds: 1);
 
-        bool connected = await WiFiForIoTPlugin.connect(
-          'ESP32_AP',
-          password: 'password123',
-          security: NetworkSecurity.WPA,
-          joinOnce: true,
-          withInternet: false,
-        );
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      print("Connection attempt ${attempt + 1}/$maxRetries");
+      
+      if (await connectToESP32()) {
+        return true;
+      }
 
-        if (!connected) {
-          print("Failed to connect to ESP32_AP");
-          return false;
-        }
-
-        await Future.delayed(const Duration(seconds: 3));
-        return await WiFiForIoTPlugin.forceWifiUsage(true);
-      } catch (e) {
-        print('Error connecting to ESP32: $e');
-        return false;
+      if (attempt < maxRetries - 1) {
+        print("Retrying in ${retryDelay.inSeconds} second...");
+        await Future.delayed(retryDelay);
       }
     }
+
+    print("Failed to connect after $maxRetries attempts");
     return false;
+  }
+  
+  Future<bool> connectToESP32() async {
+    if (!Platform.isAndroid) return false;
+
+    try {
+      print("Attempting to connect to ESP32_AP...");
+      
+      // Wait for Android system dialog to complete
+      await Future.delayed(const Duration(seconds: 2));
+
+      bool connected = await WiFiForIoTPlugin.connect(
+        'ESP32_AP',
+        password: 'password123',
+        security: NetworkSecurity.WPA,
+        joinOnce: true,
+        withInternet: false,
+      );
+
+      if (!connected) {
+        print("Failed to connect to ESP32_AP");
+        return false;
+      }
+
+      print("Connected to ESP32_AP");
+      await Future.delayed(const Duration(seconds: 3)); // Wait for connection to stabilize
+      return await WiFiForIoTPlugin.forceWifiUsage(true);
+
+    } catch (e) {
+      print('Error connecting to ESP32: $e');
+      return false;
+    }
   }
 
   Future<String?> getWifiName() async {
@@ -65,7 +89,6 @@ class SetupService implements SetupRepository {
   late HttpService localHttpService;
   RSAPublicKey? _publicKey;
   final NetworkInfoService _networkInfo = NetworkInfoService();
-  DeviceConfig? _deviceConfig;
 
 
   late dynamic extIp;
@@ -84,11 +107,11 @@ class SetupService implements SetupRepository {
     localHttpService = HttpService(globalHttpConfig);
   }
 
-Future<DeviceConfig> fetchDeviceConfig() async {
-  final response = await localHttpService.get('/config');
-  _deviceConfig = DeviceConfig.fromJson(response);
-  return _deviceConfig!;
-}
+  Future<void> fetchDeviceConfig() async {
+    final response = await HttpService(globalHttpConfig).get('/config');
+    final config = DeviceConfig.fromJson(response);
+    Get.find<DeviceConfigProvider>().updateConfig(config);
+  }
 
   @override
   Future<void> initializeGlobalHttpConfig(String baseUrl,
@@ -139,27 +162,17 @@ Future<DeviceConfig> fetchDeviceConfig() async {
     return encrypted.base64;
   }
 
-Future<void> _initializeDataAcquisition(DeviceConfig config) async {
-  final dataAcquisitionService = Get.find<DataAcquisitionService>();
-  dataAcquisitionService.updateDeviceConfig(config);
-}
-
-@override
-Future<void> selectMode(String mode, {http.Client? client}) async {
-  final response = await localHttpService.get('/internal_mode');
-  if (mode == 'External AP') {
-    // Handle External AP mode
-  } else if (mode == 'Internal AP') {
-    final ip = response['IP'];
-    final port = response['Port'];
-    await initializeGlobalHttpConfig('http://$ip', client: client);
-    await initializeGlobalSocketConnection(ip, port);
-    
-    // Fetch device configuration
-    final config = await fetchDeviceConfig();
-    await _initializeDataAcquisition(config);
+  @override
+  Future<void> selectMode(String mode, {http.Client? client}) async {
+    final response = await localHttpService.get('/internal_mode');
+    if (mode == 'Internal AP') {
+      final ip = response['IP'];
+      final port = response['Port'];
+      await initializeGlobalHttpConfig('http://$ip:81', client: client);
+      await initializeGlobalSocketConnection(ip, port);
+      await fetchDeviceConfig();
+    }
   }
-}
 
   @override
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,
@@ -204,11 +217,12 @@ Future<void> selectMode(String mode, {http.Client? client}) async {
 
     throw Exception('Failed to verify connection to correct network');
   }
+  
 
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {
     if (Platform.isAndroid) {
-      final connected = await _networkInfo.connectToESP32();
+      final connected = await _networkInfo.connectWithRetries();
       if (!connected) {
         throw Exception('Failed to connect to ESP32_AP');
       }
