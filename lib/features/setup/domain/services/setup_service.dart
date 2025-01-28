@@ -1,4 +1,6 @@
 // lib/features/setup/domain/services/setup_service.dart
+import 'dart:async';
+
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:encrypt/encrypt.dart';
@@ -19,6 +21,9 @@ import 'package:wifi_iot/wifi_iot.dart';
 
 class NetworkInfoService {
   final NetworkInfo _networkInfo = NetworkInfo();
+  final _httpClient = http.Client();
+  static const String _baseUrl = 'http://192.168.4.1:81';
+
 
   Future<bool> connectWithRetries() async {
     const maxRetries = 5;
@@ -41,15 +46,30 @@ class NetworkInfoService {
     return false;
   }
   
+
+  Future<bool> testConnection() async {
+    try {
+      final response = await _httpClient.get(
+        Uri.parse('$_baseUrl/testConnect'),
+      ).timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => throw TimeoutException('Connection timed out'),
+      );
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Test connection failed: $e');
+      return false;
+    }
+  }
+
   Future<bool> connectToESP32() async {
     if (!Platform.isAndroid) return false;
 
     try {
       print("Attempting to connect to ESP32_AP...");
       
-      // Wait for Android system dialog to complete
-      await Future.delayed(const Duration(seconds: 2));
-
+      // Try to connect to WiFi
       bool connected = await WiFiForIoTPlugin.connect(
         'ESP32_AP',
         password: 'password123',
@@ -63,9 +83,28 @@ class NetworkInfoService {
         return false;
       }
 
-      print("Connected to ESP32_AP");
-      await Future.delayed(const Duration(seconds: 3)); // Wait for connection to stabilize
-      return await WiFiForIoTPlugin.forceWifiUsage(true);
+      print("WiFi connection successful, testing API connection...");
+      await Future.delayed(const Duration(seconds: 2)); 
+
+      // Force WiFi usage and verify connection
+      if (!await WiFiForIoTPlugin.forceWifiUsage(true)) {
+        print("Failed to force WiFi usage");
+        return false;
+      }
+
+      // Test actual connection by making requests
+      const maxTestAttempts = 5;
+      for (int i = 0; i < maxTestAttempts; i++) {
+        if (await testConnection()) {
+          print("Connection verified successfully");
+          return true;
+        }
+        print("Connection test attempt ${i + 1} failed, retrying...");
+        await Future.delayed(const Duration(seconds: 1));
+      }
+
+      print("Could not verify connection after $maxTestAttempts attempts");
+      return false;
 
     } catch (e) {
       print('Error connecting to ESP32: $e');
