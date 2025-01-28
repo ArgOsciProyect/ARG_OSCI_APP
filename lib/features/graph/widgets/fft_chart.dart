@@ -154,12 +154,16 @@ class FFTChart extends StatelessWidget {
                   onPressed: null,
                 ),
               ),
+              // In FFTChart widget:
               IconButton(
                 icon: const Icon(Icons.autorenew),
                 color: Colors.black,
                 onPressed: () {
                   final size = MediaQuery.of(context).size;
-                  fftChartProvider.autoset(size, graphProvider.frequency.value);
+                  final fftFrequency = fftChartProvider.frequency.value;
+                  // Use FFT frequency, fallback to graph provider if 0
+                  final freqToUse = fftFrequency > 0 ? fftFrequency : graphProvider.frequency.value;
+                  fftChartProvider.autoset(size, freqToUse);
                 },
               ),
               const SizedBox(width: 20),
