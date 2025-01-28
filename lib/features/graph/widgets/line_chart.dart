@@ -1,6 +1,4 @@
-// lib/features/graph/widgets/line_chart.dart
 import 'dart:math';
-
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -41,18 +39,24 @@ class LineChart extends StatelessWidget {
                             onPointerSignal: (pointerSignal) {
                               if (pointerSignal is PointerScrollEvent) {
                                 final delta = pointerSignal.scrollDelta.dy;
-                                if (pointerSignal.kind == PointerDeviceKind.mouse) {
-                                  if (RawKeyboard.instance.keysPressed.contains(
-                                      LogicalKeyboardKey.controlLeft)) {
+                                if (pointerSignal.kind ==
+                                    PointerDeviceKind.mouse) {
+                                  if (RawKeyboard.instance.keysPressed
+                                      .contains(LogicalKeyboardKey.controlLeft)) {
+                                    // Zoom horizontal (tiempo)
                                     lineChartProvider.setTimeScale(
-                                      lineChartProvider.timeScale * (1 - delta / 500),
+                                      lineChartProvider.timeScale *
+                                          (1 - delta / 500),
                                     );
                                   } else if (RawKeyboard.instance.keysPressed
                                       .contains(LogicalKeyboardKey.shiftLeft)) {
+                                    // Zoom vertical (voltaje)
                                     lineChartProvider.setValueScale(
-                                      lineChartProvider.valueScale * (1 - delta / 500),
+                                      lineChartProvider.valueScale *
+                                          (1 - delta / 500),
                                     );
                                   } else {
+                                    // Zoom combinado
                                     final scale = 1 - delta / 500;
                                     lineChartProvider.setTimeScale(
                                       lineChartProvider.timeScale * scale,
@@ -70,15 +74,23 @@ class LineChart extends StatelessWidget {
                               },
                               onScaleUpdate: (details) {
                                 if (details.pointerCount == 2) {
-                                  lineChartProvider.handleZoom(details, constraints.biggest);
+                                  // Zoom con pinch
+                                  lineChartProvider.handleZoom(
+                                    details,
+                                    constraints.biggest,
+                                    _offsetX,
+                                  );
                                 } else if (details.pointerCount == 1) {
+                                  // Desplazamiento
                                   lineChartProvider.setHorizontalOffset(
                                     lineChartProvider.horizontalOffset +
-                                        details.focalPointDelta.dx / constraints.maxWidth,
+                                        details.focalPointDelta.dx /
+                                            constraints.maxWidth,
                                   );
                                   lineChartProvider.setVerticalOffset(
                                     lineChartProvider.verticalOffset -
-                                        details.focalPointDelta.dy / constraints.maxHeight,
+                                        details.focalPointDelta.dy /
+                                            constraints.maxHeight,
                                   );
                                 }
                               },
@@ -127,7 +139,8 @@ class LineChart extends StatelessWidget {
                     GestureDetector(
                       onTapDown: (_) => lineChartProvider.decrementTimeScale(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.decrementTimeScale),
+                        lineChartProvider.decrementTimeScale,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.arrow_left),
@@ -138,7 +151,8 @@ class LineChart extends StatelessWidget {
                     GestureDetector(
                       onTapDown: (_) => lineChartProvider.incrementTimeScale(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.incrementTimeScale),
+                        lineChartProvider.incrementTimeScale,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.arrow_right),
@@ -149,7 +163,8 @@ class LineChart extends StatelessWidget {
                     GestureDetector(
                       onTapDown: (_) => lineChartProvider.incrementValueScale(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.incrementValueScale),
+                        lineChartProvider.incrementValueScale,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.arrow_upward),
@@ -160,7 +175,8 @@ class LineChart extends StatelessWidget {
                     GestureDetector(
                       onTapDown: (_) => lineChartProvider.decrementValueScale(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.decrementValueScale),
+                        lineChartProvider.decrementValueScale,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.arrow_downward),
@@ -183,9 +199,11 @@ class LineChart extends StatelessWidget {
                 Row(
                   children: [
                     GestureDetector(
-                      onTapDown: (_) => lineChartProvider.decrementHorizontalOffset(),
+                      onTapDown: (_) =>
+                          lineChartProvider.decrementHorizontalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.decrementHorizontalOffset),
+                        lineChartProvider.decrementHorizontalOffset,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.keyboard_arrow_left),
@@ -194,9 +212,11 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) => lineChartProvider.incrementHorizontalOffset(),
+                      onTapDown: (_) =>
+                          lineChartProvider.incrementHorizontalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.incrementHorizontalOffset),
+                        lineChartProvider.incrementHorizontalOffset,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.keyboard_arrow_right),
@@ -205,9 +225,11 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) => lineChartProvider.incrementVerticalOffset(),
+                      onTapDown: (_) =>
+                          lineChartProvider.incrementVerticalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.incrementVerticalOffset),
+                        lineChartProvider.incrementVerticalOffset,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.keyboard_arrow_up),
@@ -216,9 +238,11 @@ class LineChart extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTapDown: (_) => lineChartProvider.decrementVerticalOffset(),
+                      onTapDown: (_) =>
+                          lineChartProvider.decrementVerticalOffset(),
                       onLongPress: () => lineChartProvider.startIncrementing(
-                          lineChartProvider.decrementVerticalOffset),
+                        lineChartProvider.decrementVerticalOffset,
+                      ),
                       onLongPressUp: lineChartProvider.stopIncrementing,
                       child: IconButton(
                         icon: const Icon(Icons.keyboard_arrow_down),
@@ -289,27 +313,92 @@ class LineChartPainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
-    // Drawing area dimensions
+    // Dimensiones de la región de dibujo
     final drawingWidth = size.width - _offsetX;
     final drawingHeight = size.height - _offsetY - _sqrOffsetBot;
     final centerY = _offsetY + drawingHeight / 2;
 
-    // Background y áreas
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, _offsetY), backgroundPaint);
+    // Fondo
     canvas.drawRect(
-        Rect.fromLTWH(0, _offsetY, _offsetX, size.height - _offsetY),
-        backgroundPaint);
+      Rect.fromLTWH(0, 0, size.width, _offsetY),
+      backgroundPaint,
+    );
     canvas.drawRect(
-        Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
-        chartBackgroundPaint);
+      Rect.fromLTWH(0, _offsetY, _offsetX, size.height - _offsetY),
+      backgroundPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
+      chartBackgroundPaint,
+    );
 
-    double valueToScreenY(double value) {
+    // Funciones de conversión
+    double domainToScreenY(double domainVal) {
+      // Igual que dibujar data
       return centerY -
-          ((value * valueScale + verticalOffset) * drawingHeight / 2);
+          ((domainVal * valueScale + verticalOffset) * drawingHeight / 2);
     }
 
-    // Dibujar línea de cero con límites
-    final zeroY = valueToScreenY(0.0);
+    double screenToDomainY(double screenVal) {
+      return -((screenVal - centerY) / (drawingHeight / 2)) / valueScale -
+          verticalOffset;
+    }
+
+    double domainToScreenX(double domainVal) {
+      return (domainVal * timeScale) +
+          (horizontalOffset * drawingWidth) +
+          _offsetX;
+    }
+
+    double screenToDomainX(double screenVal) {
+      final localX = screenVal - _offsetX;
+      return (localX / timeScale) - (horizontalOffset * drawingWidth / timeScale);
+    }
+
+    final textPainter = TextPainter(
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    );
+
+    // ---------------------------
+    // Eje Y dinámico
+    // Calcula el dominio visible (vertical)
+    final yDomainTop = screenToDomainY(_offsetY);
+    final yDomainBottom = screenToDomainY(size.height - _sqrOffsetBot);
+    final yMin = min(yDomainTop, yDomainBottom);
+    final yMax = max(yDomainTop, yDomainBottom);
+
+    // Dividir en ~10 líneas
+    const linesCountY = 10;
+    final stepY = (yMax - yMin) / linesCountY;
+
+    for (int i = 0; i <= linesCountY; i++) {
+      final domainVal = yMin + i * stepY;
+      final y = domainToScreenY(domainVal);
+
+      // Línea horizontal
+      canvas.drawLine(
+        Offset(_offsetX, y),
+        Offset(size.width, y),
+        gridPaint,
+      );
+
+      // Etiqueta a la izquierda
+      final label = domainVal.toStringAsFixed(2);
+      textPainter.text = TextSpan(
+        text: '$label V',
+        style: const TextStyle(color: Colors.black, fontSize: 10),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(5, y - textPainter.height / 2),
+      );
+    }
+
+    // Línea de cero en rojo
+    final zeroY = domainToScreenY(0.0);
+    // Ajustar para no dibujar fuera del cuadro
     final clampedZeroY = zeroY.clamp(_offsetY, size.height - _sqrOffsetBot);
     canvas.drawLine(
       Offset(_offsetX, clampedZeroY),
@@ -317,95 +406,107 @@ class LineChartPainter extends CustomPainter {
       zeroPaint,
     );
 
-    final textPainter = TextPainter(
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    );
+    // ---------------------------
+    // Eje X dinámico
+    // Calcula el dominio visible (horizontal)
+    final xDomainLeft = screenToDomainX(_offsetX);
+    final xDomainRight = screenToDomainX(size.width);
+    final xMin = min(xDomainLeft, xDomainRight);
+    final xMax = max(xDomainLeft, xDomainRight);
 
-    // Eje X (tiempo)
-    for (int i = 0; i <= 10; i++) {
-      final x = _offsetX + (drawingWidth * i / 10);
-      canvas.drawLine(Offset(x, _offsetY),
-          Offset(x, size.height - _sqrOffsetBot), gridPaint);
+    // Dividir en ~10 líneas
+    const linesCountX = 10;
+    final stepX = (xMax - xMin) / linesCountX;
 
-      final timeValue = ((x - _offsetX) / timeScale - 
-        horizontalOffset * drawingWidth / timeScale) * 
-        (1e6);
+    for (int i = 0; i <= linesCountX; i++) {
+      final domainVal = xMin + i * stepX;
+      final x = domainToScreenX(domainVal);
+
+      // Línea vertical
+      canvas.drawLine(
+        Offset(x, _offsetY),
+        Offset(x, size.height - _sqrOffsetBot),
+        gridPaint,
+      );
+
+      // Etiqueta de tiempo en µs
+      final timeValue = domainVal * 1e6; 
       textPainter.text = TextSpan(
         text: '${timeValue.toStringAsFixed(1)} µs',
         style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();
-      textPainter.paint(canvas,
-          Offset(x - textPainter.width / 2, size.height - _sqrOffsetBot + 5));
-    }
-
-    // Modificar cálculo de valores del eje Y
-    for (int i = -5; i <= 5; i++) {
-      final y = centerY - (i * drawingHeight / 10);
-      canvas.drawLine(Offset(_offsetX, y), Offset(size.width, y), gridPaint);
-
-      // Mantener valores consistentes con la visualización
-      final value =
-          -((y - centerY) / (drawingHeight / 2)) / valueScale - verticalOffset;
-      textPainter.text = TextSpan(
-        text: '${value.toStringAsFixed(2)} V',
-        style: const TextStyle(color: Colors.black, fontSize: 10),
+      textPainter.paint(
+        canvas,
+        Offset(
+          x - textPainter.width / 2,
+          size.height - _sqrOffsetBot + 5,
+        ),
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(5, y - textPainter.height / 2));
     }
-    // Dibujar puntos de datos
+
+    // ---------------------------
+    // Dibuja la señal
     if (dataPoints.length > 1) {
       for (int i = 0; i < dataPoints.length - 1; i++) {
         var p1 = Offset(
-            (dataPoints[i].x * timeScale + horizontalOffset * drawingWidth) +
-                _offsetX,
-            valueToScreenY(dataPoints[i].y));
-
+          domainToScreenX(dataPoints[i].x),
+          domainToScreenY(dataPoints[i].y),
+        );
         var p2 = Offset(
-            (dataPoints[i + 1].x * timeScale +
-                    horizontalOffset * drawingWidth) +
-                _offsetX,
-            valueToScreenY(dataPoints[i + 1].y));
-        // Skip if both points are outside left boundary
-        if (p1.dx < _offsetX && p2.dx < _offsetX) continue;
+          domainToScreenX(dataPoints[i + 1].x),
+          domainToScreenY(dataPoints[i + 1].y),
+        );
 
-        // Skip if both points are outside right boundary
+        // Recortes (clipping) vertical
+        if (p1.dy < _offsetY && p2.dy < _offsetY) continue;
+        if (p1.dy > size.height - _sqrOffsetBot &&
+            p2.dy > size.height - _sqrOffsetBot) continue;
+        // Recortes horizontal
+        if (p1.dx < _offsetX && p2.dx < _offsetX) continue;
         if (p1.dx > size.width && p2.dx > size.width) continue;
 
-        // Clip vertical boundaries
+        // Clip vertical en p1
         if (p1.dy < _offsetY) {
-          p1 = Offset(p1.dx, _offsetY);
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final newX = p1.dx + (_offsetY - p1.dy) / slope;
+          p1 = Offset(newX, _offsetY);
         } else if (p1.dy > size.height - _sqrOffsetBot) {
-          p1 = Offset(p1.dx, size.height - _sqrOffsetBot);
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final newX =
+              p1.dx + (size.height - _sqrOffsetBot - p1.dy) / slope;
+          p1 = Offset(newX, size.height - _sqrOffsetBot);
         }
-
+        // Clip vertical en p2
         if (p2.dy < _offsetY) {
-          p2 = Offset(p2.dx, _offsetY);
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final newX = p2.dx + (_offsetY - p2.dy) / slope;
+          p2 = Offset(newX, _offsetY);
         } else if (p2.dy > size.height - _sqrOffsetBot) {
-          p2 = Offset(p2.dx, size.height - _sqrOffsetBot);
+          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
+          final newX =
+              p2.dx + (size.height - _sqrOffsetBot - p2.dy) / slope;
+          p2 = Offset(newX, size.height - _sqrOffsetBot);
         }
-
-        // Clip horizontal boundaries
+        // Clip horizontal en p1
         if (p1.dx < _offsetX) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final y = p1.dy + (_offsetX - p1.dx) * slope;
-          p1 = Offset(_offsetX, y);
+          final newY = p1.dy + (_offsetX - p1.dx) * slope;
+          p1 = Offset(_offsetX, newY);
         } else if (p1.dx > size.width) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final y = p1.dy + (size.width - p1.dx) * slope;
-          p1 = Offset(size.width, y);
+          final newY = p1.dy + (size.width - p1.dx) * slope;
+          p1 = Offset(size.width, newY);
         }
-
+        // Clip horizontal en p2
         if (p2.dx < _offsetX) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final y = p2.dy + (_offsetX - p2.dx) * slope;
-          p2 = Offset(_offsetX, y);
+          final newY = p2.dy + (_offsetX - p2.dx) * slope;
+          p2 = Offset(_offsetX, newY);
         } else if (p2.dx > size.width) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final y = p2.dy + (size.width - p2.dx) * slope;
-          p2 = Offset(size.width, y);
+          final newY = p2.dy + (size.width - p2.dx) * slope;
+          p2 = Offset(size.width, newY);
         }
 
         canvas.drawLine(p1, p2, paint);
@@ -414,8 +515,9 @@ class LineChartPainter extends CustomPainter {
 
     // Borde
     canvas.drawRect(
-        Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
-        borderPaint);
+      Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
+      borderPaint,
+    );
   }
 
   @override

@@ -9,11 +9,7 @@ import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/services/fft_chart_service.dart';
 
-
-enum FrequencySource {
-  timeDomain,
-  fft
-}
+enum FrequencySource { timeDomain, fft }
 
 class GraphModeProvider extends GetxController {
   final LineChartService lineChartService;
@@ -36,6 +32,11 @@ class GraphModeProvider extends GetxController {
 
   void setFrequencySource(FrequencySource source) {
     frequencySource.value = source;
+    if (source == FrequencySource.fft) {
+      fftChartService.resume();
+    } else if (source == FrequencySource.timeDomain && mode.value == 'Oscilloscope') {
+      fftChartService.pause();
+    }
   }
 
   void setMode(String newMode) {

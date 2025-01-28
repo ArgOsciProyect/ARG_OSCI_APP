@@ -20,7 +20,7 @@ class FFTChartService {
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
   bool _isPaused = false;
-  static bool _outputInDb = true;
+  static final bool _outputInDb = true;
   double _currentMaxValue = 0;
 
   final List<DataPoint> _dataBuffer = [];
@@ -60,21 +60,40 @@ class FFTChartService {
   }
 
   double get frequency {
-    if (_lastFFTPoints.isEmpty) return 0.0;
-    
-    // Skip DC component (i=0)
-    var maxIndex = 2;
-    var maxMagnitude = _lastFFTPoints[1].y;
-    
-    // Find peak frequency component
-    for (var i = 3; i < _lastFFTPoints.length; i++) {
-      if (_lastFFTPoints[i].y > maxMagnitude) {
-        maxMagnitude = _lastFFTPoints[i].y;
-        maxIndex = i;
+      if (_lastFFTPoints.isEmpty) return 0.0;
+      
+      // Parameters for peak detection
+      const minPeakHeight = -160;
+      const startIndex = 1;
+      
+      var maxIndex = 0;
+      var maxMagnitude = -160.0;
+      
+      // First find valid positive slope
+      var validSlopeIndex = -1;
+      for (var i = startIndex; i < _lastFFTPoints.length - 1; i++) {
+        if (_lastFFTPoints[i].y < _lastFFTPoints[i + 1].y) {
+          validSlopeIndex = i;
+          break;
+        }
       }
-    }
-    
-    return _lastFFTPoints[maxIndex].x; // x already contains frequency value
+      
+      // Only look for peaks after valid slope
+      if (validSlopeIndex >= 0) {
+        for (var i = validSlopeIndex; i < _lastFFTPoints.length - 1; i++) {
+          final currentMagnitude = _lastFFTPoints[i].y;
+          final nextMagnitude = _lastFFTPoints[i + 1].y;
+          
+          if (currentMagnitude > minPeakHeight && 
+              currentMagnitude > maxMagnitude &&
+              currentMagnitude > nextMagnitude) {
+            maxMagnitude = currentMagnitude;
+            maxIndex = i;
+          }
+        }
+      }
+      
+      return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
 
   List<DataPoint> _lastFFTPoints = [];

@@ -1,4 +1,6 @@
 // lib/features/graph/widgets/user_settings.dart
+import 'dart:async';
+
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
 import 'package:flutter/material.dart';
@@ -276,6 +278,12 @@ class UserSettings extends StatelessWidget {
 
 Widget _buildInformationSection() {
   final modeProvider = Get.find<GraphModeProvider>();
+  final frequency = 0.0.obs;
+  
+  // Start periodic timer when widget is created
+  Timer.periodic(const Duration(seconds: 2), (_) {
+    frequency.value = modeProvider.frequency;
+  });
   
   return Container(
     width: double.infinity,
@@ -291,10 +299,12 @@ Widget _buildInformationSection() {
         const Text('Information',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('Frequency Source:'),
-            const SizedBox(width: 8),
             Obx(() => DropdownButton<FrequencySource>(
               value: modeProvider.frequencySource.value,
               onChanged: (source) {
@@ -315,12 +325,11 @@ Widget _buildInformationSection() {
         ),
         const SizedBox(height: 8),
         const Text('Frequency:'),
-        Obx(() => Text('${modeProvider.frequency.toStringAsFixed(2)} Hz')),
+        Obx(() => Text('${frequency.value.toStringAsFixed(2)} Hz')),
       ],
     ),
   );
 }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
