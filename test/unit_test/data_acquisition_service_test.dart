@@ -221,27 +221,42 @@ void main() {
 
   group('Enhanced Autoset', () {
     test('should calculate new scales based on signal metrics', () {
-      // Simulate signal with known characteristics
+      // Set voltage scale to ensure voltageRange >= 1.0
+      service.setVoltageScale(VoltageScales.millivolts_500); // Adjust as needed
+    
+      // Simulate signal with adjusted characteristics
       final points = [
-        DataPoint(0.0, 0.5, isTrigger: true), // 0.5V
-        DataPoint(1e-6, 1.0), // 1.0V
-        DataPoint(2e-6, 0.5, isTrigger: true), // 0.5V
-        DataPoint(3e-6, 0.0), // 0.0V
-        DataPoint(4e-6, 0.5, isTrigger: true), // 0.5V
+        DataPoint(0.0, 0.0, isTrigger: true),  // 0.0V (min)
+        DataPoint(1e-6, 1.0),                  // 1.0V (max)
+        DataPoint(2e-6, 0.0, isTrigger: true), // 0.0V (min)
+        DataPoint(3e-6, 1.0),                  // 1.0V (max)
+        DataPoint(4e-6, 0.0, isTrigger: true), // 0.0V (min)
       ];
-
+    
       service.updateMetrics(points);
+    
+      print("Trigger Level: ${service.triggerLevel}");
+      print("Max Value: ${service.currentMaxValue}");
+      print("Min Value: ${service.currentMinValue}");
+      print("Voltage Scale: ${service.currentVoltageScale.scale}");
+
 
       final result = service.autoset(300.0, 400.0);
 
+      print("Trigger Level: ${service.triggerLevel}");
+      print("Max Value: ${service.currentMaxValue}");
+      print("Min Value: ${service.currentMinValue}");
+      print("Voltage Scale: ${service.currentVoltageScale.scale}");
+
+    
       // Verify time scale (3 periods should fit in chart width)
       expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
-
+    
       // Verify value scale (should accommodate max value)
       expect(result[1], closeTo(1.0 / 1.0, 0.1)); // Max value is 1.0V
-
-      // Verify trigger level is set to average
-      expect(service.triggerLevel, closeTo(0.5, 0.1));
+    
+      // Verify trigger level is set to middle between max and min values
+      expect(service.triggerLevel, closeTo(0.5, 0.1)); // (1.0V + 0.0V) / 2 = 0.5V
     });
 
     test('autoset should clamp trigger level within voltage range', () {

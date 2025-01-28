@@ -238,6 +238,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
   }
 
+  @override
+  double get currentMaxValue => _currentMaxValue;
+
+  @override
+  double get currentMinValue => _currentMinValue;
+
   // Stream getters with disposal check
   @override
   Stream<List<DataPoint>> get dataStream {
