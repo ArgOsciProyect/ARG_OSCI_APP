@@ -35,6 +35,8 @@ class GraphProvider extends GetxController {
   final alpha = RxDouble(0.2);
   final cutoffFrequency = RxDouble(100.0);
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
+  final useHysteresis = true.obs;
+  final useLowPassFilter = true.obs;
 
 
   // Kalman filter instance
@@ -69,6 +71,9 @@ class GraphProvider extends GetxController {
     distance.value = dataAcquisitionService.distance;
     scale.value = dataAcquisitionService.scale;
     currentVoltageScale.value = dataAcquisitionService.currentVoltageScale;
+    dataAcquisitionService.useHysteresis = true;
+    dataAcquisitionService.useLowPassFilter = true;
+
   }
 
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
@@ -85,6 +90,20 @@ class GraphProvider extends GetxController {
   Future<void> restartDataAcquisition() async {
     await stopData();
     await fetchData();
+  }
+
+  void setUseHysteresis(bool value) {
+    useHysteresis.value = value;
+    dataAcquisitionService.useHysteresis = value;
+    print("Use hysteresis: $value");
+    dataAcquisitionService.updateConfig();
+  }
+
+  void setUseLowPassFilter(bool value) {
+    useLowPassFilter.value = value;
+    dataAcquisitionService.useLowPassFilter = value;
+    print("Use low pass filter: $value");
+    dataAcquisitionService.updateConfig();
   }
 
   void setVoltageScale(VoltageScale scale) {

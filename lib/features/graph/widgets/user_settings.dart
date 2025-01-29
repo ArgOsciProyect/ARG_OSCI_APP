@@ -11,7 +11,6 @@ import '../domain/models/trigger_data.dart';
 import '../domain/models/filter_types.dart';
 import '../domain/models/voltage_scale.dart';
 
-
 class UserSettings extends StatelessWidget {
   final GraphProvider graphProvider;
   final LineChartProvider lineChartProvider;
@@ -123,24 +122,41 @@ class UserSettings extends StatelessWidget {
                 }).toList(),
               )),
           const SizedBox(height: 12),
-          const Text('Noise Reduction:'),
-          Obx(() => DropdownButton<TriggerMode>(
-                value: graphProvider.triggerMode.value,
-                isExpanded: true,
-                onChanged: (mode) {
-                  if (mode != null) {
-                    graphProvider.setTriggerMode(mode);
-                  }
-                },
-                items: TriggerMode.values.map((mode) {
-                  return DropdownMenuItem(
-                    value: mode,
-                    child: Text(mode == TriggerMode.hysteresis
-                        ? 'Hysteresis'
-                        : 'Low-Pass 50kHz'),
-                  );
-                }).toList(),
-              )),
+          // More compact layout for checkboxes
+          Wrap(
+            spacing: 16, // Add space between items
+            runSpacing: 8, // Add space between rows if they wrap
+            children: [
+              SizedBox(
+                width: 130, // Fixed width for consistency
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Obx(() => Checkbox(
+                          value: graphProvider.useLowPassFilter.value,
+                          onChanged: (value) =>
+                              graphProvider.setUseLowPassFilter(value ?? true),
+                        )),
+                    const Text('50kHz Filter', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 130, // Fixed width for consistency
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Obx(() => Checkbox(
+                          value: graphProvider.useHysteresis.value,
+                          onChanged: (value) =>
+                              graphProvider.setUseHysteresis(value ?? true),
+                        )),
+                    const Text('Hysteresis', style: TextStyle(fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -276,60 +292,61 @@ class UserSettings extends StatelessWidget {
     );
   }
 
-Widget _buildInformationSection() {
-  final modeProvider = Get.find<GraphModeProvider>();
-  final frequency = 0.0.obs;
-  
-  // Start periodic timer when widget is created
-  Timer.periodic(const Duration(seconds: 2), (_) {
-    frequency.value = modeProvider.frequency;
-  });
-  
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: 16.0),
-    padding: const EdgeInsets.all(12.0),
-    decoration: BoxDecoration(
-      border: Border.all(color: Colors.grey),
-      borderRadius: BorderRadius.circular(8.0),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Information',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text('Frequency Source:'),
-            Obx(() => DropdownButton<FrequencySource>(
-              value: modeProvider.frequencySource.value,
-              onChanged: (source) {
-                if (source != null) {
-                  modeProvider.setFrequencySource(source);
-                }
-              },
-              items: FrequencySource.values.map((source) {
-                return DropdownMenuItem(
-                  value: source,
-                  child: Text(source == FrequencySource.timeDomain 
-                    ? 'Time Domain' 
-                    : 'FFT'),
-                );
-              }).toList(),
-            )),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Text('Frequency:'),
-        Obx(() => Text('${frequency.value.toStringAsFixed(2)} Hz')),
-      ],
-    ),
-  );
-}
+  Widget _buildInformationSection() {
+    final modeProvider = Get.find<GraphModeProvider>();
+    final frequency = 0.0.obs;
+
+    // Start periodic timer when widget is created
+    Timer.periodic(const Duration(seconds: 2), (_) {
+      frequency.value = modeProvider.frequency;
+    });
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Information',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('Frequency Source:'),
+              Obx(() => DropdownButton<FrequencySource>(
+                    value: modeProvider.frequencySource.value,
+                    onChanged: (source) {
+                      if (source != null) {
+                        modeProvider.setFrequencySource(source);
+                      }
+                    },
+                    items: FrequencySource.values.map((source) {
+                      return DropdownMenuItem(
+                        value: source,
+                        child: Text(source == FrequencySource.timeDomain
+                            ? 'Time Domain'
+                            : 'FFT'),
+                      );
+                    }).toList(),
+                  )),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Frequency:'),
+          Obx(() => Text('${frequency.value.toStringAsFixed(2)} Hz')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(

@@ -44,7 +44,8 @@ class DataProcessingConfig {
   final TriggerEdge triggerEdge;
   final double triggerSensitivity;
   final double mid;
-  final TriggerMode triggerMode;
+  final bool useHysteresis;
+  final bool useLowPassFilter;
   final DeviceConfig deviceConfig;
 
   const DataProcessingConfig({
@@ -55,8 +56,10 @@ class DataProcessingConfig {
     required this.triggerSensitivity,
     required this.mid,
     required this.deviceConfig,
-    this.triggerMode = TriggerMode.hysteresis,
+    this.useHysteresis = true,
+    this.useLowPassFilter = true, 
   });
+
 
   DataProcessingConfig copyWith({
     double? scale,
@@ -65,8 +68,9 @@ class DataProcessingConfig {
     TriggerEdge? triggerEdge,
     double? triggerSensitivity,
     double? mid,
-    TriggerMode? triggerMode,
     DeviceConfig? deviceConfig,
+    bool? useHysteresis,
+    bool? useLowPassFilter,
   }) {
     return DataProcessingConfig(
       scale: scale ?? this.scale,
@@ -76,7 +80,8 @@ class DataProcessingConfig {
       triggerSensitivity: triggerSensitivity ?? this.triggerSensitivity,
       mid: mid ?? this.mid,
       deviceConfig: deviceConfig ?? this.deviceConfig,
-      triggerMode: triggerMode ?? this.triggerMode,
+      useHysteresis: useHysteresis ?? this.useHysteresis,
+      useLowPassFilter: useLowPassFilter ?? this.useLowPassFilter,
     );
   }
 }
@@ -86,14 +91,16 @@ class UpdateConfigMessage {
   final double triggerLevel;
   final TriggerEdge triggerEdge;
   final double triggerSensitivity;
-  final TriggerMode triggerMode;
+  final bool useHysteresis;
+  final bool useLowPassFilter;
 
   const UpdateConfigMessage({
     required this.scale,
     required this.triggerLevel,
     required this.triggerEdge,
     required this.triggerSensitivity,
-    required this.triggerMode,
+    required this.useHysteresis,
+    required this.useLowPassFilter,
   });
 }
 
@@ -117,6 +124,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double _triggerSensitivity = 70.0;
   TriggerMode _triggerMode = TriggerMode.hysteresis;
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
+  bool _useHysteresis = false;
+  bool _useLowPassFilter = false;
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -148,6 +157,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _distance = 1 / deviceConfig.samplingFrequency;
     _mid = (1 << deviceConfig.usefulBits) / 2;
   }
+
+  bool get useHysteresis => _useHysteresis;
+  set useHysteresis(bool value) {
+    _useHysteresis = value;
+    updateConfig();
+  }
+
+  bool get useLowPassFilter => _useLowPassFilter;
+  set useLowPassFilter(bool value) {
+    _useLowPassFilter = value;
+    updateConfig();
+  }
+
 
   @override
   double get mid => _mid;
@@ -351,7 +373,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerLevel: message.triggerLevel,
       triggerEdge: message.triggerEdge,
       triggerSensitivity: message.triggerSensitivity,
-      triggerMode: message.triggerMode,
+      useHysteresis: message.useHysteresis,
+      useLowPassFilter: message.useLowPassFilter,
     );
   }
 
@@ -399,103 +422,127 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return risingEdgeTrigger || fallingEdgeTrigger;
   }
 
-  static List<DataPoint> _processData(
-    Queue<int> queue,
-    int chunkSize,
-    DataProcessingConfig config,
-  ) {
-    final points = <DataPoint>[];
-    var firstTriggerX = 0.0;
-    var lastTriggerIndex = -1;
-    var foundFirstTrigger = false;
-    var waitingForHysteresis = false;
+  // Helper method to calculate trend
+static double _calculateTrend(List<double> values) {
+  if (values.length < 2) return 0;
   
-    // Low-pass filter coefficients calculated from device sampling frequency
-    final dt = 1.0 / config.deviceConfig.samplingFrequency;
-    const cutoffFrequency = 50000.0; // 50kHz cutoff
-    const rc = 1.0 / (2.0 * pi * cutoffFrequency);
-    final alpha = dt / (rc + dt);
-    var filteredY = 0.0;
+  double sumX = 0;
+  double sumY = 0;
+  double sumXY = 0;
+  double sumX2 = 0;
   
-    for (var i = 0; i < chunkSize; i += 2) {
-      if (queue.length < 2) break;
+  for (int i = 0; i < values.length; i++) {
+    sumX += i.toDouble();
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumX2 += i * i;
+  }
   
-      final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig); 
-      final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
-  
-      // Apply low-pass filter only for trigger detection
-      filteredY = config.triggerMode == TriggerMode.lowPassFilter
-          ? alpha * y + (1 - alpha) * (points.isEmpty ? y : filteredY)
-          : y;
-  
-      if (points.isNotEmpty) {
-        final prevY = points.length > 1
-            ? (config.triggerMode == TriggerMode.lowPassFilter
-                ? filteredY
-                : points[points.length - 2].y)
-            : filteredY;
-        final currentY =
-            config.triggerMode == TriggerMode.lowPassFilter ? filteredY : y;
-  
-        bool shouldAddTrigger = false;
-  
-        if (config.triggerMode == TriggerMode.hysteresis) {
-          if (!waitingForHysteresis) {
-            if (_shouldTrigger(
-                prevY, currentY, config.triggerLevel, config.triggerEdge)) {
-              shouldAddTrigger = true;
-              waitingForHysteresis = true;
-            }
-          } else {
-            if (config.triggerEdge == TriggerEdge.positive) {
-              if (currentY <
-                  (config.triggerLevel -
-                      (config.triggerSensitivity * config.scale))) {
-                waitingForHysteresis = false;
-              }
-            } else {
-              if (currentY >
-                  (config.triggerLevel +
-                      (config.triggerSensitivity * config.scale))) {
-                waitingForHysteresis = false;
-              }
-            }
-          }
-        } else {
-          // Using filtered signal only for trigger detection
-          if (_shouldTrigger(
-              prevY, currentY, config.triggerLevel, config.triggerEdge)) {
-            shouldAddTrigger = true;
-          }
+  final n = values.length.toDouble();
+  final slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  return slope;
+}
+
+static List<DataPoint> _processData(
+  Queue<int> queue,
+  int chunkSize,
+  DataProcessingConfig config,
+) {
+  final points = <DataPoint>[];
+  var firstTriggerX = 0.0;
+  var lastTriggerIndex = -1;
+  var foundFirstTrigger = false;
+  var waitingForNextTrigger = false;
+
+  // Low-pass filter setup
+  final dt = 1.0 / config.deviceConfig.samplingFrequency;
+  const cutoffFrequency = 50000.0;
+  const rc = 1.0 / (2.0 * pi * cutoffFrequency);
+  final alpha = dt / (rc + dt);
+  var filteredY = 0.0;
+
+  // Window for trend analysis
+  const trendWindowSize = 5;
+  final trendWindow = Queue<double>();
+
+  for (var i = 0; i < chunkSize; i += 2) {
+    if (queue.length < 2) break;
+
+    final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig);
+    final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
+
+    // Apply low-pass filter for trigger detection if enabled
+    final signalForTrigger = config.useLowPassFilter
+        ? alpha * y + (1 - alpha) * (points.isEmpty ? y : filteredY)
+        : y;
+    filteredY = signalForTrigger;
+
+    // Update trend window
+    if (config.useHysteresis) {
+      trendWindow.add(y);
+      if (trendWindow.length > trendWindowSize) {
+        trendWindow.removeFirst();
+      }
+    }
+
+    if (points.isNotEmpty) {
+      final prevY = points.last.y;
+      bool isTriggerCandidate = _shouldTrigger(
+          prevY, signalForTrigger, config.triggerLevel, config.triggerEdge);
+
+      if (isTriggerCandidate && !waitingForNextTrigger) {
+        bool validTrigger = true;
+
+        if (config.useHysteresis && trendWindow.length >= trendWindowSize) {
+          // Calculate trend
+          final trend = _calculateTrend(trendWindow.toList());
+          validTrigger = (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
+                        (config.triggerEdge == TriggerEdge.negative && trend < 0);
         }
-  
-        if (shouldAddTrigger) {
+
+        if (validTrigger) {
           if (!foundFirstTrigger) {
             firstTriggerX = x;
             foundFirstTrigger = true;
           }
           lastTriggerIndex = points.length;
           points.add(DataPoint(x, y, isTrigger: true));
+          waitingForNextTrigger = true;
           continue;
         }
       }
-  
-      points.add(DataPoint(x, y));
+
+      // Reset waiting state based on sensitivity
+      if (waitingForNextTrigger) {
+        final sensitivity = config.triggerSensitivity * config.scale;
+        if (config.triggerEdge == TriggerEdge.positive) {
+          if (signalForTrigger < (config.triggerLevel - sensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        } else {
+          if (signalForTrigger > (config.triggerLevel + sensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        }
+      }
     }
-  
-    // If we found a trigger, return processed points with trigger offset
-    if (foundFirstTrigger) {
-      final endIndex =
-          lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
-      return points
-          .sublist(0, endIndex)
-          .map((point) => DataPoint(point.x - firstTriggerX, point.y,
-              isTrigger: point.isTrigger))
-          .toList();
-    }
-  
-    return points;
+
+    points.add(DataPoint(x, y));
   }
+
+  // Process and return points as before
+  if (foundFirstTrigger) {
+    final endIndex = lastTriggerIndex != -1 ? lastTriggerIndex + 1 : points.length;
+    return points
+        .sublist(0, endIndex)
+        .map((point) => DataPoint(point.x - firstTriggerX, point.y,
+            isTrigger: point.isTrigger))
+        .toList();
+  }
+
+  return points;
+}
+
 
   void _updateMetrics(List<DataPoint> points) {
     if (points.isEmpty) return;
@@ -584,9 +631,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerLevel: triggerLevel,
       triggerEdge: triggerEdge,
       triggerSensitivity: triggerSensitivity,
-      triggerMode: triggerMode, // Add missing parameter
+      useHysteresis: useHysteresis,
+      useLowPassFilter: useLowPassFilter,
     ));
   }
+
 
   @override
   Future<void> stopData() async {
