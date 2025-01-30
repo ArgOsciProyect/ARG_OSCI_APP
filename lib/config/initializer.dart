@@ -38,10 +38,12 @@ class Initializer {
       Get.put<LineChartService>(lineChartService, permanent: true);
       Get.put<FFTChartService>(fftChartService, permanent: true);
 
-      Get.put(UserSettingsProvider(
-        lineChartService: Get.find<LineChartService>(),
-        fftChartService: Get.find<FFTChartService>(),
-      ), permanent: true);
+      Get.put(
+          UserSettingsProvider(
+            lineChartService: Get.find<LineChartService>(),
+            fftChartService: Get.find<FFTChartService>(),
+          ),
+          permanent: true);
 
       // 6. Now initialize DataAcquisitionProvider
       final dataAcquisitionProvider = DataAcquisitionProvider(
@@ -59,7 +61,7 @@ class Initializer {
         lineChartService: Get.find<LineChartService>(),
         fftChartService: Get.find<FFTChartService>(),
       ));
-      
+
       // 8. Initialize remaining chart providers
       final lineChartProvider = LineChartProvider(lineChartService);
       final fftChartProvider = FFTChartProvider(fftChartService);

@@ -3,7 +3,12 @@
 import 'dart:math';
 import 'dart:io';
 import 'dart:async';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
@@ -13,6 +18,93 @@ import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:get/get.dart';
+import 'package:mockito/mockito.dart';
+
+// First add mock HTTP service
+class MockHttpService extends Mock implements HttpService {
+  @override
+  Future<Response<dynamic>> post(String path, [dynamic data]) async {
+    return Response(
+      body: {'status': 'success'},
+      statusCode: 200,
+    );
+  }
+
+  @override
+  Future<Response<dynamic>> get(String path) async {
+    switch (path) {
+      case '/config':
+        return Response(
+          body: {
+            'sampling_frequency': 1650000.0,
+            'bits_per_packet': 16,
+            'data_mask': 0x0FFF,
+            'channel_mask': 0xF000,
+            'useful_bits': 9,
+            'samples_per_packet': 8192,
+          },
+          statusCode: 200,
+        );
+      default:
+        throw Exception('Unknown endpoint');
+    }
+  }
+}
+
+class MockUserSettingsProvider extends GetxController
+    implements UserSettingsProvider {
+  @override
+  final mode = RxString('Oscilloscope');
+  @override
+  final title = RxString('');
+  @override
+  final frequencySource = FrequencySource.timeDomain.obs;
+  @override
+  final frequency = 0.0.obs;
+
+  // Remove dependencies on other services
+  @override
+  final LineChartService lineChartService = LineChartService(null);
+  @override
+  final FFTChartService fftChartService = FFTChartService(null);
+
+  @override
+  void setMode(String newMode) => mode.value = newMode;
+
+  @override
+  void setFrequencySource(FrequencySource source) =>
+      frequencySource.value = source;
+
+  @override
+  Widget getCurrentChart() => Container();
+
+  @override
+  void navigateToMode(String selectedMode) {}
+
+  @override
+  void _startFrequencyUpdates() {}
+
+  @override
+  void _updateFrequency() {}
+
+  @override
+  void _updateServices() {}
+
+  @override
+  void _updateTitle() {}
+
+  @override
+  bool get showFFTControls => false;
+
+  @override
+  bool get showTimebaseControls => true;
+
+  @override
+  bool get showTriggerControls => true;
+
+  @override
+  List<String> get availableModes => ['Oscilloscope', 'FFT'];
+}
 
 // Test signal generation helpers
 List<DataPoint> generateSineWave(
@@ -90,44 +182,66 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    Get.reset();
 
-    // Initialize GetX dependencies first
+    // Initialize log file first
+    try {
+      logFile = File('test_performance.log');
+      if (!await logFile.exists()) {
+        await logFile.create();
+      }
+    } catch (e) {
+      print('Error initializing log file: $e');
+      // Create temp file as fallback
+      logFile = File('${Directory.systemTemp.path}/test_performance.log');
+      await logFile.create();
+    }
+
+    // Rest of setup...
     final deviceConfigProvider = DeviceConfigProvider();
-    Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
+    Get.put<DeviceConfigProvider>(deviceConfigProvider);
 
-    // Allow GetX to process
-    await Future.delayed(Duration.zero);
+    final mockHttpService = MockHttpService();
+    Get.put<HttpService>(mockHttpService, permanent: true);
 
-    // Then create services
+    final mockUserSettings = MockUserSettingsProvider();
+    Get.put<UserSettingsProvider>(mockUserSettings, permanent: true);
+
     final httpConfig = HttpConfig('http://localhost:8080');
-    final socketConnection = SocketConnection('localhost', 8080);
-
     dataAcquisitionService = DataAcquisitionService(httpConfig);
     await dataAcquisitionService.initialize();
 
+    final socketConnection = SocketConnection('localhost', 8080);
     graphProvider =
         DataAcquisitionProvider(dataAcquisitionService, socketConnection);
+    Get.put<DataAcquisitionProvider>(graphProvider, permanent: true);
+
     fftService = FFTChartService(graphProvider);
+    Get.put<FFTChartService>(fftService);
 
-    // Setup logging
-    final logDir = Directory('log');
-    if (!logDir.existsSync()) {
-      logDir.createSync(recursive: true);
-    }
-
-    logFile = File('log/data_processing_performance_python.log');
-    if (!logFile.existsSync()) {
-      logFile.createSync();
-    }
-
-    logFile.writeAsStringSync(
-        '\n${'#' * 100}\nTest Run: ${DateTime.now()}\n${'#' * 100}\n',
-        mode: FileMode.append);
+    // Service configuration
+    dataAcquisitionService.scale = 3.3 / 512;
+    dataAcquisitionService.triggerLevel = 0.0;
+    dataAcquisitionService.triggerSensitivity = 0.1;
+    dataAcquisitionService.triggerEdge = TriggerEdge.positive;
+    dataAcquisitionService.triggerMode = TriggerMode.normal;
+    dataAcquisitionService.useHysteresis = false;
+    dataAcquisitionService.useLowPassFilter = false;
   });
+
   tearDown(() async {
     await dataAcquisitionService.dispose();
     await fftService.dispose();
-    Get.reset(); // Clean up GetX dependencies
+    Get.reset();
+
+    // Cleanup log file if needed
+    if (await logFile.exists()) {
+      try {
+        await logFile.delete();
+      } catch (e) {
+        print('Error cleaning up log file: $e');
+      }
+    }
   });
 
   group('Digital Signal Processing Performance Tests', () {

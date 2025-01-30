@@ -69,4 +69,3 @@ class LineChartService implements LineChartRepository {
     await _dataController.close();
   }
 }
-

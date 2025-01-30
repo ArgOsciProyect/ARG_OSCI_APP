@@ -118,8 +118,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   late final HttpService httpService;
 
   late final int _processingChunkSize;
-  late final double _distance;
-  late final double _mid;
+  double _distance = 0.0; // Remove late
+  double _mid = 0.0; // Remove late
 
   bool _disposed = false;
   bool _initialized = false;
@@ -151,7 +151,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       if (deviceConfig.config == null) {
         throw StateError('DeviceConfigProvider has no configuration');
       }
-      httpService = HttpService(httpConfig);
+      httpService = Get.find<HttpService>();
     } catch (e) {
       throw StateError('Failed to initialize DataAcquisitionService: $e');
     }
@@ -219,13 +219,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Calculate percentage (0-100)
       final percentage = (rawTrigger / fullRange) * 100;
 
-      //print('Trigger percentage: $percentage');
-      // Make POST request
-      final httpService = HttpService(httpConfig);
+      // Use injected service
       httpService.post('/trigger', {
         'trigger_percentage': percentage.clamp(0, 100),
-      }).catchError((error) {
-        print('Failed to update trigger: $error');
       });
     } catch (e) {
       print('Error converting trigger value: $e');
@@ -432,14 +428,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     final dataValue = uint16Value & deviceConfig.dataMask;
 
-
     // Find the lowest 1 bit position in channel mask - that's where channel bits start
     final channelShift = (deviceConfig.channelMask & -deviceConfig.channelMask)
             .toRadixString(2)
             .length -
         1;
     final channel = (uint16Value & deviceConfig.channelMask) >> channelShift;
-
 
     return (dataValue, channel);
   }
@@ -516,7 +510,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     // Window for trend analysis
     const trendWindowSize = 5;
     final trendWindow = Queue<double>();
-
+    print("Trend window size: $trendWindowSize");
+    print("Trigger mode: ${config.triggerMode}");
+    print("Trigger edge: ${config.triggerEdge}");
+    print("Trigger level: ${config.triggerLevel}");
+    print("Use hysteresis: ${config.useHysteresis}");
+    print("Use low-pass filter: ${config.useLowPassFilter}");
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
 
@@ -782,7 +781,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   List<double> autoset(double chartHeight, double chartWidth) {
-    if (_currentFrequency <= 0) return [1000, 1];
+    if (_currentFrequency <= 0) {
+      triggerLevel = 0;
+      return [1000, 1];
+    }
 
     // Time scale calculation
     final period = 1 / _currentFrequency;
@@ -798,7 +800,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     // Ensure trigger is within voltage range
     final voltageRange =
-        _currentVoltageScale.scale * pow(2,deviceConfig.usefulBits);
+        _currentVoltageScale.scale * pow(2, deviceConfig.usefulBits);
     final halfRange = voltageRange / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
@@ -851,18 +853,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     TriggerEdge triggerEdge,
     double triggerSensitivity,
     double mid,
+    bool useHysteresis,
+    bool useLowPassFilter,
+    TriggerMode triggerMode,
     DeviceConfig deviceConfig,
     SendPort sendPort,
   ) {
     final config = DataProcessingConfig(
-      scale: scale,
-      distance: distance,
-      triggerLevel: triggerLevel,
-      triggerEdge: triggerEdge,
-      triggerSensitivity: triggerSensitivity,
-      mid: mid,
-      deviceConfig: deviceConfig,
-    );
+        scale: scale,
+        distance: distance,
+        triggerLevel: triggerLevel,
+        triggerEdge: triggerEdge,
+        triggerSensitivity: triggerSensitivity,
+        mid: mid,
+        deviceConfig: deviceConfig,
+        useHysteresis: useHysteresis,
+        useLowPassFilter: useLowPassFilter,
+        triggerMode: triggerMode);
+
     return _processData(queue, chunkSize, config, sendPort);
   }
 }

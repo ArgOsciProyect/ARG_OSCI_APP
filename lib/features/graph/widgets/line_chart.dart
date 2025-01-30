@@ -607,20 +607,20 @@ class LineChartPainter extends CustomPainter {
     final xDomainRight = _screenToDomainX(size.width);
     final xMin = min(xDomainLeft, xDomainRight);
     final xMax = max(xDomainLeft, xDomainRight);
-  
+
     const linesCountX = 10;
     final stepX = (xMax - xMin) / linesCountX;
-  
+
     for (int i = 0; i <= linesCountX; i++) {
       final domainVal = xMin + i * stepX;
       final x = _domainToScreenX(domainVal);
-  
+
       canvas.drawLine(
         Offset(x, _offsetY),
         Offset(x, size.height - _sqrOffsetBot),
         _gridPaint,
       );
-  
+
       final timeValue = domainVal * 1e6;
       _textPainter.text = TextSpan(
         text: '${timeValue.toStringAsFixed(1)} µs',
@@ -633,6 +633,7 @@ class LineChartPainter extends CustomPainter {
       );
     }
   }
+
   void _drawZeroLine(Canvas canvas, Size size) {
     final zeroY = _domainToScreenY(0.0);
     final clampedZeroY = zeroY.clamp(_offsetY, size.height - _sqrOffsetBot);
