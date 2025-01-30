@@ -55,7 +55,7 @@ abstract class DataAcquisitionRepository {
   Future<void> initialize();
 
   /// Starts data acquisition from specified network endpoint
-  /// 
+  ///
   /// [ip] Target device IP address
   /// [port] Target device port number
   Future<void> fetchData(String ip, int port);
@@ -67,12 +67,12 @@ abstract class DataAcquisitionRepository {
   void updateConfig();
 
   /// Sets voltage scale and updates related configurations
-  /// 
+  ///
   /// [voltageScale] New voltage scale to apply
   void setVoltageScale(VoltageScale voltageScale);
 
   /// Automatically adjusts display settings based on signal
-  /// 
+  ///
   /// [chartHeight] Available vertical display space
   /// [chartWidth] Available horizontal display space
   /// Returns [timeScale, valueScale] for display

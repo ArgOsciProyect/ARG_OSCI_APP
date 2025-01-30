@@ -5,18 +5,16 @@ import 'package:arg_osci_app/features/graph/providers/device_config_provider.dar
 import 'package:get/get.dart';
 
 import '../models/data_point.dart';
-import '../../providers/data_provider.dart';
+import '../../providers/data_acquisition_provider.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
 
 class FFTChartService {
-  final GraphProvider graphProvider;
+  DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final _fftController = StreamController<List<DataPoint>>.broadcast();
-  
-  // Remove hardcoded blockSize
-  late final int blockSize;
 
+  late final int blockSize;
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
   bool _isPaused = false;
@@ -27,73 +25,87 @@ class FFTChartService {
 
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
 
-  FFTChartService(this.graphProvider) {
+  FFTChartService(this._graphProvider) {
     print("Starting FFT Service");
     blockSize = deviceConfig.samplesPerPacket * 2;
-
-    _dataPointsSubscription = graphProvider.dataPointsStream.listen((points) {
-      if (_isProcessing || _isPaused) return;
-
-      if (points.isNotEmpty) {
-        _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
-      }
-
-      _dataBuffer.addAll(points);
-
-      if (_dataBuffer.length >= blockSize) {
-        _isProcessing = true;
-        final dataToProcess = _dataBuffer.sublist(0, blockSize);
-        _dataBuffer.clear();
-
-        try {
-          final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
-          if (!_isPaused) {
-            _fftController.add(fftPoints);
-          }
-        } catch (error) {
-          print('Error processing FFT: $error');
-        } finally {
-          _isProcessing = false;
-        }
-      }
-    });
+    _setupSubscriptions();
   }
 
   double get frequency {
-      if (_lastFFTPoints.isEmpty) return 0.0;
-      
-      // Parameters for peak detection
-      const minPeakHeight = -160;
-      const startIndex = 1;
-      
-      var maxIndex = 0;
-      var maxMagnitude = -160.0;
-      
-      // First find valid positive slope
-      var validSlopeIndex = -1;
-      for (var i = startIndex; i < _lastFFTPoints.length - 1; i++) {
-        if (_lastFFTPoints[i].y < _lastFFTPoints[i + 1].y) {
-          validSlopeIndex = i;
-          break;
+    if (_lastFFTPoints.isEmpty) return 0.0;
+
+    // Parameters for peak detection
+    const minPeakHeight = -160;
+    const startIndex = 1;
+
+    var maxIndex = 0;
+    var maxMagnitude = -160.0;
+
+    // First find valid positive slope
+    var validSlopeIndex = -1;
+    for (var i = startIndex; i < _lastFFTPoints.length - 1; i++) {
+      if (_lastFFTPoints[i].y < _lastFFTPoints[i + 1].y) {
+        validSlopeIndex = i;
+        break;
+      }
+    }
+
+    // Only look for peaks after valid slope
+    if (validSlopeIndex >= 0) {
+      for (var i = validSlopeIndex; i < _lastFFTPoints.length - 1; i++) {
+        final currentMagnitude = _lastFFTPoints[i].y;
+        final nextMagnitude = _lastFFTPoints[i + 1].y;
+
+        if (currentMagnitude > minPeakHeight &&
+            currentMagnitude > maxMagnitude &&
+            currentMagnitude > nextMagnitude) {
+          maxMagnitude = currentMagnitude;
+          maxIndex = i;
         }
       }
-      
-      // Only look for peaks after valid slope
-      if (validSlopeIndex >= 0) {
-        for (var i = validSlopeIndex; i < _lastFFTPoints.length - 1; i++) {
-          final currentMagnitude = _lastFFTPoints[i].y;
-          final nextMagnitude = _lastFFTPoints[i + 1].y;
-          
-          if (currentMagnitude > minPeakHeight && 
-              currentMagnitude > maxMagnitude &&
-              currentMagnitude > nextMagnitude) {
-            maxMagnitude = currentMagnitude;
-            maxIndex = i;
+    }
+
+    return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
+  }
+
+  void _setupSubscriptions() {
+    // Cancel existing subscription if any
+    _dataPointsSubscription?.cancel();
+
+    if (_graphProvider != null) {
+      _dataPointsSubscription =
+          _graphProvider!.dataPointsStream.listen((points) {
+        if (_isProcessing || _isPaused) return;
+
+        if (points.isNotEmpty) {
+          _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
+        }
+
+        _dataBuffer.addAll(points);
+
+        if (_dataBuffer.length >= blockSize) {
+          _isProcessing = true;
+          final dataToProcess = _dataBuffer.sublist(0, blockSize);
+          _dataBuffer.clear();
+
+          try {
+            final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
+            if (!_isPaused) {
+              _fftController.add(fftPoints);
+            }
+          } catch (error) {
+            print('Error processing FFT: $error');
+          } finally {
+            _isProcessing = false;
           }
         }
-      }
-      
-      return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
+      });
+    }
+  }
+
+  void updateProvider(DataAcquisitionProvider provider) {
+    _graphProvider = provider;
+    _setupSubscriptions();
   }
 
   List<DataPoint> _lastFFTPoints = [];

@@ -1,5 +1,7 @@
 /// line_chart_provider.dart
 import 'dart:math';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -43,7 +45,8 @@ class LineChartProvider extends GetxController {
     _valueScale.value = 1.0 / (1 << deviceConfig.usefulBits);
   }
 
-  void handleZoom(ScaleUpdateDetails details, Size constraints, double offsetX) {
+  void handleZoom(
+      ScaleUpdateDetails details, Size constraints, double offsetX) {
     if (details.pointerCount == 2) {
       final focalDomainX =
           screenToDomainX(details.focalPoint.dx, constraints, offsetX);
@@ -74,15 +77,18 @@ class LineChartProvider extends GetxController {
 
   double domainToScreenX(double domainX, Size size, double offsetX) {
     final drawingWidth = size.width;
-    return (domainX * timeScale) +
-        (horizontalOffset * drawingWidth) +
-        offsetX;
+    return (domainX * timeScale) + (horizontalOffset * drawingWidth) + offsetX;
+  }
+
+  void clearForNewTrigger() {
+    _dataPoints.value = [];
+    _isPaused.value = false;
+    _lineChartService.resumeAndWaitForTrigger();
   }
 
   double screenToDomainY(double screenY, Size size, double offsetX) {
     final drawingHeight = size.height;
-    return -((screenY - drawingHeight / 2) / (drawingHeight / 2)) /
-            valueScale -
+    return -((screenY - drawingHeight / 2) / (drawingHeight / 2)) / valueScale -
         verticalOffset;
   }
 
@@ -120,11 +126,22 @@ class LineChartProvider extends GetxController {
   }
 
   void setHorizontalOffset(double offset) {
-    _horizontalOffset.value = min(0.0, offset); // Prevent moving left of 0
+    final graphProvider = Get.find<DataAcquisitionProvider>();
+    if (graphProvider.triggerMode.value == TriggerMode.normal) {
+      _horizontalOffset.value = min(0.0, offset); // Prevent moving left of 0
+    } else {
+      _horizontalOffset.value = offset; // Allow free movement in single mode
+    }
   }
 
   void setVerticalOffset(double offset) {
     _verticalOffset.value = offset;
+  }
+
+  void clearAndResume() {
+    _dataPoints.value = []; // Clear existing data
+    _isPaused.value = false;
+    _lineChartService.resume();
   }
 
   void incrementTimeScale() {

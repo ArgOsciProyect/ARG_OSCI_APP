@@ -1,6 +1,8 @@
 // lib/features/graph/providers/graph_provider.dart
+import 'package:arg_osci_app/features/graph/domain/models/graph_mode.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
-import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
@@ -11,8 +13,7 @@ import '../domain/models/trigger_data.dart';
 import 'line_chart_provider.dart';
 import '../domain/models/filter_types.dart';
 
-
-class GraphProvider extends GetxController {
+class DataAcquisitionProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
   final SocketConnection socketConnection;
 
@@ -23,7 +24,7 @@ class GraphProvider extends GetxController {
   final maxValue = Rx<double>(1.0);
   final triggerLevel = Rx<double>(0.0);
   final triggerEdge = Rx<TriggerEdge>(TriggerEdge.positive);
-  final triggerMode = Rx<TriggerMode>(TriggerMode.hysteresis);
+  final triggerMode = Rx<TriggerMode>(TriggerMode.normal);
   final timeScale = Rx<double>(1.0);
   final valueScale = Rx<double>(1.0);
   final maxX = Rx<double>(1.0);
@@ -37,13 +38,14 @@ class GraphProvider extends GetxController {
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
   final useHysteresis = true.obs;
   final useLowPassFilter = true.obs;
-
+  final HttpService httpService;
 
   // Kalman filter instance
   final SimpleKalman kalman =
       SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
 
-  GraphProvider(this.dataAcquisitionService, this.socketConnection) {
+  DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection)
+      : httpService = HttpService(dataAcquisitionService.httpConfig) {
     // Subscribe to streams
 
     dataAcquisitionService.dataStream.listen((points) {
@@ -51,7 +53,6 @@ class GraphProvider extends GetxController {
       dataPoints.value = filteredPoints;
       _dataPointsController.add(filteredPoints);
     });
-
 
     dataAcquisitionService.frequencyStream.listen((freq) {
       frequency.value = freq;
@@ -73,7 +74,14 @@ class GraphProvider extends GetxController {
     currentVoltageScale.value = dataAcquisitionService.currentVoltageScale;
     dataAcquisitionService.useHysteresis = true;
     dataAcquisitionService.useLowPassFilter = true;
+    triggerMode.value = dataAcquisitionService.triggerMode;
 
+    // Listen to mode changes to handle FFT switch
+    ever(Get.find<GraphModeProvider>().mode, (mode) {
+      if (mode is FFTMode) {
+        setTriggerMode(TriggerMode.normal);
+      }
+    });
   }
 
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
@@ -139,9 +147,40 @@ class GraphProvider extends GetxController {
   }
 
   void setTriggerMode(TriggerMode mode) {
+    print("Changing to $mode");
     triggerMode.value = mode;
     dataAcquisitionService.triggerMode = mode;
-    dataAcquisitionService.updateConfig();
+
+    if (mode == TriggerMode.single) {
+      _sendSingleTriggerRequest();
+    } else if (mode == TriggerMode.normal) {
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.resetOffsets();
+    }
+  }
+
+  Future<void> _sendSingleTriggerRequest() async {
+    try {
+      //await httpService.post('/single');
+    } catch (e) {
+      print('Error sending single trigger request: $e');
+    }
+  }
+
+  void setPause(bool paused) {
+    if (!paused) {
+      if (triggerMode.value == TriggerMode.single) {
+        _sendSingleTriggerRequest();
+        final lineChartProvider = Get.find<LineChartProvider>();
+        lineChartProvider.clearForNewTrigger();
+      } else {
+        final lineChartProvider = Get.find<LineChartProvider>();
+        lineChartProvider.resume();
+      }
+    } else {
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.pause();
+    }
   }
 
   List<double> autoset(double chartHeight, double chartWidth) {

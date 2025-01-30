@@ -5,16 +5,15 @@ import 'package:arg_osci_app/features/graph/providers/device_config_provider.dar
 import 'package:get/get.dart';
 
 import '../models/data_point.dart';
-import '../../providers/data_provider.dart';
+import '../../providers/data_acquisition_provider.dart';
 
 class LineChartService implements LineChartRepository {
-  final GraphProvider graphProvider;
+  DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final _dataController = StreamController<List<DataPoint>>.broadcast();
   StreamSubscription? _dataSubscription;
   bool _isPaused = false;
-  
-  // Add distance getter
+
   @override
   double get distance => 1 / deviceConfig.samplingFrequency;
 
@@ -24,16 +23,32 @@ class LineChartService implements LineChartRepository {
   @override
   bool get isPaused => _isPaused;
 
-  LineChartService(this.graphProvider) {
-    _dataSubscription = graphProvider.dataPointsStream.listen((points) {
-      if (!_isPaused) {
-        // Transform points using device config if needed
-        _dataController.add(points);
-      }
-    });
+  LineChartService(DataAcquisitionProvider? provider) {
+    _graphProvider = provider;
+    if (provider != null) {
+      _setupSubscriptions();
+    }
   }
 
-  @override 
+  void _setupSubscriptions() {
+    // Cancel existing subscription if any
+    _dataSubscription?.cancel();
+
+    if (_graphProvider != null) {
+      _dataSubscription = _graphProvider!.dataPointsStream.listen((points) {
+        if (!_isPaused) {
+          _dataController.add(points);
+        }
+      });
+    }
+  }
+
+  void resumeAndWaitForTrigger() {
+    _isPaused = false;
+    _dataController.add([]); // Clear current data
+  }
+
+  @override
   void pause() {
     _isPaused = true;
   }
@@ -41,6 +56,11 @@ class LineChartService implements LineChartRepository {
   @override
   void resume() {
     _isPaused = false;
+  }
+
+  void updateProvider(DataAcquisitionProvider provider) {
+    _graphProvider = provider;
+    _setupSubscriptions();
   }
 
   @override

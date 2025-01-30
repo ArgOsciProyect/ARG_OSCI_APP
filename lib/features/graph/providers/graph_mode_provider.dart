@@ -1,5 +1,5 @@
 // lib/features/graph/providers/graph_mode_provider.dart
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/screens/graph_screen.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
@@ -26,7 +26,7 @@ class GraphModeProvider extends GetxController {
 
   double get frequency {
     return frequencySource.value == FrequencySource.timeDomain
-        ? Get.find<GraphProvider>().frequency.value
+        ? Get.find<DataAcquisitionProvider>().frequency.value
         : Get.find<FFTChartProvider>().frequency.value;
   }
 
@@ -34,7 +34,8 @@ class GraphModeProvider extends GetxController {
     frequencySource.value = source;
     if (source == FrequencySource.fft) {
       fftChartService.resume();
-    } else if (source == FrequencySource.timeDomain && mode.value == 'Oscilloscope') {
+    } else if (source == FrequencySource.timeDomain &&
+        mode.value == 'Oscilloscope') {
       fftChartService.pause();
     }
   }

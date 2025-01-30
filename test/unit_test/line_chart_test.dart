@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
 
@@ -136,7 +136,7 @@ class MockLineChartProvider extends Mock implements LineChartProvider {
   }
 }
 
-class MockGraphProvider extends Mock implements GraphProvider {
+class MockGraphProvider extends Mock implements DataAcquisitionProvider {
   final double _maxValue = 10.0;
   final double _distance = 5.0;
   double _scale = 1.0;
@@ -182,7 +182,7 @@ void main() {
     // Register all providers with GetX
     Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
     Get.put<LineChartProvider>(mockLineChartProvider);
-    Get.put<GraphProvider>(mockGraphProvider);
+    Get.put<DataAcquisitionProvider>(mockGraphProvider);
 
     // Initialize device config
     deviceConfigProvider.updateConfig(DeviceConfig(

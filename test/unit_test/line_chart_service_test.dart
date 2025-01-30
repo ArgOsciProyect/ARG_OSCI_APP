@@ -6,10 +6,10 @@ import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
 // Mocks
-class MockGraphProvider extends Mock implements GraphProvider {
+class MockGraphProvider extends Mock implements DataAcquisitionProvider {
   final _controller = StreamController<List<DataPoint>>.broadcast();
 
   @override
@@ -27,7 +27,7 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    
+
     // Initialize DeviceConfigProvider first
     deviceConfigProvider = DeviceConfigProvider();
     deviceConfigProvider.updateConfig(DeviceConfig(
@@ -38,10 +38,10 @@ void main() {
       usefulBits: 12,
       samplesPerPacket: 4096,
     ));
-    
+
     // Put provider before creating service
     Get.put<DeviceConfigProvider>(deviceConfigProvider);
-    
+
     mockProvider = MockGraphProvider();
     service = LineChartService(mockProvider);
   });

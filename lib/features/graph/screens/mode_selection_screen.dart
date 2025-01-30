@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
 class ModeSelectionScreen extends StatefulWidget {
   const ModeSelectionScreen({super.key});
@@ -13,7 +13,7 @@ class ModeSelectionScreen extends StatefulWidget {
 
 class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     with WidgetsBindingObserver {
-  final dataProvider = Get.find<GraphProvider>();
+  final dataProvider = Get.find<DataAcquisitionProvider>();
 
   @override
   void initState() {

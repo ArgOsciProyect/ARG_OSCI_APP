@@ -8,7 +8,7 @@ import 'package:mockito/mockito.dart';
 import 'dart:math' as math;
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
 void _saveFftResults(String filename, List<DataPoint> fftPoints) {
   final file = File(filename);
@@ -49,7 +49,7 @@ Future<List<DataPoint>> _getFftResults(FFTChartService service,
   return results;
 }
 
-class MockGraphProvider extends Mock implements GraphProvider {
+class MockGraphProvider extends Mock implements DataAcquisitionProvider {
   final _dataController = StreamController<List<DataPoint>>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   final _maxValue = Rx<double>(3.3);
@@ -81,11 +81,11 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    
+
     // Initialize device config
     deviceConfig = DeviceConfigProvider();
     Get.put<DeviceConfigProvider>(deviceConfig);
-    
+
     mockProvider = MockGraphProvider();
     service = FFTChartService(mockProvider);
   });
@@ -100,7 +100,7 @@ void main() {
     test('pause stops processing new data', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
-      final expectedSize = deviceConfig.samplesPerPacket *2;
+      final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final initialPoints = List.generate(
         expectedSize,
@@ -130,7 +130,7 @@ void main() {
       final sub = service.fftStream.listen(fftResults.add);
 
       service.pause();
-    final expectedSize = deviceConfig.samplesPerPacket * 2;
+      final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final initialPoints = List.generate(
         expectedSize,
@@ -154,7 +154,7 @@ void main() {
     test('multiple pause/resume cycles work correctly', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
-    final expectedSize = deviceConfig.samplesPerPacket * 2;
+      final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final testPoints = List.generate(
         expectedSize,
@@ -186,7 +186,7 @@ void main() {
     test('buffer is cleared on pause', () async {
       final fftResults = <List<DataPoint>>[];
       final sub = service.fftStream.listen(fftResults.add);
-    final expectedSize = deviceConfig.samplesPerPacket * 2;
+      final expectedSize = deviceConfig.samplesPerPacket * 2;
 
       final partialPoints = List.generate(
         expectedSize ~/ 2,

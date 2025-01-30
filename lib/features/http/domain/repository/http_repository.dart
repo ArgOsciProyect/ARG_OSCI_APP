@@ -14,5 +14,6 @@ abstract class HttpRepository {
   /// [body] is the request body that will be JSON encoded
   /// Returns parsed JSON response on success
   /// Throws Exception if request fails or status code is not 200
-  Future<dynamic> post(String endpoint, Map<String, dynamic> body);
+  Future<dynamic> post(String endpoint,
+      [Map<String, dynamic>? body]); // Optional body parameter
 }

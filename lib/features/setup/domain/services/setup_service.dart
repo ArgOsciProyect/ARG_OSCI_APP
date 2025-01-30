@@ -24,14 +24,13 @@ class NetworkInfoService {
   final _httpClient = http.Client();
   static const String _baseUrl = 'http://192.168.4.1:81';
 
-
   Future<bool> connectWithRetries() async {
     const maxRetries = 5;
     const retryDelay = Duration(seconds: 1);
 
     for (int attempt = 0; attempt < maxRetries; attempt++) {
       print("Connection attempt ${attempt + 1}/$maxRetries");
-      
+
       if (await connectToESP32()) {
         return true;
       }
@@ -45,17 +44,18 @@ class NetworkInfoService {
     print("Failed to connect after $maxRetries attempts");
     return false;
   }
-  
 
   Future<bool> testConnection() async {
     try {
-      final response = await _httpClient.get(
-        Uri.parse('$_baseUrl/testConnect'),
-      ).timeout(
-        const Duration(seconds: 2),
-        onTimeout: () => throw TimeoutException('Connection timed out'),
-      );
-      
+      final response = await _httpClient
+          .get(
+            Uri.parse('$_baseUrl/testConnect'),
+          )
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => throw TimeoutException('Connection timed out'),
+          );
+
       return response.statusCode == 200;
     } catch (e) {
       print('Test connection failed: $e');
@@ -68,7 +68,7 @@ class NetworkInfoService {
 
     try {
       print("Attempting to connect to ESP32_AP...");
-      
+
       // Try to connect to WiFi
       bool connected = await WiFiForIoTPlugin.connect(
         'ESP32_AP',
@@ -84,7 +84,7 @@ class NetworkInfoService {
       }
 
       print("WiFi connection successful, testing API connection...");
-      await Future.delayed(const Duration(seconds: 2)); 
+      await Future.delayed(const Duration(seconds: 2));
 
       // Force WiFi usage and verify connection
       if (!await WiFiForIoTPlugin.forceWifiUsage(true)) {
@@ -105,7 +105,6 @@ class NetworkInfoService {
 
       print("Could not verify connection after $maxTestAttempts attempts");
       return false;
-
     } catch (e) {
       print('Error connecting to ESP32: $e');
       return false;
@@ -128,7 +127,6 @@ class SetupService implements SetupRepository {
   late HttpService localHttpService;
   RSAPublicKey? _publicKey;
   final NetworkInfoService _networkInfo = NetworkInfoService();
-
 
   late dynamic extIp;
   late dynamic extPort;
@@ -256,7 +254,6 @@ class SetupService implements SetupRepository {
 
     throw Exception('Failed to verify connection to correct network');
   }
-  
 
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {

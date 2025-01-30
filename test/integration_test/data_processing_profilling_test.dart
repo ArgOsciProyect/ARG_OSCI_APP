@@ -8,7 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
@@ -35,7 +35,7 @@ List<DataPoint> generateComplexSignal(int size, double sampleRate) {
 
 void main() {
   late DataAcquisitionService dataAcquisitionService;
-  late GraphProvider graphProvider;
+  late DataAcquisitionProvider graphProvider;
   late FFTChartService fftService;
   late File logFile;
   final stopwatch = Stopwatch();
@@ -63,7 +63,7 @@ void main() {
       ..writeln('Timestamp: $timestamp')
       ..writeln('Data Size: $dataSize points')
       ..writeln(
-          'Block Info: ${dataSize ~/ 8192*2} blocks of ${8192*2} points')
+          'Block Info: ${dataSize ~/ 8192 * 2} blocks of ${8192 * 2} points')
       ..writeln(
           'Duration: ${durationMicros}µs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
 
@@ -90,11 +90,11 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    
+
     // Initialize GetX dependencies first
     final deviceConfigProvider = DeviceConfigProvider();
     Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
-    
+
     // Allow GetX to process
     await Future.delayed(Duration.zero);
 
@@ -105,7 +105,8 @@ void main() {
     dataAcquisitionService = DataAcquisitionService(httpConfig);
     await dataAcquisitionService.initialize();
 
-    graphProvider = GraphProvider(dataAcquisitionService, socketConnection);
+    graphProvider =
+        DataAcquisitionProvider(dataAcquisitionService, socketConnection);
     fftService = FFTChartService(graphProvider);
 
     // Setup logging
@@ -123,70 +124,70 @@ void main() {
         '\n${'#' * 100}\nTest Run: ${DateTime.now()}\n${'#' * 100}\n',
         mode: FileMode.append);
   });
-    tearDown(() async {
+  tearDown(() async {
     await dataAcquisitionService.dispose();
     await fftService.dispose();
     Get.reset(); // Clean up GetX dependencies
   });
 
   group('Digital Signal Processing Performance Tests', () {
-  test('Filter Performance - Various Data Sizes', () async {
-    final dataSizes = [1000, 10000, 100000];
-    final filters = [
-      MovingAverageFilter(),
-      ExponentialFilter(),
-      LowPassFilter()
-    ];
-    const sampleRate = 1650000.0;
+    test('Filter Performance - Various Data Sizes', () async {
+      final dataSizes = [1000, 10000, 100000];
+      final filters = [
+        MovingAverageFilter(),
+        ExponentialFilter(),
+        LowPassFilter()
+      ];
+      const sampleRate = 1650000.0;
 
-    for (final size in dataSizes) {
-      final points = generateSineWave(size, 1000.0, 1.0, sampleRate);
+      for (final size in dataSizes) {
+        final points = generateSineWave(size, 1000.0, 1.0, sampleRate);
 
-      for (final filter in filters) {
-        try {
-          graphProvider.setFilter(filter);
-          stopwatch.reset();
-          stopwatch.start();
+        for (final filter in filters) {
+          try {
+            graphProvider.setFilter(filter);
+            stopwatch.reset();
+            stopwatch.start();
 
-          // Add default filter settings
-          final filterSettings = {
-            'windowSize': 5.0,
-            'alpha': 0.2,
-            'cutoffFrequency': 100.0,
-            'samplingFrequency': 1650000.0, // Add sampling frequency
-          };
+            // Add default filter settings
+            final filterSettings = {
+              'windowSize': 5.0,
+              'alpha': 0.2,
+              'cutoffFrequency': 100.0,
+              'samplingFrequency': 1650000.0, // Add sampling frequency
+            };
 
-          final filtered = filter.apply(points, filterSettings);
+            final filtered = filter.apply(points, filterSettings);
 
-          stopwatch.stop();
+            stopwatch.stop();
 
-          final inputStats = calculateStats(points);
-          final outputStats = calculateStats(filtered);
+            final inputStats = calculateStats(points);
+            final outputStats = calculateStats(filtered);
 
-          logPerformance(
-              'Filter Benchmark',
-              '${filter.runtimeType} with $size points',
-              size,
-              stopwatch.elapsedMicroseconds,
-              extraData: {
-                'input_mean': inputStats['mean']!,
-                'input_std': inputStats['std']!,
-                'output_mean': outputStats['mean']!,
-                'output_std': outputStats['std']!,
-                'points_per_second':
-                    size / (stopwatch.elapsedMicroseconds / 1000000)
-              });
+            logPerformance(
+                'Filter Benchmark',
+                '${filter.runtimeType} with $size points',
+                size,
+                stopwatch.elapsedMicroseconds,
+                extraData: {
+                  'input_mean': inputStats['mean']!,
+                  'input_std': inputStats['std']!,
+                  'output_mean': outputStats['mean']!,
+                  'output_std': outputStats['std']!,
+                  'points_per_second':
+                      size / (stopwatch.elapsedMicroseconds / 1000000)
+                });
 
-          expect(filtered.length, equals(points.length));
-        } catch (e) {
-          logPerformance('Filter Error',
-              '${filter.runtimeType} with $size points', size, -1,
-              error: e.toString());
-          rethrow;
+            expect(filtered.length, equals(points.length));
+          } catch (e) {
+            logPerformance('Filter Error',
+                '${filter.runtimeType} with $size points', size, -1,
+                error: e.toString());
+            rethrow;
+          }
         }
       }
-    }
-  });
+    });
     test('Single FFT Block Performance', () async {
       final fftResults = <List<DataPoint>>[];
       final completer = Completer<void>();
@@ -198,8 +199,7 @@ void main() {
       });
 
       try {
-        final points =
-            generateComplexSignal(8192*2, sampleRate);
+        final points = generateComplexSignal(8192 * 2, sampleRate);
 
         stopwatch.reset();
         stopwatch.start();
@@ -209,8 +209,8 @@ void main() {
 
         final fftStats = calculateStats(fftResults.first);
 
-        logPerformance('Single FFT Block', 'FFT Processing',
-            8192*2, stopwatch.elapsedMicroseconds,
+        logPerformance('Single FFT Block', 'FFT Processing', 8192 * 2,
+            stopwatch.elapsedMicroseconds,
             extraData: {
               'fft_mean': fftStats['mean']!,
               'fft_std': fftStats['std']!,
@@ -239,8 +239,7 @@ void main() {
       });
 
       try {
-        final points =
-            generateComplexSignal(8192*2, sampleRate);
+        final points = generateComplexSignal(8192 * 2, sampleRate);
         stopwatch.start();
 
         // Simulate real-time data stream
@@ -261,13 +260,12 @@ void main() {
 
         stopwatch.stop();
         final totalTime = stopwatch.elapsedMicroseconds;
-        final throughput = (blocksReceived * 8192*2) /
-            (totalTime / 1000000);
+        final throughput = (blocksReceived * 8192 * 2) / (totalTime / 1000000);
         final averageProcessingTime =
             blocksReceived > 0 ? totalTime / blocksReceived : 0;
 
         logPerformance('Continuous FFT Stream', 'Multiple Blocks Processing',
-            blocksReceived * 8192*2, totalTime,
+            blocksReceived * 8192 * 2, totalTime,
             extraData: {
               'blocks_sent': blocksSent.toDouble(),
               'blocks_received': blocksReceived.toDouble(),
@@ -281,10 +279,9 @@ void main() {
               'max_block_time_ms': processingTimes.isNotEmpty
                   ? processingTimes.reduce(max) / 1000.0
                   : 0,
-              'data_rate_mbps':
-                  (8192*2 * 4 * 8 * blocksReceived) /
-                      (totalTime / 1000000) /
-                      1000000
+              'data_rate_mbps': (8192 * 2 * 4 * 8 * blocksReceived) /
+                  (totalTime / 1000000) /
+                  1000000
             });
 
         expect(blocksReceived, greaterThan(0));

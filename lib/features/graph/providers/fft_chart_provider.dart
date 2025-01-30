@@ -24,7 +24,6 @@ class FFTChartProvider extends GetxController {
   Timer? _incrementTimer;
   final frequency = 0.0.obs;
 
-
   // Add getters
   double get horizontalOffset => _horizontalOffset.value;
   double get verticalOffset => _verticalOffset.value;
@@ -39,7 +38,6 @@ class FFTChartProvider extends GetxController {
       frequency.value = fftChartService.frequency;
     });
   }
-
 
   void setInitialScales() {
     _initialTimeScale = timeScale.value;

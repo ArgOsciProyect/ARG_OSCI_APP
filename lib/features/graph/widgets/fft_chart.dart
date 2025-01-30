@@ -1,5 +1,5 @@
 // fft_chart.dart
-import 'package:arg_osci_app/features/graph/providers/data_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +17,7 @@ class FFTChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fftChartProvider = Get.find<FFTChartProvider>();
-    final graphProvider = Get.find<GraphProvider>();
+    final graphProvider = Get.find<DataAcquisitionProvider>();
 
     return Column(
       children: [
@@ -37,16 +37,19 @@ class FFTChart extends StatelessWidget {
                             onPointerSignal: (pointerSignal) {
                               if (pointerSignal is PointerScrollEvent) {
                                 final delta = pointerSignal.scrollDelta.dy;
-                                if (pointerSignal.kind == PointerDeviceKind.mouse) {
+                                if (pointerSignal.kind ==
+                                    PointerDeviceKind.mouse) {
                                   if (RawKeyboard.instance.keysPressed.contains(
                                       LogicalKeyboardKey.controlLeft)) {
                                     fftChartProvider.setTimeScale(
-                                      fftChartProvider.timeScale.value * (1 - delta / 500),
+                                      fftChartProvider.timeScale.value *
+                                          (1 - delta / 500),
                                     );
                                   } else if (RawKeyboard.instance.keysPressed
                                       .contains(LogicalKeyboardKey.shiftLeft)) {
                                     fftChartProvider.setValueScale(
-                                      fftChartProvider.valueScale.value * (1 - delta / 500),
+                                      fftChartProvider.valueScale.value *
+                                          (1 - delta / 500),
                                     );
                                   } else {
                                     final scale = 1 - delta / 500;
@@ -66,15 +69,18 @@ class FFTChart extends StatelessWidget {
                               },
                               onScaleUpdate: (details) {
                                 if (details.pointerCount == 2) {
-                                  fftChartProvider.handleZoom(details, constraints.biggest);
+                                  fftChartProvider.handleZoom(
+                                      details, constraints.biggest);
                                 } else if (details.pointerCount == 1) {
                                   fftChartProvider.setHorizontalOffset(
                                     fftChartProvider.horizontalOffset +
-                                        details.focalPointDelta.dx / constraints.maxWidth,
+                                        details.focalPointDelta.dx /
+                                            constraints.maxWidth,
                                   );
                                   fftChartProvider.setVerticalOffset(
                                     fftChartProvider.verticalOffset -
-                                        details.focalPointDelta.dy / constraints.maxHeight,
+                                        details.focalPointDelta.dy /
+                                            constraints.maxHeight,
                                   );
                                 }
                               },
@@ -112,8 +118,8 @@ class FFTChart extends StatelessWidget {
               ),
               GestureDetector(
                 onTapDown: (_) => fftChartProvider.decrementTimeScale(),
-                onLongPress: () => fftChartProvider.startIncrementing(
-                    fftChartProvider.decrementTimeScale),
+                onLongPress: () => fftChartProvider
+                    .startIncrementing(fftChartProvider.decrementTimeScale),
                 onLongPressUp: fftChartProvider.stopIncrementing,
                 child: IconButton(
                   icon: const Icon(Icons.arrow_left),
@@ -123,8 +129,8 @@ class FFTChart extends StatelessWidget {
               ),
               GestureDetector(
                 onTapDown: (_) => fftChartProvider.incrementTimeScale(),
-                onLongPress: () => fftChartProvider.startIncrementing(
-                    fftChartProvider.incrementTimeScale),
+                onLongPress: () => fftChartProvider
+                    .startIncrementing(fftChartProvider.incrementTimeScale),
                 onLongPressUp: fftChartProvider.stopIncrementing,
                 child: IconButton(
                   icon: const Icon(Icons.arrow_right),
@@ -134,8 +140,8 @@ class FFTChart extends StatelessWidget {
               ),
               GestureDetector(
                 onTapDown: (_) => fftChartProvider.incrementValueScale(),
-                onLongPress: () => fftChartProvider.startIncrementing(
-                    fftChartProvider.incrementValueScale),
+                onLongPress: () => fftChartProvider
+                    .startIncrementing(fftChartProvider.incrementValueScale),
                 onLongPressUp: fftChartProvider.stopIncrementing,
                 child: IconButton(
                   icon: const Icon(Icons.arrow_upward),
@@ -145,8 +151,8 @@ class FFTChart extends StatelessWidget {
               ),
               GestureDetector(
                 onTapDown: (_) => fftChartProvider.decrementValueScale(),
-                onLongPress: () => fftChartProvider.startIncrementing(
-                    fftChartProvider.decrementValueScale),
+                onLongPress: () => fftChartProvider
+                    .startIncrementing(fftChartProvider.decrementValueScale),
                 onLongPressUp: fftChartProvider.stopIncrementing,
                 child: IconButton(
                   icon: const Icon(Icons.arrow_downward),
@@ -162,7 +168,9 @@ class FFTChart extends StatelessWidget {
                   final size = MediaQuery.of(context).size;
                   final fftFrequency = fftChartProvider.frequency.value;
                   // Use FFT frequency, fallback to graph provider if 0
-                  final freqToUse = fftFrequency > 0 ? fftFrequency : graphProvider.frequency.value;
+                  final freqToUse = fftFrequency > 0
+                      ? fftFrequency
+                      : graphProvider.frequency.value;
                   fftChartProvider.autoset(size, freqToUse);
                 },
               ),
@@ -171,7 +179,8 @@ class FFTChart extends StatelessWidget {
               Row(
                 children: [
                   GestureDetector(
-                    onTapDown: (_) => fftChartProvider.decrementHorizontalOffset(),
+                    onTapDown: (_) =>
+                        fftChartProvider.decrementHorizontalOffset(),
                     onLongPress: () => fftChartProvider.startIncrementing(
                         fftChartProvider.decrementHorizontalOffset),
                     onLongPressUp: fftChartProvider.stopIncrementing,
@@ -182,7 +191,8 @@ class FFTChart extends StatelessWidget {
                     ),
                   ),
                   GestureDetector(
-                    onTapDown: (_) => fftChartProvider.incrementHorizontalOffset(),
+                    onTapDown: (_) =>
+                        fftChartProvider.incrementHorizontalOffset(),
                     onLongPress: () => fftChartProvider.startIncrementing(
                         fftChartProvider.incrementHorizontalOffset),
                     onLongPressUp: fftChartProvider.stopIncrementing,
@@ -193,7 +203,8 @@ class FFTChart extends StatelessWidget {
                     ),
                   ),
                   GestureDetector(
-                    onTapDown: (_) => fftChartProvider.incrementVerticalOffset(),
+                    onTapDown: (_) =>
+                        fftChartProvider.incrementVerticalOffset(),
                     onLongPress: () => fftChartProvider.startIncrementing(
                         fftChartProvider.incrementVerticalOffset),
                     onLongPressUp: fftChartProvider.stopIncrementing,
@@ -204,7 +215,8 @@ class FFTChart extends StatelessWidget {
                     ),
                   ),
                   GestureDetector(
-                    onTapDown: (_) => fftChartProvider.decrementVerticalOffset(),
+                    onTapDown: (_) =>
+                        fftChartProvider.decrementVerticalOffset(),
                     onLongPress: () => fftChartProvider.startIncrementing(
                         fftChartProvider.decrementVerticalOffset),
                     onLongPressUp: fftChartProvider.stopIncrementing,
@@ -223,6 +235,7 @@ class FFTChart extends StatelessWidget {
     );
   }
 }
+
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;

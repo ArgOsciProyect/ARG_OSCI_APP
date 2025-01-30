@@ -1,18 +1,17 @@
 // lib/features/graph/widgets/user_settings.dart
 import 'dart:async';
 
-import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/data_provider.dart';
+import '../providers/data_acquisition_provider.dart';
 import '../providers/line_chart_provider.dart';
 import '../domain/models/trigger_data.dart';
 import '../domain/models/filter_types.dart';
 import '../domain/models/voltage_scale.dart';
 
 class UserSettings extends StatelessWidget {
-  final GraphProvider graphProvider;
+  final DataAcquisitionProvider graphProvider;
   final LineChartProvider lineChartProvider;
   final TextEditingController triggerLevelController;
   final TextEditingController windowSizeController = TextEditingController();
@@ -82,6 +81,24 @@ class UserSettings extends StatelessWidget {
           const Text('Trigger Settings',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
+          // Add Trigger Mode selector first
+          const Text('Trigger Mode:'),
+          Obx(() => DropdownButton<TriggerMode>(
+                value: graphProvider.triggerMode.value,
+                isExpanded: true,
+                onChanged: (mode) {
+                  if (mode != null) {
+                    graphProvider.setTriggerMode(mode);
+                  }
+                },
+                items: TriggerMode.values.map((mode) {
+                  return DropdownMenuItem(
+                    value: mode,
+                    child: Text(mode.toString().split('.').last),
+                  );
+                }).toList(),
+              )),
+          const SizedBox(height: 12),
           const Text('Trigger Level:'),
           Obx(() {
             triggerLevelController.text =
@@ -124,32 +141,32 @@ class UserSettings extends StatelessWidget {
           const SizedBox(height: 12),
           // More compact layout for checkboxes
           Wrap(
-            spacing: 16, // Add space between items
-            runSpacing: 8, // Add space between rows if they wrap
+            spacing: 16,
+            runSpacing: 8,
             children: [
               SizedBox(
-                width: 130, // Fixed width for consistency
+                width: 130,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Obx(() => Checkbox(
                           value: graphProvider.useLowPassFilter.value,
                           onChanged: (value) =>
-                              graphProvider.setUseLowPassFilter(value ?? true),
+                              graphProvider.setUseLowPassFilter(value ?? false),
                         )),
                     const Text('50kHz Filter', style: TextStyle(fontSize: 13)),
                   ],
                 ),
               ),
               SizedBox(
-                width: 130, // Fixed width for consistency
+                width: 130,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Obx(() => Checkbox(
                           value: graphProvider.useHysteresis.value,
                           onChanged: (value) =>
-                              graphProvider.setUseHysteresis(value ?? true),
+                              graphProvider.setUseHysteresis(value ?? false),
                         )),
                     const Text('Hysteresis', style: TextStyle(fontSize: 13)),
                   ],

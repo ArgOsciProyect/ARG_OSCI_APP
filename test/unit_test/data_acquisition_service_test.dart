@@ -24,6 +24,12 @@ import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dar
 // Mocks
 // ----------------------------------------------------------------------------
 
+SendPort getMockSendPort() {
+  final receivePort = ReceivePort();
+  // Optionally, handle incoming messages if necessary
+  return receivePort.sendPort;
+}
+
 // Mock para HttpConfig
 class MockHttpConfig extends Mock implements HttpConfig {
   @override
@@ -53,7 +59,8 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
   int get samplesPerPacket => 4096;
 }
 
-class MockDeviceConfigProvider extends GetxController implements DeviceConfigProvider {
+class MockDeviceConfigProvider extends GetxController
+    implements DeviceConfigProvider {
   final _config = Rx<DeviceConfig?>(MockDeviceConfig());
 
   @override
@@ -82,6 +89,7 @@ class MockDeviceConfigProvider extends GetxController implements DeviceConfigPro
     _config.value = config;
   }
 }
+
 // Mock para HttpClient
 class MockHttpClient extends Mock implements http.Client {}
 
@@ -118,6 +126,8 @@ class MockSocketService extends Mock implements SocketService {
     print("MockSocketService: sendMessage called with $message");
   }
 
+
+
   @override
   Future<String> receiveMessage() async {
     // Simular recepción de mensaje
@@ -144,26 +154,26 @@ void main() {
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    
+
     // Reset GetX before each test
     Get.reset();
-    
+
     // Create mocks
     mockHttpConfig = MockHttpConfig();
     mockSocketService = MockSocketService();
     mockDeviceConfigProvider = MockDeviceConfigProvider();
-    
+
     // Initialize the mock provider first
     Get.put<DeviceConfigProvider>(mockDeviceConfigProvider).onInit();
-    
+
     // Create service
     service = DataAcquisitionService(mockHttpConfig);
-    
+
     // Configure initial values
     service.scale = 3.3 / 512;
     service.triggerLevel = 0.0;
     service.triggerSensitivity = 0.1;
-    
+
     // Initialize service
     await service.initialize();
   });
@@ -271,7 +281,8 @@ void main() {
       final queue = Queue<int>();
       queue.addAll([0x00, 0x00, 0xFF, 0x01, 0x00, 0x00]);
 
-      service.triggerMode = TriggerMode.hysteresis;
+      service.triggerMode = TriggerMode.normal;
+service.useHysteresis = true;
 
       final points = DataAcquisitionService.processDataForTest(
         queue,
@@ -283,6 +294,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!, // Add device config
+        getMockSendPort(),
       );
 
       expect(points, isNotEmpty);
@@ -299,8 +311,8 @@ void main() {
         0x00,
       ]);
 
-      service.triggerMode = TriggerMode.lowPassFilter;
-
+      service.triggerMode = TriggerMode.normal;
+      service.useLowPassFilter = true;
       final points = DataAcquisitionService.processDataForTest(
         queue,
         6,
@@ -311,6 +323,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+         getMockSendPort()
       );
 
       expect(points, isNotEmpty);
@@ -318,9 +331,10 @@ void main() {
     test('should detect rising edge trigger', () {
       final queue = Queue<int>();
       queue.addAll([
-        0x00, 0x00, // 0: (0-256)*0.00645 = -1.65V
-        0x00, 0x01, // 256: (256-256)*0.00645 = 0V
-        0xFF, 0x01, // 511: (511-256)*0.00645 = +1.64V
+        0x00, 0x00, 
+        0x00, 0x01, 
+        0x03, 0xFF,
+        0x01 
       ]);
 
       final points = DataAcquisitionService.processDataForTest(
@@ -333,6 +347,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
 
       print('\nRising Edge Test:');
@@ -366,6 +381,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
 
       print('\nFalling Edge Test:');
@@ -391,8 +407,8 @@ void main() {
         0x01,
       ]);
 
-      service.triggerMode = TriggerMode.hysteresis;
-      service.triggerEdge = TriggerEdge.negative;
+      service.triggerMode = TriggerMode.normal;
+      service.useHysteresis = true;      service.triggerEdge = TriggerEdge.negative;
 
       final points = DataAcquisitionService.processDataForTest(
         queue,
@@ -404,6 +420,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
 
       expect(points, isNotEmpty);
@@ -414,8 +431,8 @@ void main() {
         ..addAll([0xFF, 0x01, 0x00, 0x00]); // Simula señal
 
       service.triggerEdge = TriggerEdge.negative;
-      service.triggerMode = TriggerMode.hysteresis;
-      service.triggerSensitivity = 0.1;
+      service.triggerMode = TriggerMode.normal;
+      service.useHysteresis = true;      service.triggerSensitivity = 0.1;
 
       final points = DataAcquisitionService.processDataForTest(
         queue,
@@ -427,6 +444,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
       // Verifica líneas 345-348, 352-354, 361-362
       expect(points, isNotEmpty);
@@ -435,8 +453,8 @@ void main() {
     test('should process data with low pass filter', () {
       final queue = Queue<int>()..addAll([0xFF, 0x01, 0x00, 0x00]);
 
-      service.triggerMode = TriggerMode.lowPassFilter;
-
+      service.triggerMode = TriggerMode.normal;
+      service.useLowPassFilter = true;
       final points = DataAcquisitionService.processDataForTest(
         queue,
         4,
@@ -447,6 +465,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
       // Verifica línea 323
       expect(points, isNotEmpty);
@@ -677,7 +696,9 @@ void main() {
         triggerLevel: 1.0,
         triggerEdge: TriggerEdge.positive,
         triggerSensitivity: 50.0,
-        triggerMode: TriggerMode.hysteresis,
+        triggerMode: TriggerMode.normal,
+        useHysteresis: true,
+        useLowPassFilter: true,
       );
 
       final oldConfig = DataProcessingConfig(
@@ -814,6 +835,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort(),
       );
 
       expect(points, isEmpty);
@@ -856,6 +878,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
 
       expect(points, isEmpty);
@@ -878,6 +901,7 @@ void main() {
         service.triggerSensitivity,
         service.mid,
         mockDeviceConfigProvider.config!,
+        getMockSendPort()
       );
 
       expect(points.any((p) => p.isTrigger), isFalse);

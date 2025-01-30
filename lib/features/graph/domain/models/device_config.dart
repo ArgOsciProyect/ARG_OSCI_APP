@@ -35,16 +35,17 @@ class DeviceConfig {
         samplesPerPacket: int.parse(json['samples_per_packet'].toString()),
       );
     } catch (e) {
-      throw FormatException('Failed to parse DeviceConfig: $e\nReceived JSON: $json');
+      throw FormatException(
+          'Failed to parse DeviceConfig: $e\nReceived JSON: $json');
     }
   }
 
   Map<String, dynamic> toJson() => {
-    'sampling_frequency': samplingFrequency,
-    'bits_per_packet': bitsPerPacket,
-    'data_mask': dataMask,
-    'channel_mask': channelMask,
-    'useful_bits': usefulBits,
-    'samples_per_packet': samplesPerPacket,
-  };
+        'sampling_frequency': samplingFrequency,
+        'bits_per_packet': bitsPerPacket,
+        'data_mask': dataMask,
+        'channel_mask': channelMask,
+        'useful_bits': usefulBits,
+        'samples_per_packet': samplesPerPacket,
+      };
 }

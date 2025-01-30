@@ -6,8 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/line_chart_provider.dart';
-import '../providers/data_provider.dart';
-import 'dart:async';
+import '../providers/data_acquisition_provider.dart';
 
 const double _offsetY = 15;
 const double _offsetX = 50;
@@ -19,7 +18,7 @@ class LineChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lineChartProvider = Get.find<LineChartProvider>();
-    final graphProvider = Get.find<GraphProvider>();
+    final graphProvider = Get.find<DataAcquisitionProvider>();
 
     return Column(
       children: [
@@ -41,8 +40,8 @@ class LineChart extends StatelessWidget {
                                 final delta = pointerSignal.scrollDelta.dy;
                                 if (pointerSignal.kind ==
                                     PointerDeviceKind.mouse) {
-                                  if (RawKeyboard.instance.keysPressed
-                                      .contains(LogicalKeyboardKey.controlLeft)) {
+                                  if (RawKeyboard.instance.keysPressed.contains(
+                                      LogicalKeyboardKey.controlLeft)) {
                                     // Zoom horizontal (tiempo)
                                     lineChartProvider.setTimeScale(
                                       lineChartProvider.timeScale *
@@ -352,7 +351,8 @@ class LineChartPainter extends CustomPainter {
 
     double screenToDomainX(double screenVal) {
       final localX = screenVal - _offsetX;
-      return (localX / timeScale) - (horizontalOffset * drawingWidth / timeScale);
+      return (localX / timeScale) -
+          (horizontalOffset * drawingWidth / timeScale);
     }
 
     final textPainter = TextPainter(
@@ -430,7 +430,7 @@ class LineChartPainter extends CustomPainter {
       );
 
       // Etiqueta de tiempo en µs
-      final timeValue = domainVal * 1e6; 
+      final timeValue = domainVal * 1e6;
       textPainter.text = TextSpan(
         text: '${timeValue.toStringAsFixed(1)} µs',
         style: const TextStyle(color: Colors.black, fontSize: 10),
@@ -458,6 +458,14 @@ class LineChartPainter extends CustomPainter {
           domainToScreenY(dataPoints[i + 1].y),
         );
 
+        // Si alguna coordenada es NaN o infinita, omitimos el trazado
+        if (!p1.dx.isFinite ||
+            !p1.dy.isFinite ||
+            !p2.dx.isFinite ||
+            !p2.dy.isFinite) {
+          continue;
+        }
+
         // Recortes (clipping) vertical
         if (p1.dy < _offsetY && p2.dy < _offsetY) continue;
         if (p1.dy > size.height - _sqrOffsetBot &&
@@ -473,8 +481,7 @@ class LineChartPainter extends CustomPainter {
           p1 = Offset(newX, _offsetY);
         } else if (p1.dy > size.height - _sqrOffsetBot) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX =
-              p1.dx + (size.height - _sqrOffsetBot - p1.dy) / slope;
+          final newX = p1.dx + (size.height - _sqrOffsetBot - p1.dy) / slope;
           p1 = Offset(newX, size.height - _sqrOffsetBot);
         }
         // Clip vertical en p2
@@ -484,8 +491,7 @@ class LineChartPainter extends CustomPainter {
           p2 = Offset(newX, _offsetY);
         } else if (p2.dy > size.height - _sqrOffsetBot) {
           final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX =
-              p2.dx + (size.height - _sqrOffsetBot - p2.dy) / slope;
+          final newX = p2.dx + (size.height - _sqrOffsetBot - p2.dy) / slope;
           p2 = Offset(newX, size.height - _sqrOffsetBot);
         }
         // Clip horizontal en p1

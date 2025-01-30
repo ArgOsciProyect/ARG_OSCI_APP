@@ -24,12 +24,12 @@ class HttpService implements HttpRepository {
   }
 
   @override
-  Future<dynamic> post(String endpoint, Map<String, dynamic> body) async {
+  Future<dynamic> post(String endpoint, [Map<String, dynamic>? body]) async {
     try {
       final response = await config.client!.post(
         Uri.parse('${config.baseUrl}$endpoint'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
+        body: body != null ? jsonEncode(body) : null,
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body);

@@ -1,7 +1,7 @@
 // lib/features/graph/screens/graph_screen.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/data_provider.dart';
+import '../providers/data_acquisition_provider.dart';
 import '../widgets/user_settings.dart';
 import '../providers/line_chart_provider.dart';
 import '../providers/graph_mode_provider.dart';
@@ -13,7 +13,7 @@ class GraphScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final graphProvider = Get.find<GraphProvider>();
+    final graphProvider = Get.find<DataAcquisitionProvider>();
     final triggerLevelController = TextEditingController(
         text: graphProvider.triggerLevel.value.toString());
     final lineChartProvider = Get.find<LineChartProvider>();
