@@ -60,6 +60,7 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
 }
 
 class MockDeviceConfigProvider extends GetxController
+   
     implements DeviceConfigProvider {
   final _config = Rx<DeviceConfig?>(MockDeviceConfig());
 
@@ -89,6 +90,7 @@ class MockDeviceConfigProvider extends GetxController
     _config.value = config;
   }
 }
+
 
 // Mock para HttpClient
 class MockHttpClient extends Mock implements http.Client {}
@@ -152,6 +154,7 @@ void main() {
   late MockDeviceConfigProvider mockDeviceConfigProvider;
   late MockSocketService mockSocketService;
 
+// In test setup:
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -169,15 +172,14 @@ void main() {
     // Create service
     service = DataAcquisitionService(mockHttpConfig);
 
-    // Configure initial values
+    // Initialize service properly
+    await service.initialize();
+
+    // Configure initial values after initialization
     service.scale = 3.3 / 512;
     service.triggerLevel = 0.0;
     service.triggerSensitivity = 0.1;
-
-    // Initialize service
-    await service.initialize();
   });
-
   tearDown(() async {
     await service.dispose();
     Get.reset();
@@ -223,23 +225,22 @@ void main() {
     test('should calculate new scales based on signal metrics', () {
       // Set voltage scale to ensure voltageRange >= 1.0
       service.setVoltageScale(VoltageScales.millivolts_500); // Adjust as needed
-    
+
       // Simulate signal with adjusted characteristics
       final points = [
-        DataPoint(0.0, 0.0, isTrigger: true),  // 0.0V (min)
-        DataPoint(1e-6, 1.0),                  // 1.0V (max)
+        DataPoint(0.0, 0.0, isTrigger: true), // 0.0V (min)
+        DataPoint(1e-6, 1.0), // 1.0V (max)
         DataPoint(2e-6, 0.0, isTrigger: true), // 0.0V (min)
-        DataPoint(3e-6, 1.0),                  // 1.0V (max)
+        DataPoint(3e-6, 1.0), // 1.0V (max)
         DataPoint(4e-6, 0.0, isTrigger: true), // 0.0V (min)
       ];
-    
+
       service.updateMetrics(points);
-    
+
       print("Trigger Level: ${service.triggerLevel}");
       print("Max Value: ${service.currentMaxValue}");
       print("Min Value: ${service.currentMinValue}");
       print("Voltage Scale: ${service.currentVoltageScale.scale}");
-
 
       final result = service.autoset(300.0, 400.0);
 
@@ -248,15 +249,15 @@ void main() {
       print("Min Value: ${service.currentMinValue}");
       print("Voltage Scale: ${service.currentVoltageScale.scale}");
 
-    
       // Verify time scale (3 periods should fit in chart width)
       expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
-    
+
       // Verify value scale (should accommodate max value)
       expect(result[1], closeTo(1.0 / 1.0, 0.1)); // Max value is 1.0V
-    
+
       // Verify trigger level is set to middle between max and min values
-      expect(service.triggerLevel, closeTo(0.5, 0.1)); // (1.0V + 0.0V) / 2 = 0.5V
+      expect(
+          service.triggerLevel, closeTo(0.5, 0.1)); // (1.0V + 0.0V) / 2 = 0.5V
     });
 
     test('autoset should clamp trigger level within voltage range', () {
@@ -286,7 +287,7 @@ void main() {
       service.updateMetrics(points);
       final result = service.autoset(300.0, 400.0);
 
-      expect(result, equals([1.0, 1.0]));
+      expect(result, equals([1000.0, 1.0]));
       expect(service.triggerLevel, equals(0.0));
     });
   });
@@ -515,7 +516,7 @@ service.useHysteresis = true;
 
     test('autoset should return default scales if frequency <= 0', () {
       final result = service.autoset(300, 400);
-      expect(result, equals([1.0, 1.0]));
+      expect(result, equals([1000.0, 1.0]));
     });
 
     test('autoset should compute correct scales if frequency > 0', () {

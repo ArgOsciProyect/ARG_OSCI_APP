@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,8 +13,36 @@ const double _offsetY = 15;
 const double _offsetX = 50;
 const double _sqrOffsetBot = 15;
 
+/// A widget that displays a line chart with zoom, pan and scale controls.
+///
+/// Features:
+/// - Real-time data plotting
+/// - Mouse wheel zoom (with Ctrl/Shift modifiers)
+/// - Pinch to zoom
+/// - Pan navigation
+/// - Scale controls
+/// - Play/pause functionality
 class LineChart extends StatelessWidget {
-  const LineChart({super.key});
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+  final DeviceConfigProvider deviceConfig;
+
+  const LineChart._({
+    required this.lineChartProvider,
+    required this.graphProvider,
+    required this.deviceConfig,
+    super.key,
+  });
+
+  /// Factory constructor that creates an instance of LineChart with dependencies injected using Get.
+  factory LineChart({Key? key}) {
+    return LineChart._(
+      key: key,
+      lineChartProvider: Get.find<LineChartProvider>(),
+      graphProvider: Get.find<DataAcquisitionProvider>(),
+      deviceConfig: Get.find<DeviceConfigProvider>(),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,243 +52,409 @@ class LineChart extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: SizedBox(
-                  height: constraints.maxHeight,
-                  width: constraints.maxWidth,
-                  child: Obx(() {
-                    final dataPoints = lineChartProvider.dataPoints;
-                    return dataPoints.isEmpty
-                        ? const Center(child: Text('No data'))
-                        : Listener(
-                            onPointerSignal: (pointerSignal) {
-                              if (pointerSignal is PointerScrollEvent) {
-                                final delta = pointerSignal.scrollDelta.dy;
-                                if (pointerSignal.kind ==
-                                    PointerDeviceKind.mouse) {
-                                  if (RawKeyboard.instance.keysPressed.contains(
-                                      LogicalKeyboardKey.controlLeft)) {
-                                    // Zoom horizontal (tiempo)
-                                    lineChartProvider.setTimeScale(
-                                      lineChartProvider.timeScale *
-                                          (1 - delta / 500),
-                                    );
-                                  } else if (RawKeyboard.instance.keysPressed
-                                      .contains(LogicalKeyboardKey.shiftLeft)) {
-                                    // Zoom vertical (voltaje)
-                                    lineChartProvider.setValueScale(
-                                      lineChartProvider.valueScale *
-                                          (1 - delta / 500),
-                                    );
-                                  } else {
-                                    // Zoom combinado
-                                    final scale = 1 - delta / 500;
-                                    lineChartProvider.setTimeScale(
-                                      lineChartProvider.timeScale * scale,
-                                    );
-                                    lineChartProvider.setValueScale(
-                                      lineChartProvider.valueScale * scale,
-                                    );
-                                  }
-                                }
-                              }
-                            },
-                            child: GestureDetector(
-                              onScaleStart: (details) {
-                                lineChartProvider.setInitialScales();
-                              },
-                              onScaleUpdate: (details) {
-                                if (details.pointerCount == 2) {
-                                  // Zoom con pinch
-                                  lineChartProvider.handleZoom(
-                                    details,
-                                    constraints.biggest,
-                                    _offsetX,
-                                  );
-                                } else if (details.pointerCount == 1) {
-                                  // Desplazamiento
-                                  lineChartProvider.setHorizontalOffset(
-                                    lineChartProvider.horizontalOffset +
-                                        details.focalPointDelta.dx /
-                                            constraints.maxWidth,
-                                  );
-                                  lineChartProvider.setVerticalOffset(
-                                    lineChartProvider.verticalOffset -
-                                        details.focalPointDelta.dy /
-                                            constraints.maxHeight,
-                                  );
-                                }
-                              },
-                              child: CustomPaint(
-                                painter: LineChartPainter(
-                                  dataPoints,
-                                  lineChartProvider.timeScale,
-                                  lineChartProvider.valueScale,
-                                  graphProvider.getMaxValue(),
-                                  graphProvider.getDistance(),
-                                  graphProvider.getScale(),
-                                  Theme.of(context).scaffoldBackgroundColor,
-                                  lineChartProvider.horizontalOffset,
-                                  lineChartProvider.verticalOffset,
-                                ),
-                              ),
-                            ),
-                          );
-                  }),
-                ),
-              );
-            },
-          ),
-        ),
-        Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          constraints: const BoxConstraints(maxHeight: 48.0),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      icon: Obx(() => Icon(
-                            lineChartProvider.isPaused
-                                ? Icons.play_arrow
-                                : Icons.pause,
-                          )),
-                      color: Colors.black,
-                      onPressed: () => lineChartProvider.isPaused
-                          ? lineChartProvider.resume()
-                          : lineChartProvider.pause(),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) => lineChartProvider.decrementTimeScale(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.decrementTimeScale,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_left),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) => lineChartProvider.incrementTimeScale(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.incrementTimeScale,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_right),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) => lineChartProvider.incrementValueScale(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.incrementValueScale,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_upward),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) => lineChartProvider.decrementValueScale(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.decrementValueScale,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_downward),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.autorenew),
-                      color: Colors.black,
-                      onPressed: () {
-                        final size = MediaQuery.of(context).size;
-                        graphProvider.autoset(size.height, size.width);
-                        lineChartProvider.resetOffsets();
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 20),
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.decrementHorizontalOffset(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.decrementHorizontalOffset,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_left),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.incrementHorizontalOffset(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.incrementHorizontalOffset,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_right),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.incrementVerticalOffset(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.incrementVerticalOffset,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_up),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTapDown: (_) =>
-                          lineChartProvider.decrementVerticalOffset(),
-                      onLongPress: () => lineChartProvider.startIncrementing(
-                        lineChartProvider.decrementVerticalOffset,
-                      ),
-                      onLongPressUp: lineChartProvider.stopIncrementing,
-                      child: IconButton(
-                        icon: const Icon(Icons.keyboard_arrow_down),
-                        color: Colors.black,
-                        onPressed: null,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+            child: _ChartArea(
+          lineChartProvider: lineChartProvider,
+          graphProvider: graphProvider,
+          deviceConfig: deviceConfig,
+        )),
+        _ControlPanel(
+          lineChartProvider: lineChartProvider,
+          graphProvider: graphProvider,
         ),
       ],
     );
   }
 }
 
+/// Play/Pause toggle button
+/// A button that toggles between play and pause states for the line chart.
+class _PlayPauseButton extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+
+  const _PlayPauseButton({required this.lineChartProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() => IconButton(
+          icon: Icon(
+            lineChartProvider.isPaused ? Icons.play_arrow : Icons.pause,
+          ),
+          color: Colors.black,
+          onPressed: () => lineChartProvider.isPaused
+              ? lineChartProvider.resume()
+              : lineChartProvider.pause(),
+        ));
+  }
+}
+
+/// Scale adjustment buttons for time and voltage scales
+class _ScaleButtons extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+
+  const _ScaleButtons({required this.lineChartProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ControlButton(
+          icon: Icons.remove,
+          onTap: lineChartProvider.decrementTimeScale,
+          onLongPress: lineChartProvider.decrementTimeScale,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.add,
+          onTap: lineChartProvider.incrementTimeScale,
+          onLongPress: lineChartProvider.incrementTimeScale,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_down,
+          onTap: lineChartProvider.decrementValueScale,
+          onLongPress: lineChartProvider.decrementValueScale,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_up,
+          onTap: lineChartProvider.incrementValueScale,
+          onLongPress: lineChartProvider.incrementValueScale,
+          lineChartProvider: lineChartProvider,
+        ),
+      ],
+    );
+  }
+}
+
+/// Auto-adjust button to optimize chart scales based on data
+///
+/// This button, when pressed, will automatically adjust the chart scales
+/// to fit the current data within the viewable area.
+class _AutosetButton extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+
+  const _AutosetButton({
+    required this.lineChartProvider,
+    required this.graphProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.autorenew),
+      color: Colors.black,
+      onPressed: () {
+        final size = MediaQuery.of(context).size;
+        graphProvider.autoset(size.height, size.width);
+        lineChartProvider.resetOffsets();
+      },
+    );
+  }
+}
+
+/// The main chart area that displays the data plot and handles layout constraints.
+class _ChartArea extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+  final DeviceConfigProvider deviceConfig;
+
+  const _ChartArea({
+    required this.lineChartProvider,
+    required this.graphProvider,
+    required this.deviceConfig,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: SizedBox.fromSize(
+            size: constraints.biggest,
+            child: _ChartGestureHandler(
+              lineChartProvider: lineChartProvider,
+              graphProvider: graphProvider,
+              deviceConfig: deviceConfig,
+              constraints: constraints,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Handles all gesture and pointer interactions for the chart
+/// A widget that handles all gesture and pointer interactions for the chart,
+/// including zooming and panning.
+class _ChartGestureHandler extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+  final DeviceConfigProvider deviceConfig;
+  final BoxConstraints constraints;
+
+  const _ChartGestureHandler({
+    required this.lineChartProvider,
+    required this.graphProvider,
+    required this.deviceConfig,
+    required this.constraints,
+  });
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (event.kind != PointerDeviceKind.mouse) return;
+
+    final delta = event.scrollDelta.dy;
+    if (HardwareKeyboard.instance.isControlPressed) {
+      // Horizontal zoom (time)
+      lineChartProvider.setTimeScale(
+        lineChartProvider.timeScale * (1 - delta / 500),
+      );
+    } else if (HardwareKeyboard.instance.isShiftPressed) {
+      // Vertical zoom (voltage)
+      lineChartProvider.setValueScale(
+        lineChartProvider.valueScale * (1 - delta / 500),
+      );
+    } else {
+      // Combined zoom
+      final scale = 1 - delta / 500;
+      lineChartProvider.setTimeScale(lineChartProvider.timeScale * scale);
+      lineChartProvider.setValueScale(lineChartProvider.valueScale * scale);
+    }
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount == 2) {
+      // Pinch zoom
+      lineChartProvider.handleZoom(
+        details,
+        constraints.biggest,
+        _offsetX,
+      );
+    } else if (details.pointerCount == 1) {
+      // Pan
+      lineChartProvider.setHorizontalOffset(
+        lineChartProvider.horizontalOffset +
+            details.focalPointDelta.dx / constraints.maxWidth,
+      );
+      lineChartProvider.setVerticalOffset(
+        lineChartProvider.verticalOffset -
+            details.focalPointDelta.dy / constraints.maxHeight,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: _handlePointerSignal,
+      child: GestureDetector(
+        onScaleStart: (_) => lineChartProvider.setInitialScales(),
+        onScaleUpdate: _handleScaleUpdate,
+        child: _ChartPainter(
+          lineChartProvider: lineChartProvider,
+          graphProvider: graphProvider,
+          deviceConfig: deviceConfig,
+          context: context,
+        ),
+      ),
+    );
+  }
+}
+
+/// A widget that handles the painting of the chart using CustomPaint.
+class _ChartPainter extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+  final DeviceConfigProvider deviceConfig;
+  final BuildContext context;
+
+  const _ChartPainter({
+    required this.lineChartProvider,
+    required this.graphProvider,
+    required this.deviceConfig,
+    required this.context,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final dataPoints = lineChartProvider.dataPoints;
+      if (dataPoints.isEmpty) {
+        return const Center(child: Text('No data'));
+      }
+
+      return CustomPaint(
+        painter: LineChartPainter(
+          dataPoints,
+          lineChartProvider.timeScale,
+          lineChartProvider.valueScale,
+          graphProvider.getMaxValue(),
+          graphProvider.getDistance(),
+          graphProvider.getScale(),
+          Theme.of(context).scaffoldBackgroundColor,
+          lineChartProvider.horizontalOffset,
+          lineChartProvider.verticalOffset,
+          deviceConfig,
+        ),
+      );
+    });
+  }
+}
+
+/// Bottom control panel with all chart controls
+/// Bottom control panel containing main controls and offset controls for the chart.
+class _ControlPanel extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+
+  const _ControlPanel({
+    required this.lineChartProvider,
+    required this.graphProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      constraints: const BoxConstraints(maxHeight: 48.0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _MainControls(
+              lineChartProvider: lineChartProvider,
+              graphProvider: graphProvider,
+            ),
+            const SizedBox(width: 20),
+            _OffsetControls(lineChartProvider: lineChartProvider),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Main control buttons for the line chart, including play/pause, zoom, and autoset.
+class _MainControls extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+  final DataAcquisitionProvider graphProvider;
+
+  const _MainControls({
+    required this.lineChartProvider,
+    required this.graphProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _PlayPauseButton(lineChartProvider: lineChartProvider),
+        _ScaleButtons(lineChartProvider: lineChartProvider),
+        _AutosetButton(
+          lineChartProvider: lineChartProvider,
+          graphProvider: graphProvider,
+        ),
+      ],
+    );
+  }
+}
+
+/// Navigation controls for chart offset
+///
+/// This class provides buttons to adjust the horizontal and vertical offsets
+/// of the chart, allowing the user to pan the chart view.
+class _OffsetControls extends StatelessWidget {
+  final LineChartProvider lineChartProvider;
+
+  const _OffsetControls({required this.lineChartProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ControlButton(
+          icon: Icons.keyboard_arrow_left,
+          onTap: lineChartProvider.decrementHorizontalOffset,
+          onLongPress: lineChartProvider.decrementHorizontalOffset,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_right,
+          onTap: lineChartProvider.incrementHorizontalOffset,
+          onLongPress: lineChartProvider.incrementHorizontalOffset,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_up,
+          onTap: lineChartProvider.incrementVerticalOffset,
+          onLongPress: lineChartProvider.incrementVerticalOffset,
+          lineChartProvider: lineChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_down,
+          onTap: lineChartProvider.decrementVerticalOffset,
+          onLongPress: lineChartProvider.decrementVerticalOffset,
+          lineChartProvider: lineChartProvider,
+        ),
+      ],
+    );
+  }
+}
+
+/// A reusable control button with tap and long press handling.
+/// This button is used for various control actions in the line chart.
+class _ControlButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  final LineChartProvider lineChartProvider;
+
+  const _ControlButton({
+    required this.icon,
+    required this.onTap,
+    required this.onLongPress,
+    required this.lineChartProvider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => onTap(),
+      onLongPress: () => lineChartProvider.startIncrementing(onLongPress),
+      onLongPressUp: lineChartProvider.stopIncrementing,
+      child: IconButton(
+        icon: Icon(icon),
+        color: Colors.black,
+        onPressed: null,
+      ),
+    );
+  }
+}
+
+/// Custom painter for rendering a line chart with grid lines, labels, and data points.
+///
+/// This class is responsible for drawing the line chart, including the background,
+/// grid lines, labels, and data points. It manages the scaling and offsetting of the chart
+/// based on user interactions.
+///
+/// This painter handles the drawing of the line chart, including the background,
+/// grid lines, labels, and the data points. It also manages the scaling and
+/// offsetting of the chart based on user interactions.
+///
+/// The `LineChartPainter` class takes the following parameters:
+/// - `dataPoints`: List of data points to be plotted.
+/// - `timeScale`: Scale factor for the time axis.
+/// - `valueScale`: Scale factor for the value axis.
+/// - `maxX`: Maximum value for the X-axis.
+/// - `distance`: Distance between data points.
+/// - `voltageScale`: Scale factor for the voltage.
+/// - `backgroundColor`: Background color of the chart.
+/// - `horizontalOffset`: Horizontal offset for panning.
+/// - `verticalOffset`: Vertical offset for panning.
 class LineChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
@@ -270,7 +465,19 @@ class LineChartPainter extends CustomPainter {
   final Color backgroundColor;
   final double horizontalOffset;
   final double verticalOffset;
-  final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
+  final DeviceConfigProvider deviceConfig;
+
+  late final Paint _dataPaint;
+  late final Paint _gridPaint;
+  late final Paint _zeroPaint;
+  late final Paint _borderPaint;
+  late final Paint _backgroundPaint;
+  late final Paint _chartBackgroundPaint;
+  late final TextPainter _textPainter;
+
+  double _drawingWidth = 0.0;
+  double _drawingHeight = 0.0;
+  double _centerY = 0.0;
 
   LineChartPainter(
     this.dataPoints,
@@ -282,247 +489,231 @@ class LineChartPainter extends CustomPainter {
     this.backgroundColor,
     this.horizontalOffset,
     this.verticalOffset,
-  );
+    this.deviceConfig,
+  ) {
+    _initializePaints();
+  }
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
+  void _initializePaints() {
+    _dataPaint = Paint()
       ..color = Colors.blue
       ..strokeWidth = 2;
 
-    final gridPaint = Paint()
+    _gridPaint = Paint()
       ..color = Colors.grey
       ..strokeWidth = 0.5;
 
-    final zeroPaint = Paint()
+    _zeroPaint = Paint()
       ..color = Colors.red
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    final borderPaint = Paint()
+    _borderPaint = Paint()
       ..color = Colors.black
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
 
-    final backgroundPaint = Paint()
+    _backgroundPaint = Paint()
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
 
-    final chartBackgroundPaint = Paint()
+    _chartBackgroundPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
-    // Dimensiones de la región de dibujo
-    final drawingWidth = size.width - _offsetX;
-    final drawingHeight = size.height - _offsetY - _sqrOffsetBot;
-    final centerY = _offsetY + drawingHeight / 2;
-
-    // Fondo
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, _offsetY),
-      backgroundPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(0, _offsetY, _offsetX, size.height - _offsetY),
-      backgroundPaint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
-      chartBackgroundPaint,
-    );
-
-    // Funciones de conversión
-    double domainToScreenY(double domainVal) {
-      // Igual que dibujar data
-      return centerY -
-          ((domainVal * valueScale + verticalOffset) * drawingHeight / 2);
-    }
-
-    double screenToDomainY(double screenVal) {
-      return -((screenVal - centerY) / (drawingHeight / 2)) / valueScale -
-          verticalOffset;
-    }
-
-    double domainToScreenX(double domainVal) {
-      return (domainVal * timeScale) +
-          (horizontalOffset * drawingWidth) +
-          _offsetX;
-    }
-
-    double screenToDomainX(double screenVal) {
-      final localX = screenVal - _offsetX;
-      return (localX / timeScale) -
-          (horizontalOffset * drawingWidth / timeScale);
-    }
-
-    final textPainter = TextPainter(
+    _textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
+  }
 
-    // ---------------------------
-    // Eje Y dinámico
-    // Calcula el dominio visible (vertical)
-    final yDomainTop = screenToDomainY(_offsetY);
-    final yDomainBottom = screenToDomainY(size.height - _sqrOffsetBot);
+  double _domainToScreenY(double domainVal) {
+    return _centerY -
+        ((domainVal * valueScale + verticalOffset) * _drawingHeight / 2);
+  }
+
+  double _screenToDomainY(double screenVal) {
+    return -((screenVal - _centerY) / (_drawingHeight / 2)) / valueScale -
+        verticalOffset;
+  }
+
+  double _domainToScreenX(double domainVal) {
+    return (domainVal * timeScale) +
+        (horizontalOffset * _drawingWidth) +
+        _offsetX;
+  }
+
+  double _screenToDomainX(double screenVal) {
+    final localX = screenVal - _offsetX;
+    return (localX / timeScale) -
+        (horizontalOffset * _drawingWidth / timeScale);
+  }
+
+  void _drawBackground(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, _offsetY),
+      _backgroundPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, _offsetY, _offsetX, size.height - _offsetY),
+      _backgroundPaint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(_offsetX, _offsetY, _drawingWidth, _drawingHeight),
+      _chartBackgroundPaint,
+    );
+  }
+
+  void _drawYAxisGridAndLabels(Canvas canvas, Size size) {
+    final yDomainTop = _screenToDomainY(_offsetY);
+    final yDomainBottom = _screenToDomainY(size.height - _sqrOffsetBot);
     final yMin = min(yDomainTop, yDomainBottom);
     final yMax = max(yDomainTop, yDomainBottom);
 
-    // Dividir en ~10 líneas
-    const linesCountY = 10;
-    final stepY = (yMax - yMin) / linesCountY;
+    const rangeExtensionFactor = 2.0;
+    final yRange = yMax - yMin;
+    final extendedYMin = yMin - (yRange * (rangeExtensionFactor - 1) / 2);
+    final extendedYMax = yMax + (yRange * (rangeExtensionFactor - 1) / 2);
+
+    const linesCountY = 20;
+    final stepY = (extendedYMax - extendedYMin) / linesCountY;
 
     for (int i = 0; i <= linesCountY; i++) {
-      final domainVal = yMin + i * stepY;
-      final y = domainToScreenY(domainVal);
+      final domainVal = extendedYMin + i * stepY;
+      final y = _domainToScreenY(domainVal);
 
-      // Línea horizontal
+      if (y >= _offsetY && y <= size.height - _sqrOffsetBot) {
+        canvas.drawLine(
+          Offset(_offsetX, y),
+          Offset(size.width, y),
+          _gridPaint,
+        );
+
+        _textPainter.text = TextSpan(
+          text: '${domainVal.toStringAsFixed(2)} V',
+          style: const TextStyle(color: Colors.black, fontSize: 10),
+        );
+        _textPainter.layout();
+        _textPainter.paint(
+          canvas,
+          Offset(5, y - _textPainter.height / 2),
+        );
+      }
+    }
+  }
+
+  void _drawXAxisGridAndLabels(Canvas canvas, Size size) {
+    final xDomainLeft = _screenToDomainX(_offsetX);
+    final xDomainRight = _screenToDomainX(size.width);
+    final xMin = min(xDomainLeft, xDomainRight);
+    final xMax = max(xDomainLeft, xDomainRight);
+  
+    const linesCountX = 10;
+    final stepX = (xMax - xMin) / linesCountX;
+  
+    for (int i = 0; i <= linesCountX; i++) {
+      final domainVal = xMin + i * stepX;
+      final x = _domainToScreenX(domainVal);
+  
       canvas.drawLine(
-        Offset(_offsetX, y),
-        Offset(size.width, y),
-        gridPaint,
+        Offset(x, _offsetY),
+        Offset(x, size.height - _sqrOffsetBot),
+        _gridPaint,
       );
-
-      // Etiqueta a la izquierda
-      final label = domainVal.toStringAsFixed(2);
-      textPainter.text = TextSpan(
-        text: '$label V',
+  
+      final timeValue = domainVal * 1e6;
+      _textPainter.text = TextSpan(
+        text: '${timeValue.toStringAsFixed(1)} µs',
         style: const TextStyle(color: Colors.black, fontSize: 10),
       );
-      textPainter.layout();
-      textPainter.paint(
+      _textPainter.layout();
+      _textPainter.paint(
         canvas,
-        Offset(5, y - textPainter.height / 2),
+        Offset(x - _textPainter.width / 2, size.height - _sqrOffsetBot + 5),
       );
     }
-
-    // Línea de cero en rojo
-    final zeroY = domainToScreenY(0.0);
-    // Ajustar para no dibujar fuera del cuadro
+  }
+  void _drawZeroLine(Canvas canvas, Size size) {
+    final zeroY = _domainToScreenY(0.0);
     final clampedZeroY = zeroY.clamp(_offsetY, size.height - _sqrOffsetBot);
     canvas.drawLine(
       Offset(_offsetX, clampedZeroY),
       Offset(size.width, clampedZeroY),
-      zeroPaint,
+      _zeroPaint,
     );
+  }
 
-    // ---------------------------
-    // Eje X dinámico
-    // Calcula el dominio visible (horizontal)
-    final xDomainLeft = screenToDomainX(_offsetX);
-    final xDomainRight = screenToDomainX(size.width);
-    final xMin = min(xDomainLeft, xDomainRight);
-    final xMax = max(xDomainLeft, xDomainRight);
+  void _drawDataPoints(Canvas canvas, Size size) {
+    if (dataPoints.length <= 1) return;
 
-    // Dividir en ~10 líneas
-    const linesCountX = 10;
-    final stepX = (xMax - xMin) / linesCountX;
-
-    for (int i = 0; i <= linesCountX; i++) {
-      final domainVal = xMin + i * stepX;
-      final x = domainToScreenX(domainVal);
-
-      // Línea vertical
-      canvas.drawLine(
-        Offset(x, _offsetY),
-        Offset(x, size.height - _sqrOffsetBot),
-        gridPaint,
+    for (int i = 0; i < dataPoints.length - 1; i++) {
+      var p1 = Offset(
+        _domainToScreenX(dataPoints[i].x),
+        _domainToScreenY(dataPoints[i].y),
+      );
+      var p2 = Offset(
+        _domainToScreenX(dataPoints[i + 1].x),
+        _domainToScreenY(dataPoints[i + 1].y),
       );
 
-      // Etiqueta de tiempo en µs
-      final timeValue = domainVal * 1e6;
-      textPainter.text = TextSpan(
-        text: '${timeValue.toStringAsFixed(1)} µs',
-        style: const TextStyle(color: Colors.black, fontSize: 10),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(
-          x - textPainter.width / 2,
-          size.height - _sqrOffsetBot + 5,
-        ),
-      );
+      if (!_isLineVisible(p1, p2, size)) continue;
+
+      p1 = _clipPoint(p1, p2, size);
+      p2 = _clipPoint(p2, p1, size);
+
+      canvas.drawLine(p1, p2, _dataPaint);
+    }
+  }
+
+  bool _isLineVisible(Offset p1, Offset p2, Size size) {
+    if (p1.dy < _offsetY && p2.dy < _offsetY) return false;
+    if (p1.dy > size.height - _sqrOffsetBot &&
+        p2.dy > size.height - _sqrOffsetBot) return false;
+    if (p1.dx < _offsetX && p2.dx < _offsetX) return false;
+    if (p1.dx > size.width && p2.dx > size.width) return false;
+    return true;
+  }
+
+  Offset _clipPoint(Offset point, Offset other, Size size) {
+    var result = point;
+    final slope = (other.dy - point.dy) / (other.dx - point.dx);
+
+    // Vertical clipping
+    if (point.dy < _offsetY) {
+      final newX = point.dx + (_offsetY - point.dy) / slope;
+      result = Offset(newX, _offsetY);
+    } else if (point.dy > size.height - _sqrOffsetBot) {
+      final newX = point.dx + (size.height - _sqrOffsetBot - point.dy) / slope;
+      result = Offset(newX, size.height - _sqrOffsetBot);
     }
 
-    // ---------------------------
-    // Dibuja la señal
-    if (dataPoints.length > 1) {
-      for (int i = 0; i < dataPoints.length - 1; i++) {
-        var p1 = Offset(
-          domainToScreenX(dataPoints[i].x),
-          domainToScreenY(dataPoints[i].y),
-        );
-        var p2 = Offset(
-          domainToScreenX(dataPoints[i + 1].x),
-          domainToScreenY(dataPoints[i + 1].y),
-        );
-
-        // Si alguna coordenada es NaN o infinita, omitimos el trazado
-        if (!p1.dx.isFinite ||
-            !p1.dy.isFinite ||
-            !p2.dx.isFinite ||
-            !p2.dy.isFinite) {
-          continue;
-        }
-
-        // Recortes (clipping) vertical
-        if (p1.dy < _offsetY && p2.dy < _offsetY) continue;
-        if (p1.dy > size.height - _sqrOffsetBot &&
-            p2.dy > size.height - _sqrOffsetBot) continue;
-        // Recortes horizontal
-        if (p1.dx < _offsetX && p2.dx < _offsetX) continue;
-        if (p1.dx > size.width && p2.dx > size.width) continue;
-
-        // Clip vertical en p1
-        if (p1.dy < _offsetY) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX = p1.dx + (_offsetY - p1.dy) / slope;
-          p1 = Offset(newX, _offsetY);
-        } else if (p1.dy > size.height - _sqrOffsetBot) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX = p1.dx + (size.height - _sqrOffsetBot - p1.dy) / slope;
-          p1 = Offset(newX, size.height - _sqrOffsetBot);
-        }
-        // Clip vertical en p2
-        if (p2.dy < _offsetY) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX = p2.dx + (_offsetY - p2.dy) / slope;
-          p2 = Offset(newX, _offsetY);
-        } else if (p2.dy > size.height - _sqrOffsetBot) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newX = p2.dx + (size.height - _sqrOffsetBot - p2.dy) / slope;
-          p2 = Offset(newX, size.height - _sqrOffsetBot);
-        }
-        // Clip horizontal en p1
-        if (p1.dx < _offsetX) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newY = p1.dy + (_offsetX - p1.dx) * slope;
-          p1 = Offset(_offsetX, newY);
-        } else if (p1.dx > size.width) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newY = p1.dy + (size.width - p1.dx) * slope;
-          p1 = Offset(size.width, newY);
-        }
-        // Clip horizontal en p2
-        if (p2.dx < _offsetX) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newY = p2.dy + (_offsetX - p2.dx) * slope;
-          p2 = Offset(_offsetX, newY);
-        } else if (p2.dx > size.width) {
-          final slope = (p2.dy - p1.dy) / (p2.dx - p1.dx);
-          final newY = p2.dy + (size.width - p2.dx) * slope;
-          p2 = Offset(size.width, newY);
-        }
-
-        canvas.drawLine(p1, p2, paint);
-      }
+    // Horizontal clipping
+    if (point.dx < _offsetX) {
+      final newY = point.dy + (_offsetX - point.dx) * slope;
+      result = Offset(_offsetX, newY);
+    } else if (point.dx > size.width) {
+      final newY = point.dy + (size.width - point.dx) * slope;
+      result = Offset(size.width, newY);
     }
 
-    // Borde
+    return result;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    _drawingWidth = size.width - _offsetX;
+    _drawingHeight = size.height - _offsetY - _sqrOffsetBot;
+    _centerY = _offsetY + _drawingHeight / 2;
+
+    _drawBackground(canvas, size);
+    _drawYAxisGridAndLabels(canvas, size);
+    _drawXAxisGridAndLabels(canvas, size);
+    _drawZeroLine(canvas, size);
+    _drawDataPoints(canvas, size);
+
     canvas.drawRect(
-      Rect.fromLTWH(_offsetX, _offsetY, drawingWidth, drawingHeight),
-      borderPaint,
+      Rect.fromLTWH(_offsetX, _offsetY, _drawingWidth, _drawingHeight),
+      _borderPaint,
     );
   }
 

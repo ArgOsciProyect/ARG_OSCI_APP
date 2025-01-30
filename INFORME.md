@@ -34,6 +34,7 @@
 20. WebSockets y comunicación bidireccional
 21. Patrones Observer y Factory en Flutter
 22. Sistemas de procesamiento en tiempo real con Isolates
+23. Pipeline Design Pattern
 
 # 2. Sistema de Inicialización y Configuración Base
 

@@ -14,6 +14,8 @@ class FFTChartService {
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final _fftController = StreamController<List<DataPoint>>.broadcast();
 
+
+  // Remove hardcoded blockSize
   late final int blockSize;
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
@@ -67,7 +69,6 @@ class FFTChartService {
 
     return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
-
   void _setupSubscriptions() {
     // Cancel existing subscription if any
     _dataPointsSubscription?.cancel();

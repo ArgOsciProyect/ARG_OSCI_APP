@@ -4,73 +4,96 @@ import 'package:get/get.dart';
 import '../providers/data_acquisition_provider.dart';
 import '../widgets/user_settings.dart';
 import '../providers/line_chart_provider.dart';
-import '../providers/graph_mode_provider.dart';
+import '../providers/user_settings_provider.dart';
 
 class GraphScreen extends StatelessWidget {
-  final String mode;
+  final String graphMode;
+  final DataAcquisitionProvider graphProvider;
+  final LineChartProvider lineChartProvider;
+  final UserSettingsProvider userSettingsProvider;
+  final TextEditingController triggerLevelController;
 
-  const GraphScreen({required this.mode, super.key});
+  const GraphScreen._({
+    required this.graphMode,
+    required this.graphProvider,
+    required this.lineChartProvider,
+    required this.userSettingsProvider,
+    required this.triggerLevelController,
+    super.key,
+  });
 
-  @override
-  Widget build(BuildContext context) {
+  factory GraphScreen({required String graphMode, Key? key}) {
     final graphProvider = Get.find<DataAcquisitionProvider>();
-    final triggerLevelController = TextEditingController(
-        text: graphProvider.triggerLevel.value.toString());
     final lineChartProvider = Get.find<LineChartProvider>();
-    final modeProvider = Get.find<GraphModeProvider>();
+    final userSettingsProvider = Get.find<UserSettingsProvider>();
+    final controller = TextEditingController(
+        text: graphProvider.triggerLevel.value.toString());
 
-    modeProvider.setMode(mode);
+    // Register controller for disposal
+    Get.put(controller, tag: 'trigger_level_controller');
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        title: Obx(() => FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                modeProvider.title.value,
-                style: const TextStyle(fontSize: 15, color: Colors.black),
-              ),
-            )),
-        leading: Transform.translate(
-          offset: const Offset(0, -5),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, size: 15, color: Colors.black),
-            onPressed: () => Get.back(),
-          ),
-        ),
-        toolbarHeight: 25.0,
-      ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                color: Colors.white,
-                child: Center(
-                  child: Obx(() {
-                    final points = graphProvider.dataPoints.value;
-                    if (points.isEmpty) {
-                      return const CircularProgressIndicator();
-                    }
-                    return modeProvider.getCurrentChart();
-                  }),
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-            Container(
-              width: 170,
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: UserSettings(
-                lineChartProvider: lineChartProvider,
-                graphProvider: graphProvider,
-                triggerLevelController: triggerLevelController,
-              ),
-            ),
-          ],
-        ),
-      ),
+    userSettingsProvider.setMode(graphMode);
+
+    return GraphScreen._(
+      graphMode: graphMode,
+      graphProvider: graphProvider,
+      lineChartProvider: lineChartProvider,
+      userSettingsProvider: userSettingsProvider,
+      triggerLevelController: controller,
+      key: key,
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          title: Obx(() => FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  userSettingsProvider.title.value,
+                  style: const TextStyle(fontSize: 15, color: Colors.black),
+                ),
+              )),
+          leading: Transform.translate(
+            offset: const Offset(0, -5),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, size: 15, color: Colors.black),
+              onPressed: () => Get.back(),
+            ),
+          ),
+          toolbarHeight: 25.0,
+        ),
+        body: Container(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  color: Colors.white,
+                  child: Center(
+                    child: Obx(() {
+                      final points = graphProvider.dataPoints.value;
+                      if (points.isEmpty) {
+                        return const CircularProgressIndicator();
+                      }
+                      return userSettingsProvider.getCurrentChart();
+                    }),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 20),
+              Container(
+                width: 170,
+                color: Theme.of(context).scaffoldBackgroundColor,
+                child: UserSettings(
+                  lineChartProvider: lineChartProvider,
+                  graphProvider: graphProvider,
+                  triggerLevelController: triggerLevelController,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

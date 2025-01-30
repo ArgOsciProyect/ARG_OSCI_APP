@@ -208,6 +208,29 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   set triggerLevel(double value) {
     _triggerLevel = value;
+
+    try {
+      // Calculate full range in bits
+      final fullRange = 1 << deviceConfig.usefulBits;
+
+      // Convert voltage trigger to raw value
+      final rawTrigger = (value / scale) + _mid;
+
+      // Calculate percentage (0-100)
+      final percentage = (rawTrigger / fullRange) * 100;
+
+      //print('Trigger percentage: $percentage');
+      // Make POST request
+      final httpService = HttpService(httpConfig);
+      httpService.post('/trigger', {
+        'trigger_percentage': percentage.clamp(0, 100),
+      }).catchError((error) {
+        print('Failed to update trigger: $error');
+      });
+    } catch (e) {
+      print('Error converting trigger value: $e');
+    }
+
     updateConfig();
   }
 
@@ -409,12 +432,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     final dataValue = uint16Value & deviceConfig.dataMask;
 
+
     // Find the lowest 1 bit position in channel mask - that's where channel bits start
     final channelShift = (deviceConfig.channelMask & -deviceConfig.channelMask)
             .toRadixString(2)
             .length -
         1;
     final channel = (uint16Value & deviceConfig.channelMask) >> channelShift;
+
 
     return (dataValue, channel);
   }
@@ -477,6 +502,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     var firstTriggerX = 0.0;
     var lastTriggerIndex = -1;
     var foundFirstTrigger = false;
+    var waitingForHysteresis = false;
+
+    // Low-pass filter coefficients calculated from device sampling frequency
     var waitingForNextTrigger = false;
     // Low-pass filter setup
     final dt = 1.0 / config.deviceConfig.samplingFrequency;
@@ -754,7 +782,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   List<double> autoset(double chartHeight, double chartWidth) {
-    if (_currentFrequency <= 0) return [1.0, 1.0];
+    if (_currentFrequency <= 0) return [1000, 1];
 
     // Time scale calculation
     final period = 1 / _currentFrequency;

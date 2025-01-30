@@ -48,7 +48,8 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/', page: () => SetupScreen()),
         GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
-        GetPage(name: '/graph', page: () => GraphScreen(mode: 'Oscilloscope')),
+        GetPage(
+            name: '/graph', page: () => GraphScreen(graphMode: 'Oscilloscope')),
       ],
     );
   }

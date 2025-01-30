@@ -1,7 +1,7 @@
 // lib/features/graph/screens/mode_selection_screen.dart
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
 class ModeSelectionScreen extends StatefulWidget {
@@ -32,7 +32,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
 
   @override
   Widget build(BuildContext context) {
-    final modeProvider = Get.find<GraphModeProvider>();
+    final modeProvider = Get.find<UserSettingsProvider>();
 
     return Scaffold(
       appBar: AppBar(

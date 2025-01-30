@@ -1,31 +1,47 @@
-// lib/features/graph/providers/graph_mode_provider.dart
-import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
-import 'package:arg_osci_app/features/graph/screens/graph_screen.dart';
-import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
-import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
+// lib/features/graph/providers/user_settings_provider.dart
+
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../domain/services/line_chart_service.dart';
 import '../domain/services/fft_chart_service.dart';
+import '../widgets/line_chart.dart';
+import '../widgets/fft_chart.dart';
+import '../screens/graph_screen.dart';
+import './data_acquisition_provider.dart';
+import './fft_chart_provider.dart';
 
 enum FrequencySource { timeDomain, fft }
 
-class GraphModeProvider extends GetxController {
+class UserSettingsProvider extends GetxController {
   final LineChartService lineChartService;
   final FFTChartService fftChartService;
   final mode = RxString('');
   final title = RxString('');
   final frequencySource = FrequencySource.timeDomain.obs;
+  final frequency = 0.0.obs;
+
+  Timer? _frequencyUpdateTimer;
 
   final availableModes = <String>['Oscilloscope', 'FFT'];
-  GraphModeProvider({
+
+  UserSettingsProvider({
     required this.lineChartService,
     required this.fftChartService,
-  });
+  }) {
+    _startFrequencyUpdates();
+  }
 
-  double get frequency {
-    return frequencySource.value == FrequencySource.timeDomain
+  void _startFrequencyUpdates() {
+    _frequencyUpdateTimer?.cancel();
+    _frequencyUpdateTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _updateFrequency(),
+    );
+  }
+
+  void _updateFrequency() {
+    frequency.value = frequencySource.value == FrequencySource.timeDomain
         ? Get.find<DataAcquisitionProvider>().frequency.value
         : Get.find<FFTChartProvider>().frequency.value;
   }
@@ -64,9 +80,14 @@ class GraphModeProvider extends GetxController {
     return mode.value == 'Oscilloscope' ? LineChart() : FFTChart();
   }
 
-  // Método para navegar al modo seleccionado
   void navigateToMode(String selectedMode) {
-    Get.to(() => GraphScreen(mode: selectedMode));
+    Get.to(() => GraphScreen(graphMode: selectedMode));
+  }
+
+  @override
+  void onClose() {
+    _frequencyUpdateTimer?.cancel();
+    super.onClose();
   }
 
   bool get showTriggerControls => mode.value == 'Oscilloscope';

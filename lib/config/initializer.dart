@@ -1,5 +1,6 @@
 // lib/config/initializer.dart
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:get/get.dart';
 import '../features/http/domain/models/http_config.dart';
 import '../features/socket/domain/models/socket_connection.dart';
@@ -11,7 +12,6 @@ import '../features/graph/domain/services/fft_chart_service.dart';
 import '../features/graph/providers/fft_chart_provider.dart';
 import '../features/graph/domain/services/line_chart_service.dart';
 import '../features/graph/providers/line_chart_provider.dart';
-import '../features/graph/providers/graph_mode_provider.dart';
 
 class Initializer {
   static Future<void> init() async {
@@ -38,12 +38,10 @@ class Initializer {
       Get.put<LineChartService>(lineChartService, permanent: true);
       Get.put<FFTChartService>(fftChartService, permanent: true);
 
-      // 5. Initialize GraphModeProvider before DataAcquisitionProvider
-      final graphModeProvider = GraphModeProvider(
-        lineChartService: lineChartService,
-        fftChartService: fftChartService,
-      );
-      Get.put<GraphModeProvider>(graphModeProvider, permanent: true);
+      Get.put(UserSettingsProvider(
+        lineChartService: Get.find<LineChartService>(),
+        fftChartService: Get.find<FFTChartService>(),
+      ), permanent: true);
 
       // 6. Now initialize DataAcquisitionProvider
       final dataAcquisitionProvider = DataAcquisitionProvider(
@@ -57,6 +55,11 @@ class Initializer {
       lineChartService.updateProvider(dataAcquisitionProvider);
       fftChartService.updateProvider(dataAcquisitionProvider);
 
+      Get.put(UserSettingsProvider(
+        lineChartService: Get.find<LineChartService>(),
+        fftChartService: Get.find<FFTChartService>(),
+      ));
+      
       // 8. Initialize remaining chart providers
       final lineChartProvider = LineChartProvider(lineChartService);
       final fftChartProvider = FFTChartProvider(fftChartService);

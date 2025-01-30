@@ -1,7 +1,7 @@
 // lib/features/graph/widgets/user_settings.dart
 import 'dart:async';
 
-import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/data_acquisition_provider.dart';
@@ -310,13 +310,7 @@ class UserSettings extends StatelessWidget {
   }
 
   Widget _buildInformationSection() {
-    final modeProvider = Get.find<GraphModeProvider>();
-    final frequency = 0.0.obs;
-
-    // Start periodic timer when widget is created
-    Timer.periodic(const Duration(seconds: 2), (_) {
-      frequency.value = modeProvider.frequency;
-    });
+    final userSettings = Get.find<UserSettingsProvider>();
 
     return Container(
       width: double.infinity,
@@ -339,10 +333,10 @@ class UserSettings extends StatelessWidget {
             children: [
               const Text('Frequency Source:'),
               Obx(() => DropdownButton<FrequencySource>(
-                    value: modeProvider.frequencySource.value,
+                    value: userSettings.frequencySource.value,
                     onChanged: (source) {
                       if (source != null) {
-                        modeProvider.setFrequencySource(source);
+                        userSettings.setFrequencySource(source);
                       }
                     },
                     items: FrequencySource.values.map((source) {
@@ -358,7 +352,8 @@ class UserSettings extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text('Frequency:'),
-          Obx(() => Text('${frequency.value.toStringAsFixed(2)} Hz')),
+          Obx(() =>
+              Text('${userSettings.frequency.value.toStringAsFixed(2)} Hz')),
         ],
       ),
     );
@@ -371,7 +366,7 @@ class UserSettings extends StatelessWidget {
         children: [
           _buildScaleSelector(),
           _buildTriggerSettings(),
-          _buildInformationSection(), // Usar el nuevo método
+          _buildInformationSection(),
           _buildFilterSettings(),
         ],
       ),

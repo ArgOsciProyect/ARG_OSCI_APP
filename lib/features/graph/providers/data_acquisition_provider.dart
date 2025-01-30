@@ -1,7 +1,6 @@
 // lib/features/graph/providers/graph_provider.dart
-import 'package:arg_osci_app/features/graph/domain/models/graph_mode.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
-import 'package:arg_osci_app/features/graph/providers/graph_mode_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
@@ -77,8 +76,8 @@ class DataAcquisitionProvider extends GetxController {
     triggerMode.value = dataAcquisitionService.triggerMode;
 
     // Listen to mode changes to handle FFT switch
-    ever(Get.find<GraphModeProvider>().mode, (mode) {
-      if (mode is FFTMode) {
+    ever(Get.find<UserSettingsProvider>().mode, (mode) {
+      if (mode == 'FFT') {
         setTriggerMode(TriggerMode.normal);
       }
     });
