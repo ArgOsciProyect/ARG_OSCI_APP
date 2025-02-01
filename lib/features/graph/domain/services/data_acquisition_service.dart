@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:collection';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
@@ -42,7 +43,6 @@ class DataProcessingConfig {
   final double distance;
   final double triggerLevel;
   final TriggerEdge triggerEdge;
-  final double triggerSensitivity;
   final double mid;
   final bool useHysteresis;
   final bool useLowPassFilter;
@@ -54,7 +54,6 @@ class DataProcessingConfig {
     required this.distance,
     required this.triggerLevel,
     required this.triggerEdge,
-    required this.triggerSensitivity,
     required this.mid,
     required this.deviceConfig,
     this.useHysteresis = true,
@@ -67,7 +66,6 @@ class DataProcessingConfig {
     double? distance,
     double? triggerLevel,
     TriggerEdge? triggerEdge,
-    double? triggerSensitivity,
     double? mid,
     DeviceConfig? deviceConfig,
     bool? useHysteresis,
@@ -79,7 +77,6 @@ class DataProcessingConfig {
       distance: distance ?? this.distance,
       triggerLevel: triggerLevel ?? this.triggerLevel,
       triggerEdge: triggerEdge ?? this.triggerEdge,
-      triggerSensitivity: triggerSensitivity ?? this.triggerSensitivity,
       mid: mid ?? this.mid,
       deviceConfig: deviceConfig ?? this.deviceConfig,
       useHysteresis: useHysteresis ?? this.useHysteresis,
@@ -93,7 +90,6 @@ class UpdateConfigMessage {
   final double scale;
   final double triggerLevel;
   final TriggerEdge triggerEdge;
-  final double triggerSensitivity;
   final bool useHysteresis;
   final bool useLowPassFilter;
   final TriggerMode triggerMode;
@@ -102,7 +98,6 @@ class UpdateConfigMessage {
     required this.scale,
     required this.triggerLevel,
     required this.triggerEdge,
-    required this.triggerSensitivity,
     required this.useHysteresis,
     required this.useLowPassFilter,
     required this.triggerMode,
@@ -118,15 +113,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   late final HttpService httpService;
 
   late final int _processingChunkSize;
-  double _distance = 0.0; // Remove late
-  double _mid = 0.0; // Remove late
+  double _distance = 0.0;
+  double _mid = 0.0;
 
   bool _disposed = false;
   bool _initialized = false;
   double _scale = 0;
   double _triggerLevel = 1;
   TriggerEdge _triggerEdge = TriggerEdge.positive;
-  double _triggerSensitivity = 70.0;
   TriggerMode _triggerMode = TriggerMode.normal;
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
   bool _useHysteresis = false;
@@ -136,7 +130,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double _currentFrequency = 0.0;
   double _currentMaxValue = 0.0;
   double _currentMinValue = 0.0;
-  double _currentAverage = 0.0;
 
   // Isolates and ports
   Isolate? _socketIsolate;
@@ -236,15 +229,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   set triggerEdge(TriggerEdge value) {
     _triggerEdge = value;
-    updateConfig();
-  }
-
-  @override
-  double get triggerSensitivity => _triggerSensitivity;
-
-  @override
-  set triggerSensitivity(double value) {
-    _triggerSensitivity = value;
     updateConfig();
   }
 
@@ -393,13 +377,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       queue.removeFirst();
     }
     while (queue.length >= processingChunkSize) {
-      final points = _processData(
-        queue,
-        processingChunkSize,
-        config,
-        sendPort,
-      );
-      sendPort.send(points);
+      final (points, maxValue, minValue) =
+          _processData(queue, processingChunkSize, config, sendPort);
+
+      sendPort.send({
+        'type': 'data',
+        'points': points,
+        'maxValue': maxValue,
+        'minValue': minValue
+      });
     }
   }
 
@@ -411,7 +397,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       scale: message.scale,
       triggerLevel: message.triggerLevel,
       triggerEdge: message.triggerEdge,
-      triggerSensitivity: message.triggerSensitivity,
       useHysteresis: message.useHysteresis,
       useLowPassFilter: message.useLowPassFilter,
       triggerMode: message.triggerMode,
@@ -449,20 +434,36 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   static bool _shouldTrigger(
-    double prevY,
-    double currentY,
-    double triggerLevel,
-    TriggerEdge triggerEdge,
-  ) {
-    final risingEdgeTrigger = triggerEdge == TriggerEdge.positive &&
-        prevY < triggerLevel &&
-        currentY >= triggerLevel;
+      double prevY,
+      double currentY,
+      double triggerLevel,
+      TriggerEdge triggerEdge,
+      double sensitivity,
+      double maxValue,
+      double minValue) {
+    if (triggerEdge == TriggerEdge.positive) {
+      // For initial trigger, only check if we cross the trigger level
+      final shouldTrig = prevY < triggerLevel && currentY >= triggerLevel;
 
-    final fallingEdgeTrigger = triggerEdge == TriggerEdge.negative &&
-        prevY > triggerLevel &&
-        currentY <= triggerLevel;
+      //if (shouldTrig) {
+      //  print('Positive trigger detected:');
+      //  print('prevY: $prevY');
+      //  print('currentY: $currentY');
+      //  print('triggerLevel: $triggerLevel');
+      //}
+      return shouldTrig;
+    } else {
+      // For negative edge, only check if we cross the trigger level downwards
+      final shouldTrig = prevY > triggerLevel && currentY <= triggerLevel;
 
-    return risingEdgeTrigger || fallingEdgeTrigger;
+      //if (shouldTrig) {
+      //  print('Negative trigger detected:');
+      //  print('prevY: $prevY');
+      //  print('currentY: $currentY');
+      //  print('triggerLevel: $triggerLevel');
+      //}
+      return shouldTrig;
+    }
   }
 
   // Helper method to calculate trend
@@ -486,125 +487,224 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return slope;
   }
 
-  static List<DataPoint> _processData(
+  static List<double> _applyTriggerFilter(
+      List<DataPoint> points, double samplingFrequency,
+      {double cutoffFrequency = 50000.0}) {
+    //print('\n_applyTriggerFilter Debug:');
+    //print('Input points length: ${points.length}');
+    //print('First few Y values: ${points.take(5).map((p) => p.y).toList()}');
+    //print('Sampling frequency: $samplingFrequency');
+    //print('Cutoff frequency: $cutoffFrequency');
+
+    if (points.isEmpty) {
+      //print('Empty points list passed to filter');
+      return [];
+    }
+
+    //print('Filtering ${points.length} points');
+    //print('Sampling frequency: $samplingFrequency');
+    //print('Cutoff frequency: $cutoffFrequency');
+
+    final filter = LowPassFilter();
+    final filteredPoints = filter.apply(points, {
+      'cutoffFrequency': cutoffFrequency,
+      'samplingFrequency': samplingFrequency,
+    });
+
+    //print('Filtered points length: ${filteredPoints.length}');
+    //print(
+    //    'Filtered first few values: ${filteredPoints.take(5).map((p) => p.y).toList()}');
+
+    return filteredPoints.map((p) => p.y).toList();
+  }
+
+  static (List<DataPoint>, double, double) _processData(
     Queue<int> queue,
     int chunkSize,
     DataProcessingConfig config,
     SendPort sendPort,
   ) {
+    //print('\n_processData Debug:');
+    //print('Queue length: ${queue.length}');
+    //print('ChunkSize: $chunkSize');
+    //print('Scale: ${config.scale}');
+    //print('TriggerLevel: ${config.triggerLevel}');
+    //print('TriggerEdge: ${config.triggerEdge}');
+    //print('UseHysteresis: ${config.useHysteresis}');
+    //print('UseLowPassFilter: ${config.useLowPassFilter}');
+
     final points = <DataPoint>[];
     var firstTriggerX = 0.0;
-    var lastTriggerIndex = -1;
     var foundFirstTrigger = false;
-    var waitingForHysteresis = false;
-
-    // Low-pass filter coefficients calculated from device sampling frequency
     var waitingForNextTrigger = false;
-    // Low-pass filter setup
-    final dt = 1.0 / config.deviceConfig.samplingFrequency;
-    const cutoffFrequency = 50000.0;
-    const rc = 1.0 / (2.0 * pi * cutoffFrequency);
-    final alpha = dt / (rc + dt);
-    var filteredY = 0.0;
 
-    // Window for trend analysis
-    const trendWindowSize = 5;
-    final trendWindow = Queue<double>();
-    print("Trend window size: $trendWindowSize");
-    print("Trigger mode: ${config.triggerMode}");
-    print("Trigger edge: ${config.triggerEdge}");
-    print("Trigger level: ${config.triggerLevel}");
-    print("Use hysteresis: ${config.useHysteresis}");
-    print("Use low-pass filter: ${config.useLowPassFilter}");
+    double maxValue = double.negativeInfinity;
+    double minValue = double.infinity;
+
+    // Read data points
     for (var i = 0; i < chunkSize; i += 2) {
       if (queue.length < 2) break;
-
       final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig);
       final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
+      points.add(DataPoint(x, y));
 
-      // Apply low-pass filter for trigger detection if enabled
-      final signalForTrigger = config.useLowPassFilter
-          ? alpha * y + (1 - alpha) * (points.isEmpty ? y : filteredY)
-          : y;
-      filteredY = signalForTrigger;
+      maxValue = max(maxValue, y);
+      minValue = min(minValue, y);
+    }
 
-      // Update trend window
-      if (config.useHysteresis) {
-        trendWindow.add(y);
-        if (trendWindow.length > trendWindowSize) {
-          trendWindow.removeFirst();
-        }
+    if (points.isEmpty) {
+      //print('No points to process');
+      return ([], 0.0, 0.0);
+    }
+
+    //print('Points length: ${points.length}');
+    //print('Max value found: $maxValue');
+    //print('Min value found: $minValue');
+
+    var triggerSensitivity = (maxValue - minValue) * 0.25;
+    if (config.triggerEdge == TriggerEdge.positive) {
+      if (config.triggerLevel - triggerSensitivity * 1.25 <= minValue) {
+        triggerSensitivity = -triggerSensitivity;
       }
+    } else {
+      if (config.triggerLevel + triggerSensitivity * 1.25 >= maxValue) {
+        triggerSensitivity = -triggerSensitivity;
+      }
+    }
 
-      if (points.isNotEmpty) {
-        final prevY = points.last.y;
+    //print('Trigger sensitivity: $triggerSensitivity');
+
+    final List<double> signalForTrigger;
+    if (config.useLowPassFilter) {
+      signalForTrigger =
+          _applyTriggerFilter(points, config.deviceConfig.samplingFrequency);
+    } else {
+      signalForTrigger = points.map((p) => p.y).toList();
+    }
+
+    final result = <DataPoint>[];
+
+    for (var i = 0; i < points.length; i++) {
+      final point = points[i];
+
+      if (i > 0) {
+        final prevY = signalForTrigger[i - 1];
+        final currentY = signalForTrigger[i];
+
+        //if (i % 1000 == 0) {
+        //  print('\nPoint $i:');
+        //  print('prevY: $prevY');
+        //  print('currentY: $currentY');
+        //}
+
         bool isTriggerCandidate = _shouldTrigger(
-            prevY, signalForTrigger, config.triggerLevel, config.triggerEdge);
+            prevY,
+            currentY,
+            config.triggerLevel,
+            config.triggerEdge,
+            triggerSensitivity,
+            maxValue,
+            minValue);
+
+        //if (isTriggerCandidate) {
+        //  print('\nTrigger candidate at point $i');
+        //}
 
         if (isTriggerCandidate && !waitingForNextTrigger) {
           bool validTrigger = true;
 
-          if (config.useHysteresis && trendWindow.length >= trendWindowSize) {
-            final trend = _calculateTrend(trendWindow.toList());
-            validTrigger =
-                (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
-                    (config.triggerEdge == TriggerEdge.negative && trend < 0);
+          if (config.useHysteresis) {
+            // Calculate available points for trend
+            final maxWindowSize = 5;
+            final availablePoints = min(i + 1, points.length);
+            final windowSize = min(maxWindowSize, availablePoints);
+
+            //print('\nHysteresis Debug:');
+            //print('Available points: $availablePoints');
+            //print('Window size used: $windowSize');
+
+            // Only calculate trend if we have at least 2 points
+            if (windowSize >= 2) {
+              final trend = _calculateTrend(
+                  signalForTrigger.sublist(i - windowSize + 1, i + 1));
+              validTrigger =
+                  (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
+                      (config.triggerEdge == TriggerEdge.negative && trend < 0);
+
+              //print('Trend calculation:');
+              //print('Window size: $windowSize');
+              //print(
+              //    'Points used: ${signalForTrigger.sublist(i - windowSize + 1, i + 1)}');
+              //print('Trend value: $trend');
+              //print('Valid trigger: $validTrigger');
+            } else {
+              // For single point, use simple threshold comparison
+              validTrigger = config.triggerEdge == TriggerEdge.positive
+                  ? currentY > prevY
+                  : currentY < prevY;
+              //print('Single point comparison used');
+              //print('Valid trigger: $validTrigger');
+            }
           }
 
           if (validTrigger) {
             if (!foundFirstTrigger) {
-              firstTriggerX = x;
+              firstTriggerX = point.x;
               foundFirstTrigger = true;
+              //print('First trigger found at x: $firstTriggerX');
             }
-            lastTriggerIndex = points.length;
-            points.add(DataPoint(x, y, isTrigger: true));
-            waitingForNextTrigger = config.triggerMode == TriggerMode.normal;
+            result.add(DataPoint(point.x, point.y, isTrigger: true));
+            if (config.triggerMode == TriggerMode.normal) {
+              waitingForNextTrigger = true;
+            } else if (config.triggerMode == TriggerMode.single) {
+              // Notify UI to pause when trigger found in single mode
+              sendPort.send({'type': 'pause_graph'});
+            }
             continue;
           }
         }
 
-        // Reset waiting state only in normal mode
         if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
-          final sensitivity = config.triggerSensitivity * config.scale;
           if (config.triggerEdge == TriggerEdge.positive) {
-            if (signalForTrigger < (config.triggerLevel - sensitivity)) {
+            // Reset only when signal goes below trigger level by sensitivity margin
+            if (currentY < (config.triggerLevel - triggerSensitivity)) {
               waitingForNextTrigger = false;
+              //print('Reset waiting for next positive trigger');
             }
           } else {
-            if (signalForTrigger > (config.triggerLevel + sensitivity)) {
+            // Reset only when signal goes above trigger level by sensitivity margin
+            if (currentY > (config.triggerLevel + triggerSensitivity)) {
               waitingForNextTrigger = false;
+              //print('Reset waiting for next negative trigger');
             }
           }
         }
       }
-
-      points.add(DataPoint(x, y));
+      result.add(point);
     }
 
-    if (foundFirstTrigger && config.triggerMode == TriggerMode.single) {
-      sendPort.send({'type': 'pause_graph'});
-    }
+    final adjustedPoints = foundFirstTrigger
+        ? result
+            .map((p) =>
+                DataPoint(p.x - firstTriggerX, p.y, isTrigger: p.isTrigger))
+            .toList()
+        : points;
 
-    if (foundFirstTrigger) {
-      return points
-          .map((point) => DataPoint(
-                point.x - firstTriggerX,
-                point.y,
-                isTrigger: point.isTrigger,
-              ))
-          .toList();
-    }
-    return points;
+    //print('\nFinal Results:');
+    //print('Total points: ${result.length}');
+    //print('Trigger points: ${result.where((p) => p.isTrigger).length}');
+    //print('Found first trigger: $foundFirstTrigger');
+
+    return (adjustedPoints, maxValue, minValue);
   }
 
-  void _updateMetrics(List<DataPoint> points) {
+  void _updateMetrics(
+      List<DataPoint> points, double maxValue, double minValue) {
     if (points.isEmpty) return;
 
     _currentFrequency = _calculateFrequency(points);
-    _currentMaxValue = points.map((p) => p.y).reduce(max);
-    _currentMinValue = points.map((p) => p.y).reduce(min);
-    _currentAverage =
-        points.map((p) => p.y).reduce((a, b) => a + b) / points.length;
+    _currentMaxValue = maxValue;
+    _currentMinValue = minValue;
 
     _frequencyController.add(_currentFrequency);
     _maxValueController.add(_currentMaxValue);
@@ -638,14 +738,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       distance: distance,
       triggerLevel: triggerLevel,
       triggerEdge: triggerEdge,
-      triggerSensitivity: triggerSensitivity,
       mid: mid,
       deviceConfig: deviceConfig.config!,
       useHysteresis: useHysteresis,
       useLowPassFilter: useLowPassFilter,
       triggerMode: triggerMode,
     );
-
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
       ProcessingIsolateSetup(
@@ -664,11 +762,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _socketToProcessingSendPort = message;
         _configSendPort = message;
         completer.complete(message);
-      } else if (message is List<DataPoint>) {
-        _dataController.add(message);
-        _updateMetrics(message);
       } else if (message is Map<String, dynamic>) {
-        if (message['type'] == 'pause_graph') {
+        if (message['type'] == 'data') {
+          final points = message['points'] as List<DataPoint>;
+          final maxValue = message['maxValue'] as double;
+          final minValue = message['minValue'] as double;
+
+          _dataController.add(points);
+          _updateMetrics(points, maxValue, minValue);
+        } else if (message['type'] == 'pause_graph') {
           Get.find<DataAcquisitionProvider>().setPause(true);
         }
       }
@@ -690,7 +792,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       scale: scale,
       triggerLevel: triggerLevel,
       triggerEdge: triggerEdge,
-      triggerSensitivity: triggerSensitivity,
       useHysteresis: useHysteresis,
       useLowPassFilter: useLowPassFilter,
       triggerMode: triggerMode,
@@ -753,7 +854,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       _currentFrequency = 0.0;
       _currentMaxValue = 0.0;
-      _currentAverage = 0.0;
 
       // Only add final values if controllers are not closed
       if (!_disposed) {
@@ -836,13 +936,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   set configSendPort(SendPort? value) => _configSendPort = value;
 
   @visibleForTesting
-  void updateMetrics(List<DataPoint> points) => _updateMetrics(points);
+  void updateMetrics(
+          List<DataPoint> points, double maxValue, double minValue) =>
+      _updateMetrics(points, maxValue, minValue);
 
   @visibleForTesting
   set socketToProcessingSendPort(SendPort? value) {
     _socketToProcessingSendPort = value;
   }
 
+  // 6. Corregir el método de prueba para que coincida con los cambios
   @visibleForTesting
   static List<DataPoint> processDataForTest(
     Queue<int> queue,
@@ -851,7 +954,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double distance,
     double triggerLevel,
     TriggerEdge triggerEdge,
-    double triggerSensitivity,
     double mid,
     bool useHysteresis,
     bool useLowPassFilter,
@@ -859,18 +961,25 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     DeviceConfig deviceConfig,
     SendPort sendPort,
   ) {
-    final config = DataProcessingConfig(
-        scale: scale,
-        distance: distance,
-        triggerLevel: triggerLevel,
-        triggerEdge: triggerEdge,
-        triggerSensitivity: triggerSensitivity,
-        mid: mid,
-        deviceConfig: deviceConfig,
-        useHysteresis: useHysteresis,
-        useLowPassFilter: useLowPassFilter,
-        triggerMode: triggerMode);
+    if (queue.isEmpty) {
+      print('Empty queue in processDataForTest');
+      return [];
+    }
 
-    return _processData(queue, chunkSize, config, sendPort);
+    final queueCopy = Queue<int>.from(queue);
+    final config = DataProcessingConfig(
+      scale: scale,
+      distance: distance,
+      triggerLevel: triggerLevel,
+      triggerEdge: triggerEdge,
+      mid: mid,
+      deviceConfig: deviceConfig,
+      useHysteresis: useHysteresis,
+      useLowPassFilter: useLowPassFilter,
+      triggerMode: triggerMode,
+    );
+
+    final (points, _, _) = _processData(queueCopy, chunkSize, config, sendPort);
+    return points;
   }
 }

@@ -1,6 +1,7 @@
 // lib/config/initializer.dart
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:get/get.dart';
 import '../features/http/domain/models/http_config.dart';
 import '../features/socket/domain/models/socket_connection.dart';
@@ -26,14 +27,18 @@ class Initializer {
       Get.put<SocketConnection>(globalSocketConnection, permanent: true);
       Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
 
+      // NEW: Register HttpService before DataAcquisitionService
+      final httpService = HttpService(globalHttpConfig);
+      Get.put<HttpService>(httpService, permanent: true);
+
       // 3. Initialize main service
       final dataAcquisitionService = DataAcquisitionService(globalHttpConfig);
       await dataAcquisitionService.initialize();
       Get.put<DataAcquisitionService>(dataAcquisitionService, permanent: true);
 
-      // 4. Initialize chart services first since they don't have dependencies
-      final lineChartService = LineChartService(null); // Will be updated later
-      final fftChartService = FFTChartService(null); // Will be updated later
+      // Rest of initialization...
+      final lineChartService = LineChartService(null);
+      final fftChartService = FFTChartService(null);
 
       Get.put<LineChartService>(lineChartService, permanent: true);
       Get.put<FFTChartService>(fftChartService, permanent: true);
@@ -45,7 +50,6 @@ class Initializer {
           ),
           permanent: true);
 
-      // 6. Now initialize DataAcquisitionProvider
       final dataAcquisitionProvider = DataAcquisitionProvider(
         dataAcquisitionService,
         globalSocketConnection,
@@ -53,23 +57,15 @@ class Initializer {
       Get.put<DataAcquisitionProvider>(dataAcquisitionProvider,
           permanent: true);
 
-      // 7. Update services with the provider
       lineChartService.updateProvider(dataAcquisitionProvider);
       fftChartService.updateProvider(dataAcquisitionProvider);
 
-      Get.put(UserSettingsProvider(
-        lineChartService: Get.find<LineChartService>(),
-        fftChartService: Get.find<FFTChartService>(),
-      ));
-
-      // 8. Initialize remaining chart providers
       final lineChartProvider = LineChartProvider(lineChartService);
       final fftChartProvider = FFTChartProvider(fftChartService);
 
       Get.put<LineChartProvider>(lineChartProvider, permanent: true);
       Get.put<FFTChartProvider>(fftChartProvider, permanent: true);
 
-      // 9. Initialize setup related dependencies last
       final setupService =
           SetupService(globalSocketConnection, globalHttpConfig);
       final setupProvider = SetupProvider(setupService);

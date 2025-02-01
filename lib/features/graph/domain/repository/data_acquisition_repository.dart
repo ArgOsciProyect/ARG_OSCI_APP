@@ -37,10 +37,6 @@ abstract class DataAcquisitionRepository {
   TriggerEdge get triggerEdge;
   set triggerEdge(TriggerEdge value);
 
-  /// Trigger sensitivity for hysteresis mode
-  double get triggerSensitivity;
-  set triggerSensitivity(double value);
-
   /// Signal midpoint value calculated from device config
   double get mid;
   set mid(double value);

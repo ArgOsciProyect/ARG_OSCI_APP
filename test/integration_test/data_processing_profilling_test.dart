@@ -222,7 +222,6 @@ void main() {
     // Service configuration
     dataAcquisitionService.scale = 3.3 / 512;
     dataAcquisitionService.triggerLevel = 0.0;
-    dataAcquisitionService.triggerSensitivity = 0.1;
     dataAcquisitionService.triggerEdge = TriggerEdge.positive;
     dataAcquisitionService.triggerMode = TriggerMode.normal;
     dataAcquisitionService.useHysteresis = false;

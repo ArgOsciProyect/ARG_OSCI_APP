@@ -160,7 +160,15 @@ class DataAcquisitionProvider extends GetxController {
 
   Future<void> _sendSingleTriggerRequest() async {
     try {
-      //await httpService.post('/single');
+      await httpService.post('/single');
+    } catch (e) {
+      print('Error sending single trigger request: $e');
+    }
+  }
+
+  Future<void> _sendNormalTriggerRequest() async {
+    try {
+      await httpService.post('/normal');
     } catch (e) {
       print('Error sending single trigger request: $e');
     }
@@ -173,6 +181,7 @@ class DataAcquisitionProvider extends GetxController {
         final lineChartProvider = Get.find<LineChartProvider>();
         lineChartProvider.clearForNewTrigger();
       } else {
+        _sendNormalTriggerRequest();
         final lineChartProvider = Get.find<LineChartProvider>();
         lineChartProvider.resume();
       }
