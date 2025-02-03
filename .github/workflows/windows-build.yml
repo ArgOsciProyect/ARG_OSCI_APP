@@ -1,0 +1,53 @@
+# .github/workflows/windows-build.yml
+name: Windows Build
+on:
+  push:
+    branches:
+      - main
+      - develop
+  # Optional: También build en tags para releases
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Enable windows build
+        run: flutter config --enable-windows-desktop
+        
+      - name: Build Windows
+        run: flutter build windows --release
+
+      # Comprimir el build para subirlo como artifact
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive -Path build/windows/runner/Release/* -DestinationPath windows-build.zip
+        shell: pwsh
+        
+      # Subir el ejecutable como artifact
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-app
+          path: windows-build.zip
+          
+      # Optional: Crear Release si es un tag
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: windows-build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
