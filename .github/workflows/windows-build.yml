@@ -5,10 +5,10 @@ on:
     branches:
       - main
       - develop
-  # Optional: También build en tags para releases
-  push:
-    tags:
-      - 'v*'
+  pull_request:
+      branches:
+        - main
+        - develop
 
 jobs:
   build:
