@@ -145,22 +145,26 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
-  void setTriggerMode(TriggerMode mode) {
-    print("Changing to $mode");
-    triggerMode.value = mode;
-    dataAcquisitionService.triggerMode = mode;
+void setTriggerMode(TriggerMode mode) {
+  print("Changing to $mode");
+  triggerMode.value = mode;
+  dataAcquisitionService.triggerMode = mode;
 
-    if (mode == TriggerMode.single) {
-      _sendSingleTriggerRequest();
-    } else if (mode == TriggerMode.normal) {
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.resetOffsets();
-    }
+  if (mode == TriggerMode.single) {
+    final lineChartProvider = Get.find<LineChartProvider>();
+    lineChartProvider.clearForNewTrigger();
+    _sendSingleTriggerRequest();
+  } else if (mode == TriggerMode.normal) {
+    _sendNormalTriggerRequest();
+    final lineChartProvider = Get.find<LineChartProvider>();
+    lineChartProvider.resume();
+    lineChartProvider.resetOffsets();
   }
+}
 
   Future<void> _sendSingleTriggerRequest() async {
     try {
-      await httpService.post('/single');
+      await httpService.get('/single');
     } catch (e) {
       print('Error sending single trigger request: $e');
     }
@@ -168,28 +172,32 @@ class DataAcquisitionProvider extends GetxController {
 
   Future<void> _sendNormalTriggerRequest() async {
     try {
-      await httpService.post('/normal');
+      await httpService.get('/normal');
     } catch (e) {
       print('Error sending single trigger request: $e');
     }
   }
 
-  void setPause(bool paused) {
-    if (!paused) {
-      if (triggerMode.value == TriggerMode.single) {
-        _sendSingleTriggerRequest();
-        final lineChartProvider = Get.find<LineChartProvider>();
-        lineChartProvider.clearForNewTrigger();
-      } else {
-        _sendNormalTriggerRequest();
-        final lineChartProvider = Get.find<LineChartProvider>();
-        lineChartProvider.resume();
-      }
-    } else {
+// En DataAcquisitionProvider
+void setPause(bool paused) {
+  if (!paused) {
+    if (triggerMode.value == TriggerMode.single) {
+      // Primero limpiamos y preparamos para nuevo trigger
       final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.pause();
+      lineChartProvider.clearForNewTrigger();
+      
+      // Luego enviamos la petición de single
+      _sendSingleTriggerRequest();
+    } else {
+      _sendNormalTriggerRequest();
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.resume();
     }
+  } else {
+    final lineChartProvider = Get.find<LineChartProvider>();
+    lineChartProvider.pause();
   }
+}
 
   List<double> autoset(double chartHeight, double chartWidth) {
     final result = dataAcquisitionService.autoset(chartHeight, chartWidth);

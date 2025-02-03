@@ -343,26 +343,50 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     receivePort.listen((message) {
       if (message == 'stop') {
-        if (queue.isNotEmpty) {
-          final points =
-              _processData(queue, queue.length, config, setup.sendPort);
-          setup.sendPort.send(points);
-          queue.clear();
-        }
+        queue.clear(); // Clear any pending data
+      } else if (message == 'clear_queue') {
+        queue.clear(); // Clear queue for new single trigger
       } else if (message is List<int>) {
-        _processIncomingData(message, queue, config, setup.sendPort,
-            maxQueueSize, processingChunkSize);
+        if (config.triggerMode == TriggerMode.single) {
+          // In single mode, process all data at once
+          queue.clear(); // Limpiar queue antes de procesar nuevos datos
+          _processSingleModeData(message, config, setup.sendPort);
+        } else {
+          // Normal mode processing
+          _processIncomingData(message, queue, config, setup.sendPort,
+              maxQueueSize, processingChunkSize);
+        }
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
-      } else if (message is Map<String, dynamic>) {
-        // Manejamos el caso "pause_graph"
-        if (message['type'] == 'pause_graph') {
-          // Simplemente reenviamos al isolate principal para pausar
-          setup.sendPort.send({'type': 'pause_graph'});
+        if (config.triggerMode == TriggerMode.single) {
+          queue.clear(); // Clear queue when switching to single mode
         }
       }
     });
   }
+
+static void _processSingleModeData(
+  List<int> data,
+  DataProcessingConfig config,
+  SendPort sendPort,
+) {
+  final queue = Queue<int>.from(data);
+  final (points, maxValue, minValue) = _processData(queue, queue.length, config, sendPort);
+
+  // Si encontramos puntos y hay un trigger entre ellos
+  if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+    // Enviamos los datos
+    sendPort.send({
+      'type': 'data',
+      'points': points,
+      'maxValue': maxValue,
+      'minValue': minValue
+    });
+    
+    // Avisamos que encontramos el trigger para pausar
+    sendPort.send({'type': 'pause_graph'});
+  }
+}
 
   static void _processIncomingData(
     List<int> data,
@@ -647,21 +671,26 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             }
           }
 
-          if (validTrigger) {
-            if (!foundFirstTrigger) {
-              firstTriggerX = point.x;
-              foundFirstTrigger = true;
-              //print('First trigger found at x: $firstTriggerX');
-            }
-            result.add(DataPoint(point.x, point.y, isTrigger: true));
-            if (config.triggerMode == TriggerMode.normal) {
-              waitingForNextTrigger = true;
-            } else if (config.triggerMode == TriggerMode.single) {
-              // Notify UI to pause when trigger found in single mode
-              sendPort.send({'type': 'pause_graph'});
-            }
-            continue;
-          }
+if (validTrigger) {
+  if (!foundFirstTrigger) {
+    firstTriggerX = point.x;
+    foundFirstTrigger = true;
+  }
+  result.add(DataPoint(point.x, point.y, isTrigger: true));
+  
+  if (config.triggerMode == TriggerMode.normal) {
+    waitingForNextTrigger = true;
+  } else if (config.triggerMode == TriggerMode.single) {
+    // En modo single, si encontramos el primer trigger
+    // procesamos el resto de puntos y terminamos
+    waitingForNextTrigger = false;
+    // No hacemos continue para procesar el resto de puntos después del trigger
+  }
+  
+  if (config.triggerMode == TriggerMode.normal) {
+    continue;
+  }
+}
         }
 
         if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
@@ -729,6 +758,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> fetchData(String ip, int port) async {
     await stopData();
+    await initialize();
 
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
@@ -744,6 +774,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       useLowPassFilter: useLowPassFilter,
       triggerMode: triggerMode,
     );
+
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
       ProcessingIsolateSetup(

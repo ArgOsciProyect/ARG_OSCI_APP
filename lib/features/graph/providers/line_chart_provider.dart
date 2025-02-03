@@ -11,6 +11,8 @@ import 'dart:async';
 
 class LineChartProvider extends GetxController {
   final LineChartService _lineChartService;
+  final graphProvider = Get.find<DataAcquisitionProvider>();
+
   StreamSubscription? _dataSubscription;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
@@ -80,11 +82,11 @@ class LineChartProvider extends GetxController {
     return (domainX * timeScale) + (horizontalOffset * drawingWidth) + offsetX;
   }
 
-  void clearForNewTrigger() {
-    _dataPoints.value = [];
-    _isPaused.value = false;
-    _lineChartService.resumeAndWaitForTrigger();
-  }
+void clearForNewTrigger() {
+  _dataPoints.value = [];
+  resume(); // Quitamos la pausa primero
+  _lineChartService.resumeAndWaitForTrigger();
+}
 
   double screenToDomainY(double screenY, Size size, double offsetX) {
     final drawingHeight = size.height;
@@ -126,7 +128,6 @@ class LineChartProvider extends GetxController {
   }
 
   void setHorizontalOffset(double offset) {
-    final graphProvider = Get.find<DataAcquisitionProvider>();
     if (graphProvider.triggerMode.value == TriggerMode.normal) {
       _horizontalOffset.value = min(0.0, offset); // Prevent moving left of 0
     } else {
@@ -191,15 +192,24 @@ class LineChartProvider extends GetxController {
     _incrementTimer = null;
   }
 
-  void pause() {
+void pause() {
+  if (!_isPaused.value) {
     _isPaused.value = true;
     _lineChartService.pause();
   }
+}
 
-  void resume() {
+void resume() {
+  if (_isPaused.value) {
     _isPaused.value = false;
     _lineChartService.resume();
+    
+    // Si estamos en modo single, enviamos una nueva solicitud de trigger
+    if (graphProvider.triggerMode.value == TriggerMode.single) {
+      graphProvider.setPause(false); // Esto enviará GET /single
+    }
   }
+}
 
   @override
   void onClose() {
