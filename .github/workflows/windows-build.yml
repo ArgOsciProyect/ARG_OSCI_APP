@@ -1,13 +1,9 @@
 name: Windows Build
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
   pull_request:
-      branches:
-        - main
-        - develop
+    branches: [main, develop]
 
 jobs:
   build:
@@ -29,15 +25,16 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      # Added debug steps and fixed path handling
-      - name: Verify Build Directory
+      - name: Verify and Package Build
         run: |
+          # Debug current state
           Write-Host "Current directory: $(Get-Location)"
-          Write-Host "Listing build directory:"
-          Get-ChildItem -Path "build" -Recurse | Select-Object FullName
+          Write-Host "Build directory structure:"
+          Get-ChildItem -Path "build\windows" -Recurse
           
-          $BuildPath = "$(Get-Location)\build\windows\runner\Release"
-          Write-Host "Build path: $BuildPath"
+          # Correct path including x64
+          $BuildPath = "build\windows\x64\runner\Release"
+          Write-Host "Checking build path: $BuildPath"
           
           if (!(Test-Path $BuildPath)) {
               Write-Error "Build directory not found: $BuildPath"
@@ -47,6 +44,7 @@ jobs:
           Write-Host "Build directory contents:"
           Get-ChildItem -Path $BuildPath
           
+          Write-Host "Creating ZIP archive..."
           Compress-Archive -Path "$BuildPath\*" -DestinationPath "windows-build.zip" -Force
           
           if (!(Test-Path "windows-build.zip")) {
