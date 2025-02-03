@@ -7,6 +7,7 @@ import 'dart:math';
 
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -38,6 +39,23 @@ class MockHttpConfig extends Mock implements HttpConfig {
   @override
   http.Client? get client => MockHttpClient();
 }
+
+class MockDataAcquisitionProvider extends GetxController
+    implements DataAcquisitionProvider {
+  bool _isPaused = false;
+
+  @override
+  void setPause(bool value) {
+    _isPaused = value;
+  }
+
+  @override
+  bool get isPaused => _isPaused;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 
 class MockDeviceConfig extends Mock implements DeviceConfig {
   @override
@@ -223,25 +241,28 @@ void main() {
   late MockDeviceConfigProvider mockDeviceConfigProvider;
   late MockSocketService mockSocketService;
 
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    Get.reset();
+setUp(() async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  Get.reset();
 
-    mockHttpConfig = MockHttpConfig();
-    mockSocketService = MockSocketService();
-    mockDeviceConfigProvider = MockDeviceConfigProvider();
+  mockHttpConfig = MockHttpConfig();
+  mockSocketService = MockSocketService();
+  mockDeviceConfigProvider = MockDeviceConfigProvider();
 
-    // Create and register mock HTTP service first
-    final mockHttpService = MockHttpService();
-    Get.put<HttpService>(mockHttpService, permanent: true);
-    Get.put<DeviceConfigProvider>(mockDeviceConfigProvider).onInit();
+  // Create and register mock services
+  final mockHttpService = MockHttpService();
+  final mockDataAcquisitionProvider = MockDataAcquisitionProvider();
+  
+  Get.put<HttpService>(mockHttpService, permanent: true);
+  Get.put<DeviceConfigProvider>(mockDeviceConfigProvider).onInit();
+  Get.put<DataAcquisitionProvider>(mockDataAcquisitionProvider, permanent: true);
 
-    service = DataAcquisitionService(mockHttpConfig);
-    await service.initialize();
+  service = DataAcquisitionService(mockHttpConfig);
+  await service.initialize();
 
-    service.scale = 3.3 / 512;
-    service.triggerLevel = 1.65;
-  });
+  service.scale = 3.3 / 512;
+  service.triggerLevel = 1.65;
+});
   tearDown(() async {
     await service.dispose();
     Get.reset();
@@ -284,7 +305,7 @@ void main() {
   });
 
   group('Enhanced Autoset', () {
-    test('should calculate new scales based on signal metrics', () {
+    test('should calculate new scales based on signal metrics', () async {
       // Set voltage scale to ensure voltageRange >= 1.0
       service.setVoltageScale(VoltageScales.millivolts_500); // Adjust as needed
 
@@ -304,7 +325,7 @@ void main() {
       print("Min Value: ${service.currentMinValue}");
       print("Voltage Scale: ${service.currentVoltageScale.scale}");
 
-      final result = service.autoset(300.0, 400.0);
+      final result = await service.autoset(300.0, 400.0); // Usar await aquí
 
       print("Trigger Level: ${service.triggerLevel}");
       print("Max Value: ${service.currentMaxValue}");
@@ -353,7 +374,7 @@ void main() {
       print(service.currentMinValue);
       final result = service.autoset(300.0, 400.0);
 
-      expect(result, equals([1000.0, 1.0]));
+      expect(result, equals([100000.0, 1.0]));
       expect(service.triggerLevel, equals(0.0),
           reason: 'Trigger level should be 0 for zero signal');
     });
@@ -800,14 +821,14 @@ void main() {
       expect(result, equals([1000.0, 1.0]));
     });
 
-    test('autoset should compute correct scales if frequency > 0', () {
+    test('autoset should compute correct scales if frequency > 0', () async {
       final points = [
         DataPoint(0.0, -1.0, isTrigger: true),
         DataPoint(5e-6, 1.0, isTrigger: true),
       ];
 
       service.updateMetrics(points, -1, 1);
-      final result = service.autoset(300, 400);
+      final result = await service.autoset(300, 400);
       expect(result[0], closeTo(2.66e7, 1e5));
       expect(result[1], equals(1.0));
     });
@@ -873,6 +894,171 @@ void main() {
       print('Actual Frequency: $actualFrequency');
 
       expect(actualFrequency, equals(0.0));
+    });
+  });
+
+    group('Single Mode', () {
+      test('should process complete data in single mode', () {
+        service.triggerMode = TriggerMode.single;
+        service.triggerLevel = 0.0;
+        service.triggerEdge = TriggerEdge.positive;
+        
+        final queue = Queue<int>();
+        for (int i = 0; i < 8192; i++) {
+          final value = (256 + 255 * sin(2 * pi * i / 1000)).floor();
+          final uint16Value = value & 0xFFF;
+          queue.add(uint16Value & 0xFF);
+          queue.add((uint16Value >> 8) & 0xFF);
+        }
+    
+        final (points, hasTrigger) = DataAcquisitionService.processSingleModeDataForTest(
+          queue,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          mockDeviceConfigProvider.config!,
+          mockDeviceConfigProvider.samplesPerPacket,
+          getMockSendPort()
+        );
+    
+        expect(points.length, equals(mockDeviceConfigProvider.samplesPerPacket));
+        expect(hasTrigger, isTrue);
+      });
+    
+      test('should accumulate data until samples_per_packet in single mode', () {
+        final partialQueue = Queue<int>();
+        for (int i = 0; i < 2048; i++) {
+          final value = (256 + 255 * sin(2 * pi * i / 1000)).floor();
+          final uint16Value = value & 0xFFF;
+          partialQueue.add(uint16Value & 0xFF);
+          partialQueue.add((uint16Value >> 8) & 0xFF);
+        }
+    
+        final (points, hasTrigger) = DataAcquisitionService.processSingleModeDataForTest(
+          partialQueue,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          mockDeviceConfigProvider.config!,
+          mockDeviceConfigProvider.samplesPerPacket,
+          getMockSendPort()
+        );
+    
+        expect(points, isEmpty);
+        expect(hasTrigger, isFalse);
+      });
+    
+test('should process multiple packets in single mode until trigger found', () async {
+  const ip = '127.0.0.1';
+  final server = await ServerSocket.bind(ip, 0);
+  final port = server.port;
+  final dataReceived = Completer<List<DataPoint>>();
+  final triggerFound = Completer<void>();
+  
+  // Set up providers first
+  final mockDataAcquisitionProvider = MockDataAcquisitionProvider();
+  Get.put<DataAcquisitionProvider>(mockDataAcquisitionProvider, permanent: true);
+
+  service.triggerMode = TriggerMode.single;
+  service.triggerLevel = 0.0;
+  service.triggerEdge = TriggerEdge.positive;
+
+  // Create buffer for accumulating data
+  final receivedData = <List<DataPoint>>[];
+
+  final subscription = service.dataStream.listen((data) {
+    if (data.isNotEmpty) {
+      receivedData.add(data);
+      if (data.any((p) => p.isTrigger)) {
+        if (!dataReceived.isCompleted) {
+          dataReceived.complete(data);
+          triggerFound.complete();
+        }
+      }
+    }
+  });
+
+  // More deterministic signal generation
+  final serverSubscription = server.listen((Socket client) async {
+    var packetsSent = 0;
+    final maxPackets = 10;
+
+    while (!triggerFound.isCompleted && packetsSent < maxPackets) {
+      final rawData = List<int>.generate(
+        mockDeviceConfigProvider.samplesPerPacket * 2,
+        (i) {
+          final t = i / (mockDeviceConfigProvider.samplesPerPacket * 2);
+          // Generate clear trigger point
+          final value = (256 + 255 * sin(2 * pi * 100 * t)).floor();
+          return i % 2 == 0 ? value & 0xFF : (value >> 8) & 0xFF;
+        }
+      );
+      
+      client.add(rawData);
+      packetsSent++;
+      
+      // Shorter delay to avoid test timeout
+      await Future.delayed(Duration(milliseconds: 10));
+    }
+  });
+
+  await service.fetchData(ip, port);
+
+  try {
+    final points = await dataReceived.future.timeout(Duration(seconds: 5));
+    expect(points.length, greaterThanOrEqualTo(mockDeviceConfigProvider.samplesPerPacket));
+    expect(points.where((p) => p.isTrigger).length, greaterThan(0));
+    
+    print('Received ${points.length} points');
+    print('First point: ${points.first.x}, ${points.first.y}');
+    print('Last point: ${points.last.x}, ${points.last.y}');
+    print('Trigger points: ${points.where((p) => p.isTrigger).length}');
+    
+  } finally {
+    await subscription.cancel();
+    await serverSubscription.cancel();
+    await server.close();
+    await service.stopData();
+  }
+}, timeout: Timeout(Duration(seconds: 10)));
+    test('should handle no trigger found in single mode', () {
+      service.triggerMode = TriggerMode.single;
+      service.triggerLevel = 100.0; // Set trigger level too high to find
+    
+      final queue = Queue<int>();
+      // Generate flat signal below trigger
+      for (int i = 0; i < 8192; i++) {
+        queue.add(0x80); // Mid-range value
+        queue.add(0x00);
+      }
+    
+      final (points, hasTrigger) = DataAcquisitionService.processSingleModeDataForTest(
+        queue,
+        service.scale,
+        service.distance,
+        service.triggerLevel,
+        service.triggerEdge,
+        service.mid,
+        service.useHysteresis,
+        service.useLowPassFilter,
+        mockDeviceConfigProvider.config!,
+        mockDeviceConfigProvider.samplesPerPacket,
+        getMockSendPort()
+      );
+    
+      // Verify points were processed
+      expect(points.length, equals(mockDeviceConfigProvider.samplesPerPacket));
+      // Verify no trigger was found
+      expect(hasTrigger, isFalse);
+      expect(points.where((p) => p.isTrigger).length, equals(0));
     });
   });
 

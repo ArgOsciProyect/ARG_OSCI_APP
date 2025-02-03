@@ -32,31 +32,32 @@ class LineChartService implements LineChartRepository {
   }
 
 // En LineChartService
-void _setupSubscriptions() {
-  _dataSubscription?.cancel();
+  void _setupSubscriptions() {
+    _dataSubscription?.cancel();
 
-  if (_graphProvider != null) {
-    _dataSubscription = _graphProvider!.dataPointsStream.listen((points) {
-      if (!_isPaused) {
-        _dataController.add(points);
-        
-        // En modo single, después de recibir datos con trigger, pausamos
-        if (_graphProvider?.triggerMode.value == TriggerMode.single && 
-            points.any((p) => p.isTrigger)) {
-          pause();
-          // Enviamos los datos antes de pausar para asegurar que se muestren
+    if (_graphProvider != null) {
+      _dataSubscription = _graphProvider!.dataPointsStream.listen((points) {
+        if (!_isPaused) {
           _dataController.add(points);
-        }
-      }
-    });
-  }
-}
 
-void resumeAndWaitForTrigger() {
-  _isPaused = false;
-  // No limpiamos los datos aquí - dejemos que el provider lo haga
-  _setupSubscriptions();
-}
+          // En modo single, después de recibir datos con trigger, pausamos
+          if (_graphProvider?.triggerMode.value == TriggerMode.single &&
+              points.any((p) => p.isTrigger)) {
+            pause();
+            // Enviamos los datos antes de pausar para asegurar que se muestren
+            _dataController.add(points);
+          }
+        }
+      });
+    }
+  }
+
+  void resumeAndWaitForTrigger() {
+    _isPaused = false;
+    // No limpiamos los datos aquí - dejemos que el provider lo haga
+    _setupSubscriptions();
+  }
+
   @override
   void pause() {
     _isPaused = true;

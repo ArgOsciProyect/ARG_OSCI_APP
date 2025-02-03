@@ -8,6 +8,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:get/get.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
@@ -154,6 +155,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _processingChunkSize = deviceConfig.samplesPerPacket;
     _distance = 1 / deviceConfig.samplingFrequency;
     _mid = (1 << deviceConfig.usefulBits) / 2;
+    postTriggerStatus();  
   }
 
   bool get useHysteresis => _useHysteresis;
@@ -195,19 +197,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
   }
 
-  @override
-  double get triggerLevel => _triggerLevel;
-
-  @override
-  set triggerLevel(double value) {
-    _triggerLevel = value;
-
-    try {
+  void postTriggerStatus(){
+        try {
       // Calculate full range in bits
       final fullRange = 1 << deviceConfig.usefulBits;
 
       // Convert voltage trigger to raw value
-      final rawTrigger = (value / scale) + _mid;
+      final rawTrigger = (_triggerLevel / scale) + _mid;
 
       // Calculate percentage (0-100)
       final percentage = (rawTrigger / fullRange) * 100;
@@ -215,11 +211,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Use injected service
       httpService.post('/trigger', {
         'trigger_percentage': percentage.clamp(0, 100),
+        'trigger_edge': _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
       });
     } catch (e) {
       print('Error converting trigger value: $e');
     }
+  }
 
+  @override
+  double get triggerLevel => _triggerLevel;
+
+  @override
+  set triggerLevel(double value) {
+    _triggerLevel = value;
+    postTriggerStatus();
     updateConfig();
   }
 
@@ -229,6 +234,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   set triggerEdge(TriggerEdge value) {
     _triggerEdge = value;
+     postTriggerStatus();
     updateConfig();
   }
 
@@ -238,6 +244,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   set triggerMode(TriggerMode value) {
     _triggerMode = value;
+    postTriggerStatus();
     updateConfig();
   }
 
@@ -340,54 +347,72 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final processingChunkSize = setup.deviceConfig.samplesPerPacket;
     final maxQueueSize = processingChunkSize * 6;
     final queue = Queue<int>();
+    final singleModeQueue = Queue<int>();
 
     receivePort.listen((message) {
       if (message == 'stop') {
-        queue.clear(); // Clear any pending data
+        queue.clear();
+        singleModeQueue.clear();
       } else if (message == 'clear_queue') {
-        queue.clear(); // Clear queue for new single trigger
+        queue.clear();
+        singleModeQueue.clear();
       } else if (message is List<int>) {
         if (config.triggerMode == TriggerMode.single) {
-          // In single mode, process all data at once
-          queue.clear(); // Limpiar queue antes de procesar nuevos datos
-          _processSingleModeData(message, config, setup.sendPort);
+          singleModeQueue.addAll(message);
+          _processSingleModeData(
+              singleModeQueue, config, setup.sendPort, processingChunkSize);
         } else {
-          // Normal mode processing
           _processIncomingData(message, queue, config, setup.sendPort,
               maxQueueSize, processingChunkSize);
         }
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
         if (config.triggerMode == TriggerMode.single) {
-          queue.clear(); // Clear queue when switching to single mode
+          queue.clear();
+          singleModeQueue.clear();
         }
       }
     });
   }
 
+  
 static void _processSingleModeData(
-  List<int> data,
+  Queue<int> queue,
   DataProcessingConfig config,
   SendPort sendPort,
+  int samplesPerPacket
 ) {
-  final queue = Queue<int>.from(data);
-  final (points, maxValue, minValue) = _processData(queue, queue.length, config, sendPort);
+  if (queue.isEmpty) return;
 
-  // Si encontramos puntos y hay un trigger entre ellos
-  if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
-    // Enviamos los datos
-    sendPort.send({
-      'type': 'data',
-      'points': points,
-      'maxValue': maxValue,
-      'minValue': minValue
-    });
-    
-    // Avisamos que encontramos el trigger para pausar
-    sendPort.send({'type': 'pause_graph'});
+  // Solo procesar si tenemos suficientes datos
+  if (queue.length >= samplesPerPacket * 2) { // * 2 porque son bytes
+    final (points, maxValue, minValue) = _processData(queue, samplesPerPacket * 2, config, sendPort);
+
+    // Si encontramos puntos y hay un trigger
+    if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+      sendPort.send({
+        'type': 'data',
+        'points': points,
+        'maxValue': maxValue,
+        'minValue': minValue
+      });
+
+      // Solo pausamos si tenemos suficientes datos y encontramos trigger
+      sendPort.send({'type': 'pause_graph'});
+
+      print("Size of points: ${points.length}");
+      print("Samples per packet: $samplesPerPacket");
+      
+      for (int i = 0; i < 5; i++) {
+        print("First 5 data points: ${points[i].x}, ${points[i].y}");
+      }
+
+      for (int i = points.length - 5; i < points.length; i++) {
+        print("Last 5 data points: ${points[i].x}, ${points[i].y}");
+      }
+    }
   }
 }
-
   static void _processIncomingData(
     List<int> data,
     Queue<int> queue,
@@ -548,15 +573,6 @@ static void _processSingleModeData(
     DataProcessingConfig config,
     SendPort sendPort,
   ) {
-    //print('\n_processData Debug:');
-    //print('Queue length: ${queue.length}');
-    //print('ChunkSize: $chunkSize');
-    //print('Scale: ${config.scale}');
-    //print('TriggerLevel: ${config.triggerLevel}');
-    //print('TriggerEdge: ${config.triggerEdge}');
-    //print('UseHysteresis: ${config.useHysteresis}');
-    //print('UseLowPassFilter: ${config.useLowPassFilter}');
-
     final points = <DataPoint>[];
     var firstTriggerX = 0.0;
     var foundFirstTrigger = false;
@@ -577,13 +593,8 @@ static void _processSingleModeData(
     }
 
     if (points.isEmpty) {
-      //print('No points to process');
       return ([], 0.0, 0.0);
     }
-
-    //print('Points length: ${points.length}');
-    //print('Max value found: $maxValue');
-    //print('Min value found: $minValue');
 
     var triggerSensitivity = (maxValue - minValue) * 0.25;
     if (config.triggerEdge == TriggerEdge.positive) {
@@ -595,8 +606,6 @@ static void _processSingleModeData(
         triggerSensitivity = -triggerSensitivity;
       }
     }
-
-    //print('Trigger sensitivity: $triggerSensitivity');
 
     final List<double> signalForTrigger;
     if (config.useLowPassFilter) {
@@ -615,12 +624,6 @@ static void _processSingleModeData(
         final prevY = signalForTrigger[i - 1];
         final currentY = signalForTrigger[i];
 
-        //if (i % 1000 == 0) {
-        //  print('\nPoint $i:');
-        //  print('prevY: $prevY');
-        //  print('currentY: $currentY');
-        //}
-
         bool isTriggerCandidate = _shouldTrigger(
             prevY,
             currentY,
@@ -629,10 +632,6 @@ static void _processSingleModeData(
             triggerSensitivity,
             maxValue,
             minValue);
-
-        //if (isTriggerCandidate) {
-        //  print('\nTrigger candidate at point $i');
-        //}
 
         if (isTriggerCandidate && !waitingForNextTrigger) {
           bool validTrigger = true;
@@ -643,10 +642,6 @@ static void _processSingleModeData(
             final availablePoints = min(i + 1, points.length);
             final windowSize = min(maxWindowSize, availablePoints);
 
-            //print('\nHysteresis Debug:');
-            //print('Available points: $availablePoints');
-            //print('Window size used: $windowSize');
-
             // Only calculate trend if we have at least 2 points
             if (windowSize >= 2) {
               final trend = _calculateTrend(
@@ -654,43 +649,34 @@ static void _processSingleModeData(
               validTrigger =
                   (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
                       (config.triggerEdge == TriggerEdge.negative && trend < 0);
-
-              //print('Trend calculation:');
-              //print('Window size: $windowSize');
-              //print(
-              //    'Points used: ${signalForTrigger.sublist(i - windowSize + 1, i + 1)}');
-              //print('Trend value: $trend');
-              //print('Valid trigger: $validTrigger');
             } else {
               // For single point, use simple threshold comparison
               validTrigger = config.triggerEdge == TriggerEdge.positive
                   ? currentY > prevY
                   : currentY < prevY;
-              //print('Single point comparison used');
-              //print('Valid trigger: $validTrigger');
             }
           }
 
-if (validTrigger) {
-  if (!foundFirstTrigger) {
-    firstTriggerX = point.x;
-    foundFirstTrigger = true;
-  }
-  result.add(DataPoint(point.x, point.y, isTrigger: true));
-  
-  if (config.triggerMode == TriggerMode.normal) {
-    waitingForNextTrigger = true;
-  } else if (config.triggerMode == TriggerMode.single) {
-    // En modo single, si encontramos el primer trigger
-    // procesamos el resto de puntos y terminamos
-    waitingForNextTrigger = false;
-    // No hacemos continue para procesar el resto de puntos después del trigger
-  }
-  
-  if (config.triggerMode == TriggerMode.normal) {
-    continue;
-  }
-}
+          if (validTrigger) {
+            if (!foundFirstTrigger) {
+              firstTriggerX = point.x;
+              foundFirstTrigger = true;
+            }
+            result.add(DataPoint(point.x, point.y, isTrigger: true));
+
+            if (config.triggerMode == TriggerMode.normal) {
+              waitingForNextTrigger = true;
+            } else if (config.triggerMode == TriggerMode.single) {
+              // En modo single, si encontramos el primer trigger
+              // procesamos el resto de puntos y terminamos
+              waitingForNextTrigger = false;
+              // No hacemos continue para procesar el resto de puntos después del trigger
+            }
+
+            if (config.triggerMode == TriggerMode.normal) {
+              continue;
+            }
+          }
         }
 
         if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
@@ -911,29 +897,35 @@ if (validTrigger) {
   }
 
   @override
-  List<double> autoset(double chartHeight, double chartWidth) {
-    if (_currentFrequency <= 0) {
-      triggerLevel = 0;
-      return [1000, 1];
-    }
-
-    // Time scale calculation
-    final period = 1 / _currentFrequency;
-    final totalTime = 3 * period;
-    final timeScale = chartWidth / totalTime;
-
-    // Value scale calculation
-    final valueScale =
-        _currentMaxValue != 0 ? 1.0 / _currentMaxValue.abs() : 1.0;
-
-    // Set trigger to midpoint between max and min
+  Future<List<double>> autoset(double chartHeight, double chartWidth) async {
+    // Primero, actualizamos el triggerLevel al valor medio entre el máximo y el mínimo actuales
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
 
-    // Ensure trigger is within voltage range
+    // Aseguramos que el trigger esté dentro del rango de voltaje
     final voltageRange =
         _currentVoltageScale.scale * pow(2, deviceConfig.usefulBits);
     final halfRange = voltageRange / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
+
+    updateConfig();
+
+    // Procesamos la señal durante un breve tiempo para obtener una frecuencia con la que trabajar
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Ahora calculamos los valores de timeScale y valueScale basándonos en la frecuencia obtenida
+    if (_currentFrequency <= 0) {
+        triggerLevel = 0;
+        return [100000, 1];
+    }
+
+    // Cálculo de la escala de tiempo
+    final period = 1 / _currentFrequency;
+    final totalTime = 3 * period;
+    final timeScale = chartWidth / totalTime;
+
+    // Cálculo de la escala de valor considerando el valor absoluto más grande entre _currentMaxValue y _currentMinValue
+    final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
+    final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
 
     updateConfig();
 
@@ -1012,5 +1004,48 @@ if (validTrigger) {
 
     final (points, _, _) = _processData(queueCopy, chunkSize, config, sendPort);
     return points;
+  }
+
+    // Agregar este método a DataAcquisitionService
+  @visibleForTesting
+  static (List<DataPoint>, bool) processSingleModeDataForTest(
+    Queue<int> queue,
+    double scale,
+    double distance,
+    double triggerLevel,
+    TriggerEdge triggerEdge,
+    double mid,
+    bool useHysteresis,
+    bool useLowPassFilter,
+    DeviceConfig deviceConfig,
+    int samplesPerPacket,
+    SendPort sendPort,
+  ) {
+    if (queue.length < samplesPerPacket * 2) {
+      return ([], false); // Not enough data
+    }
+  
+    final config = DataProcessingConfig(
+      scale: scale,
+      distance: distance,
+      triggerLevel: triggerLevel,
+      triggerEdge: triggerEdge,
+      mid: mid,
+      deviceConfig: deviceConfig,
+      useHysteresis: useHysteresis,
+      useLowPassFilter: useLowPassFilter,
+      triggerMode: TriggerMode.single,
+    );
+  
+    final queueCopy = Queue<int>.from(queue);
+    final (points, maxValue, minValue) = _processData(
+      queueCopy,
+      samplesPerPacket * 2,
+      config,
+      sendPort
+    );
+  
+    final hasTrigger = points.any((p) => p.isTrigger);
+    return (points.take(samplesPerPacket).toList(), hasTrigger);
   }
 }

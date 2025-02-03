@@ -82,11 +82,11 @@ class LineChartProvider extends GetxController {
     return (domainX * timeScale) + (horizontalOffset * drawingWidth) + offsetX;
   }
 
-void clearForNewTrigger() {
-  _dataPoints.value = [];
-  resume(); // Quitamos la pausa primero
-  _lineChartService.resumeAndWaitForTrigger();
-}
+  void clearForNewTrigger() {
+    _dataPoints.value = [];
+    resume(); // Quitamos la pausa primero
+    _lineChartService.resumeAndWaitForTrigger();
+  }
 
   double screenToDomainY(double screenY, Size size, double offsetX) {
     final drawingHeight = size.height;
@@ -192,24 +192,24 @@ void clearForNewTrigger() {
     _incrementTimer = null;
   }
 
-void pause() {
-  if (!_isPaused.value) {
-    _isPaused.value = true;
-    _lineChartService.pause();
-  }
-}
-
-void resume() {
-  if (_isPaused.value) {
-    _isPaused.value = false;
-    _lineChartService.resume();
-    
-    // Si estamos en modo single, enviamos una nueva solicitud de trigger
-    if (graphProvider.triggerMode.value == TriggerMode.single) {
-      graphProvider.setPause(false); // Esto enviará GET /single
+  void pause() {
+    if (!_isPaused.value) {
+      _isPaused.value = true;
+      _lineChartService.pause();
     }
   }
-}
+
+  void resume() {
+    if (_isPaused.value) {
+      _isPaused.value = false;
+      _lineChartService.resume();
+
+      // Si estamos en modo single, enviamos una nueva solicitud de trigger
+      if (graphProvider.triggerMode.value == TriggerMode.single) {
+        graphProvider.setPause(false); // Esto enviará GET /single
+      }
+    }
+  }
 
   @override
   void onClose() {

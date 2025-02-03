@@ -145,22 +145,22 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
-void setTriggerMode(TriggerMode mode) {
-  print("Changing to $mode");
-  triggerMode.value = mode;
-  dataAcquisitionService.triggerMode = mode;
+  void setTriggerMode(TriggerMode mode) {
+    print("Changing to $mode");
+    triggerMode.value = mode;
+    dataAcquisitionService.triggerMode = mode;
 
-  if (mode == TriggerMode.single) {
-    final lineChartProvider = Get.find<LineChartProvider>();
-    lineChartProvider.clearForNewTrigger();
-    _sendSingleTriggerRequest();
-  } else if (mode == TriggerMode.normal) {
-    _sendNormalTriggerRequest();
-    final lineChartProvider = Get.find<LineChartProvider>();
-    lineChartProvider.resume();
-    lineChartProvider.resetOffsets();
+    if (mode == TriggerMode.single) {
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.clearForNewTrigger();
+      _sendSingleTriggerRequest();
+    } else if (mode == TriggerMode.normal) {
+      _sendNormalTriggerRequest();
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.resume();
+      lineChartProvider.resetOffsets();
+    }
   }
-}
 
   Future<void> _sendSingleTriggerRequest() async {
     try {
@@ -179,28 +179,29 @@ void setTriggerMode(TriggerMode mode) {
   }
 
 // En DataAcquisitionProvider
-void setPause(bool paused) {
-  if (!paused) {
-    if (triggerMode.value == TriggerMode.single) {
-      // Primero limpiamos y preparamos para nuevo trigger
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.clearForNewTrigger();
-      
-      // Luego enviamos la petición de single
-      _sendSingleTriggerRequest();
-    } else {
-      _sendNormalTriggerRequest();
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.resume();
-    }
-  } else {
-    final lineChartProvider = Get.find<LineChartProvider>();
-    lineChartProvider.pause();
-  }
-}
+  void setPause(bool paused) {
+    if (!paused) {
+      if (triggerMode.value == TriggerMode.single) {
+        // Primero limpiamos y preparamos para nuevo trigger
+        final lineChartProvider = Get.find<LineChartProvider>();
+        lineChartProvider.clearForNewTrigger();
 
-  List<double> autoset(double chartHeight, double chartWidth) {
-    final result = dataAcquisitionService.autoset(chartHeight, chartWidth);
+        // Luego enviamos la petición de single
+        _sendSingleTriggerRequest();
+      } else {
+        _sendNormalTriggerRequest();
+        final lineChartProvider = Get.find<LineChartProvider>();
+        lineChartProvider.resume();
+      }
+    } else {
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.pause();
+    }
+  }
+
+  Future<List<double>> autoset(double chartHeight, double chartWidth) async {
+    final result =
+        await dataAcquisitionService.autoset(chartHeight, chartWidth);
 
     // Update scales in line chart provider
     final lineChartProvider = Get.find<LineChartProvider>();

@@ -72,7 +72,7 @@ abstract class DataAcquisitionRepository {
   /// [chartHeight] Available vertical display space
   /// [chartWidth] Available horizontal display space
   /// Returns [timeScale, valueScale] for display
-  List<double> autoset(double chartHeight, double chartWidth);
+  Future<List<double>> autoset(double chartHeight, double chartWidth);
 
   /// Releases all resources
   void dispose();
