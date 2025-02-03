@@ -29,15 +29,31 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
-      # Fix: Use Windows path format and verify directory exists
-      - name: Create ZIP archive
+      # Added debug steps and fixed path handling
+      - name: Verify Build Directory
         run: |
-          $BuildPath = "build\windows\runner\Release"
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Listing build directory:"
+          Get-ChildItem -Path "build" -Recurse | Select-Object FullName
+          
+          $BuildPath = "$(Get-Location)\build\windows\runner\Release"
+          Write-Host "Build path: $BuildPath"
+          
           if (!(Test-Path $BuildPath)) {
               Write-Error "Build directory not found: $BuildPath"
               exit 1
           }
+          
+          Write-Host "Build directory contents:"
+          Get-ChildItem -Path $BuildPath
+          
           Compress-Archive -Path "$BuildPath\*" -DestinationPath "windows-build.zip" -Force
+          
+          if (!(Test-Path "windows-build.zip")) {
+              Write-Error "ZIP file was not created"
+              exit 1
+          }
+          Write-Host "ZIP file created successfully"
         shell: pwsh
         
       - name: Upload Build Artifact
