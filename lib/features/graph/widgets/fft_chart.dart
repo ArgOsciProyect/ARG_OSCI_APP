@@ -1,4 +1,6 @@
 // fft_chart.dart
+import 'dart:math';
+
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -16,15 +18,20 @@ class FFTChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fftChartProvider = Get.find<FFTChartProvider>();
+    final graphProvider = Get.find<DataAcquisitionProvider>();
+
     return Column(
       children: [
         Expanded(child: _ChartArea()),
-        _ControlPanel(),
+        _ControlPanel(
+          fftChartProvider: fftChartProvider,
+          graphProvider: graphProvider,
+        ),
       ],
     );
   }
 }
-
 /// The main chart area that displays the FFT plot
 class _ChartArea extends StatelessWidget {
   late final FFTChartProvider fftChartProvider;
@@ -60,6 +67,31 @@ class _ChartGestureHandler extends StatelessWidget {
     required this.constraints,
   });
 
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.pointerCount == 2) {
+      // Only vertical zoom for pinch gesture
+      final newScale = pow(details.scale, 2.0);
+      fftChartProvider.setValueScale(
+        fftChartProvider.initialValueScale * newScale,
+      );
+    } else if (details.pointerCount == 1) {
+      // Pan with corrected vertical direction
+      final newHorizontalOffset = fftChartProvider.horizontalOffset + 
+          details.focalPointDelta.dx / constraints.maxWidth;
+      
+      // Prevent scrolling left of 0
+      if (newHorizontalOffset <= 0) {
+        fftChartProvider.setHorizontalOffset(newHorizontalOffset);
+      }
+      
+      // Corrected vertical direction (negative for upward movement)
+      fftChartProvider.setVerticalOffset(
+        fftChartProvider.verticalOffset - 
+        details.focalPointDelta.dy / constraints.maxHeight,
+      );
+    }
+  }
+
   void _handlePointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (event.kind != PointerDeviceKind.mouse) return;
@@ -76,9 +108,6 @@ class _ChartGestureHandler extends StatelessWidget {
       );
     } else {
       final scale = 1 - delta / 500;
-      fftChartProvider.setTimeScale(
-        fftChartProvider.timeScale.value * scale,
-      );
       fftChartProvider.setValueScale(
         fftChartProvider.valueScale.value * scale,
       );
@@ -91,11 +120,7 @@ class _ChartGestureHandler extends StatelessWidget {
       onPointerSignal: _handlePointerSignal,
       child: GestureDetector(
         onScaleStart: (_) => fftChartProvider.setInitialScales(),
-        onScaleUpdate: (details) {
-          if (details.pointerCount == 2) {
-            fftChartProvider.handleZoom(details, constraints.biggest);
-          }
-        },
+        onScaleUpdate: _handleScaleUpdate,
         child: _ChartPainter(
           fftChartProvider: fftChartProvider,
         ),
@@ -123,6 +148,8 @@ class _ChartPainter extends StatelessWidget {
           fftPoints: fftPoints,
           timeScale: fftChartProvider.timeScale.value,
           valueScale: fftChartProvider.valueScale.value,
+          horizontalOffset: fftChartProvider.horizontalOffset,
+          verticalOffset: fftChartProvider.verticalOffset,
         ),
       );
     });
@@ -205,34 +232,78 @@ class _AutosetButton extends StatelessWidget {
   }
 }
 
-/// Bottom control panel with FFT chart controls
+class _OffsetControls extends StatelessWidget {
+  final FFTChartProvider fftChartProvider;
+
+  const _OffsetControls({required this.fftChartProvider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _ControlButton(
+          icon: Icons.keyboard_arrow_left,
+          onTap: fftChartProvider.decrementHorizontalOffset,
+          onLongPress: fftChartProvider.decrementHorizontalOffset,
+          provider: fftChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_right,
+          onTap: fftChartProvider.incrementHorizontalOffset,
+          onLongPress: fftChartProvider.incrementHorizontalOffset,
+          provider: fftChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_up,
+          onTap: fftChartProvider.incrementVerticalOffset,
+          onLongPress: fftChartProvider.incrementVerticalOffset,
+          provider: fftChartProvider,
+        ),
+        _ControlButton(
+          icon: Icons.keyboard_arrow_down,
+          onTap: fftChartProvider.decrementVerticalOffset,
+          onLongPress: fftChartProvider.decrementVerticalOffset,
+          provider: fftChartProvider,
+        ),
+      ],
+    );
+  }
+}
+
 class _ControlPanel extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final DataAcquisitionProvider graphProvider;
 
-  _ControlPanel()
-      : fftChartProvider = Get.find<FFTChartProvider>(),
-        graphProvider = Get.find<DataAcquisitionProvider>();
+  const _ControlPanel({
+    required this.fftChartProvider,
+    required this.graphProvider,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       constraints: const BoxConstraints(maxHeight: 48.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _PlayPauseButton(fftChartProvider: fftChartProvider),
-          _ScaleButtons(fftChartProvider: fftChartProvider),
-          _AutosetButton(
-            fftChartProvider: fftChartProvider,
-            graphProvider: graphProvider,
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _PlayPauseButton(fftChartProvider: fftChartProvider),
+            _ScaleButtons(fftChartProvider: fftChartProvider),
+            _AutosetButton(
+              fftChartProvider: fftChartProvider,
+              graphProvider: graphProvider,
+            ),
+            const SizedBox(width: 20),
+            _OffsetControls(fftChartProvider: fftChartProvider),
+          ],
+        ),
       ),
     );
   }
 }
+
 
 /// Scale adjustment buttons specific to FFT
 class _ScaleButtons extends StatelessWidget {
@@ -277,25 +348,20 @@ class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;
   final double valueScale;
+  final double horizontalOffset;
+  final double verticalOffset;
 
   FFTChartPainter({
     required this.fftPoints,
     required this.timeScale,
     required this.valueScale,
+    required this.horizontalOffset,
+    required this.verticalOffset,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (fftPoints.isEmpty) return;
-
-    final paint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    final gridPaint = Paint()
-      ..color = Colors.grey.withValues()
-      ..strokeWidth = 0.5;
 
     final chartArea = Rect.fromLTWH(
       _offsetX,
@@ -303,6 +369,15 @@ class FFTChartPainter extends CustomPainter {
       size.width - _offsetX - 10,
       size.height - _offsetY - _sqrOffsetBot,
     );
+
+    final paint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final gridPaint = Paint()
+      ..color = Colors.grey
+      ..strokeWidth = 0.5;
 
     // White background
     canvas.drawRect(chartArea, Paint()..color = Colors.white);
@@ -318,27 +393,19 @@ class FFTChartPainter extends CustomPainter {
       if (point.y > maxY) maxY = point.y;
     }
 
-    // Calculate center and half range
+    // Calculate center and half range with vertical offset applied
     final centerY = (maxY + minY) / 2;
     final halfRange = ((maxY - minY) / 2) / valueScale;
-    final scaledMinY = centerY - halfRange;
-    final scaledMaxY = centerY + halfRange;
+    final scaledMinY = centerY - halfRange - verticalOffset * halfRange * 2;
+    final scaledMaxY = centerY + halfRange - verticalOffset * halfRange * 2;
 
-    double toScreenX(double x) {
-      return _offsetX + (x / (maxX * timeScale)) * chartArea.width;
-    }
-
-    double toScreenY(double y) {
-      final normalizedY = (y - scaledMinY) / (scaledMaxY - scaledMinY);
-      return chartArea.bottom - (normalizedY * chartArea.height);
-    }
-
+    // Draw grid lines and labels with adjusted values
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    // Grid x labels X
+    // Grid x labels
     const xDivisions = 10;
     for (int i = 0; i <= xDivisions; i++) {
       final x = _offsetX + (chartArea.width * i / xDivisions);
@@ -359,16 +426,16 @@ class FFTChartPainter extends CustomPainter {
       );
     }
 
-    // Grid y labels Y
+    // Grid y labels with adjusted values
     const yDivisions = 10;
     for (int i = 0; i <= yDivisions; i++) {
       final ratio = i / yDivisions;
-      final yCoord = chartArea.top + chartArea.height * ratio;
+      final y = chartArea.top + chartArea.height * ratio;
       final yValue = scaledMaxY - ratio * (scaledMaxY - scaledMinY);
 
       canvas.drawLine(
-        Offset(_offsetX, yCoord),
-        Offset(chartArea.right, yCoord),
+        Offset(_offsetX, y),
+        Offset(chartArea.right, y),
         gridPaint,
       );
 
@@ -379,17 +446,21 @@ class FFTChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(
-            _offsetX - textPainter.width - 5, yCoord - textPainter.height / 2),
+        Offset(_offsetX - textPainter.width - 5, y - textPainter.height / 2),
       );
     }
 
-    // Draw curve
+    // Draw data points with clipping
     final path = Path();
     bool firstPoint = true;
+    
+    canvas.save();
+    canvas.clipRect(chartArea);
+    
     for (final point in fftPoints) {
-      final sx = toScreenX(point.x);
-      final sy = toScreenY(point.y);
+      final sx = toScreenX(point.x, chartArea.width, maxX);
+      final sy = toScreenY(point.y, chartArea.height, scaledMinY, scaledMaxY);
+      
       if (firstPoint) {
         path.moveTo(sx, sy);
         firstPoint = false;
@@ -398,20 +469,25 @@ class FFTChartPainter extends CustomPainter {
       }
     }
 
-    // Apply clipping to chart area
-    canvas.save();
-    canvas.clipRect(chartArea);
     canvas.drawPath(path, paint);
     canvas.restore();
 
-    // Black border
-    canvas.drawRect(
-      chartArea,
-      Paint()
-        ..color = Colors.black
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke,
-    );
+    // Draw border
+    canvas.drawRect(chartArea, Paint()
+      ..color = Colors.black
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke);
+  }
+
+  double toScreenX(double x, double width, double maxX) {
+    return _offsetX + 
+           ((x / (maxX * timeScale)) * width) + 
+           (horizontalOffset * width);
+  }
+
+  double toScreenY(double y, double height, double minY, double maxY) {
+    final normalizedY = (y - minY) / (maxY - minY);
+    return _offsetY + height * (1 - normalizedY);
   }
 
   @override
@@ -419,7 +495,9 @@ class FFTChartPainter extends CustomPainter {
     if (oldDelegate is FFTChartPainter) {
       return oldDelegate.fftPoints != fftPoints ||
           oldDelegate.timeScale != timeScale ||
-          oldDelegate.valueScale != valueScale;
+          oldDelegate.valueScale != valueScale ||
+          oldDelegate.horizontalOffset != horizontalOffset ||
+          oldDelegate.verticalOffset != verticalOffset;
     }
     return true;
   }

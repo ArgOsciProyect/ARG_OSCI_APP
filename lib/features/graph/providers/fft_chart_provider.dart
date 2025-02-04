@@ -51,8 +51,10 @@ class FFTChartProvider extends GetxController {
     }
   }
 
+
   void setHorizontalOffset(double offset) {
-    _horizontalOffset.value = offset;
+    // Prevent negative offsets (scrolling left of 0)
+    _horizontalOffset.value = offset >= 0 ? 0 : offset;
   }
 
   void autoset(Size size, double frequency) {
