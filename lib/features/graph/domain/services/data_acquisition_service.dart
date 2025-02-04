@@ -112,13 +112,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _maxValueController = StreamController<double>.broadcast();
   late final HttpService httpService;
 
-  double _distance = 0.0;
-  double _mid = 0.0;
-
   bool _disposed = false;
   bool _initialized = false;
   double _scale = 0;
   double _triggerLevel = 1;
+  // ignore: unused_field
+  double _distance = 0.0;
+  double _mid = 0.0;
   TriggerEdge _triggerEdge = TriggerEdge.positive;
   TriggerMode _triggerMode = TriggerMode.normal;
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
@@ -170,8 +170,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   void _initializeFromDeviceConfig() {
-    _distance = 1 / deviceConfig.samplingFrequency;
-    _mid = (1 << deviceConfig.usefulBits) / 2;
     postTriggerStatus();
   }
 
@@ -190,7 +188,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
-  double get mid => _mid;
+  double get mid => (1 << deviceConfig.usefulBits) / 2;
 
   @override
   set mid(double value) {
@@ -208,7 +206,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
-  double get distance => _distance;
+  double get distance => 1 / deviceConfig.samplingFrequency;
 
   @override
   set distance(double value) {
@@ -223,7 +221,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final fullRange = 1 << deviceConfig.usefulBits;
 
       // Convert voltage trigger to raw value
-      final rawTrigger = (_triggerLevel / scale) + _mid;
+      final rawTrigger = (_triggerLevel / scale) + mid;
 
       // Calculate percentage (0-100)
       final percentage = (rawTrigger / fullRange) * 100;
@@ -601,8 +599,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double minValue = double.infinity;
 
     // Read data points
-    for (var i = 0; i < chunkSize; i += 2) {
-      if (queue.length < 2) break;
+    for (var i = 0;
+        i < chunkSize;
+        i += 2 * config.deviceConfig.dividingFactor) {
+      if (queue.length < 2 * config.deviceConfig.dividingFactor) break;
+
+      // Skip unwanted samples
+      for (var j = 0; j < (config.deviceConfig.dividingFactor - 1) * 2; j++) {
+        if (queue.isNotEmpty) queue.removeFirst();
+      }
+
       final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig);
       final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
       points.add(DataPoint(x, y));

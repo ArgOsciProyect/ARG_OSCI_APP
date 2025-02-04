@@ -43,6 +43,7 @@ void main() {
       channelMask: 0xF000,
       usefulBits: 12,
       samplesPerPacket: 4096,
+      dividingFactor: 1,
     ));
 
     // Put provider before creating service

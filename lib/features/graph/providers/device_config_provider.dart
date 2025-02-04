@@ -10,12 +10,15 @@ class DeviceConfigProvider extends GetxController {
     channelMask: 0xF000,
     usefulBits: 9,
     samplesPerPacket: 8192,
+    dividingFactor: 1,
   ));
 
   DeviceConfig? get config => _config.value;
 
   // Reactive getters for commonly used values
-  double get samplingFrequency => _config.value?.samplingFrequency ?? 1650000.0;
+  double get samplingFrequency =>
+      (_config.value?.samplingFrequency ?? 1650000.0) / dividingFactor;
+  int get dividingFactor => _config.value?.dividingFactor ?? 1;
   dynamic get bitsPerPacket => _config.value?.bitsPerPacket ?? 16;
   dynamic get dataMask => _config.value?.dataMask ?? 0x0FFF;
   dynamic get channelMask => _config.value?.channelMask ?? 0xF000;

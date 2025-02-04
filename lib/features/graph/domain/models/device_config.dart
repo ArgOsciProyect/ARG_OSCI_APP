@@ -6,6 +6,7 @@ class DeviceConfig {
   final int channelMask;
   final int usefulBits;
   final int samplesPerPacket;
+  final int dividingFactor;
 
   const DeviceConfig({
     required this.samplingFrequency,
@@ -14,6 +15,7 @@ class DeviceConfig {
     required this.channelMask,
     required this.usefulBits,
     required this.samplesPerPacket,
+    required this.dividingFactor,
   });
 
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {
@@ -25,7 +27,7 @@ class DeviceConfig {
       print('channel_mask: ${json['channel_mask']}');
       print('useful_bits: ${json['useful_bits']}');
       print('samples_per_packet: ${json['samples_per_packet']}');
-
+      print('dividing_factor: ${json['dividing_factor']}');
       return DeviceConfig(
         samplingFrequency: double.parse(json['sampling_frequency'].toString()),
         bitsPerPacket: int.parse(json['bits_per_packet'].toString()),
@@ -33,6 +35,7 @@ class DeviceConfig {
         channelMask: int.parse(json['channel_mask'].toString()),
         usefulBits: int.parse(json['useful_bits'].toString()),
         samplesPerPacket: int.parse(json['samples_per_packet'].toString()),
+        dividingFactor: int.parse(json['dividing_factor'].toString()),
       );
     } catch (e) {
       throw FormatException(
@@ -47,5 +50,6 @@ class DeviceConfig {
         'channel_mask': channelMask,
         'useful_bits': usefulBits,
         'samples_per_packet': samplesPerPacket,
+        'dividing_factor': dividingFactor,
       };
 }

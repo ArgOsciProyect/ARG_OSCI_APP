@@ -73,6 +73,9 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
 
   @override
   int get samplesPerPacket => 4096;
+
+  @override
+  int get dividingFactor => 1; // Add this getter
 }
 
 class MockDeviceConfigProvider extends GetxController
@@ -99,6 +102,9 @@ class MockDeviceConfigProvider extends GetxController
 
   @override
   int get samplesPerPacket => 4096;
+
+  @override
+  int get dividingFactor => 1;
 
   @override
   void updateConfig(DeviceConfig config) {
@@ -204,26 +210,25 @@ class MockHttpService extends Mock implements HttpService {
   }
 }
 
-// Helper function for signal generation
 Queue<int> generateTestSignal({
   required int numSamples,
   required double mainFreq,
   required double noiseFreq,
   required double noiseAmplitude,
   double sampleRate = 1650000.0,
+  int dividingFactor = 1, // Add dividingFactor parameter
 }) {
   final queue = Queue<int>();
 
   for (int i = 0; i < numSamples; i++) {
+    // Skip samples according to dividingFactor
+    if (i % dividingFactor != 0) continue;
+
     final t = i / sampleRate;
-    // Main signal component
     final mainComponent = sin(2 * pi * mainFreq * t);
-    // Noise component
     final noiseComponent = noiseAmplitude * sin(2 * pi * noiseFreq * t);
-    // Combined signal
     final combinedSignal = mainComponent + noiseComponent;
 
-    // Scale to 12-bit range and convert to bytes
     final scaledValue = ((combinedSignal + 1.0) * 256).round().clamp(0, 511);
     final uint12Value = scaledValue & 0xFFF;
     queue.add(uint12Value & 0xFF);
