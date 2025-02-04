@@ -96,6 +96,7 @@ class SocketService implements SocketRepository {
   Stream<List<int>> get data => _controller.stream;
 
   // Getters and setters
+  // ignore: unnecessary_getters_setters
   Socket? get socket => _socket;
   set socket(Socket? socket) => _socket = socket;
   StreamController<List<int>> get controller => _controller;

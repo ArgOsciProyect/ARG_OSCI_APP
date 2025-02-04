@@ -175,12 +175,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     postTriggerStatus();
   }
 
+  @override
   bool get useHysteresis => _useHysteresis;
   set useHysteresis(bool value) {
     _useHysteresis = value;
     updateConfig();
   }
 
+  @override
   bool get useLowPassFilter => _useLowPassFilter;
   set useLowPassFilter(bool value) {
     _useLowPassFilter = value;

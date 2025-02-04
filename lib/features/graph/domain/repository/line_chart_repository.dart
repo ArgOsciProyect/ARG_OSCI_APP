@@ -2,6 +2,7 @@
 import 'dart:async';
 import '../models/data_point.dart';
 
+// In LineChartRepository, add missing methods:
 abstract class LineChartRepository {
   /// Stream of filtered data points
   Stream<List<DataPoint>> get dataStream;
@@ -17,6 +18,9 @@ abstract class LineChartRepository {
 
   /// Resumes the data stream
   void resume();
+
+  /// Clears current data and waits for new trigger
+  void resumeAndWaitForTrigger();
 
   /// Disposes of resources
   Future<void> dispose();

@@ -20,7 +20,18 @@ abstract class DataAcquisitionRepository {
   /// Gets the current voltage scale setting
   VoltageScale get currentVoltageScale;
 
-  // Required properties
+  /// Gets if the hysteresis is enabled
+  bool get useHysteresis;
+
+  /// Gets if the low pass filter is enabled
+  bool get useLowPassFilter;
+
+  /// Gets the current max value of the signal
+  double get currentMaxValue;
+
+  /// Gets the current min value of the signal
+  double get currentMinValue;
+
   /// Signal scaling factor
   double get scale;
   set scale(double value);

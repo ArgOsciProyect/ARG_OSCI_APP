@@ -49,7 +49,6 @@ class MockDataAcquisitionProvider extends GetxController
     _isPaused = value;
   }
 
-  @override
   bool get isPaused => _isPaused;
 
   @override
@@ -238,6 +237,7 @@ void main() {
   late DataAcquisitionService service;
   late MockHttpConfig mockHttpConfig;
   late MockDeviceConfigProvider mockDeviceConfigProvider;
+  // ignore: unused_local_variable
   late MockSocketService mockSocketService;
 
   setUp(() async {
@@ -270,7 +270,6 @@ void main() {
 
   group('Voltage Scale Handling', () {
     test('should correctly set and update voltage scale', () {
-      final initialScale = service.currentVoltageScale.scale;
       final newScale = VoltageScales.volts_2;
 
       service.setVoltageScale(newScale);
@@ -370,7 +369,6 @@ void main() {
       ];
 
       service.updateMetrics(points, 0.6, -0.6);
-      final result = service.autoset(300.0, 400.0);
 
       // Verify trigger level is clamped to voltage range
       final maxVoltage = (VoltageScales.millivolts_500.scale * 512) / 2;

@@ -1,7 +1,6 @@
 // lib/features/graph/providers/graph_provider.dart
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
-import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
