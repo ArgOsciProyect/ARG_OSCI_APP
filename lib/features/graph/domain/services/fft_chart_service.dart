@@ -19,7 +19,7 @@ class FFTChartService {
   StreamSubscription? _dataPointsSubscription;
   bool _isProcessing = false;
   bool _isPaused = false;
-  static final bool _outputInDb = true;
+  static const bool _outputInDb = true;
   double _currentMaxValue = 0;
 
   final List<DataPoint> _dataBuffer = [];

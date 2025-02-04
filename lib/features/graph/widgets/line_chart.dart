@@ -669,7 +669,9 @@ class LineChartPainter extends CustomPainter {
   bool _isLineVisible(Offset p1, Offset p2, Size size) {
     if (p1.dy < _offsetY && p2.dy < _offsetY) return false;
     if (p1.dy > size.height - _sqrOffsetBot &&
-        p2.dy > size.height - _sqrOffsetBot) return false;
+        p2.dy > size.height - _sqrOffsetBot) {
+      return false;
+    }
     if (p1.dx < _offsetX && p2.dx < _offsetX) return false;
     if (p1.dx > size.width && p2.dx > size.width) return false;
     return true;

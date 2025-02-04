@@ -8,7 +8,6 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:get/get.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
@@ -113,7 +112,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _maxValueController = StreamController<double>.broadcast();
   late final HttpService httpService;
 
-  late final int _processingChunkSize;
   double _distance = 0.0;
   double _mid = 0.0;
 
@@ -151,11 +149,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  @override
+  Future<void> sendSingleTriggerRequest() async {
+    try {
+      await httpService.get('/single');
+    } catch (e) {
+      print('Error sending single trigger request: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> sendNormalTriggerRequest() async {
+    try {
+      await httpService.get('/normal');
+    } catch (e) {
+      print('Error sending normal trigger request: $e');
+      rethrow;
+    }
+  }
+
   void _initializeFromDeviceConfig() {
-    _processingChunkSize = deviceConfig.samplesPerPacket;
     _distance = 1 / deviceConfig.samplingFrequency;
     _mid = (1 << deviceConfig.usefulBits) / 2;
-    postTriggerStatus();  
+    postTriggerStatus();
   }
 
   bool get useHysteresis => _useHysteresis;
@@ -197,8 +214,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
   }
 
-  void postTriggerStatus(){
-        try {
+  @override
+  Future<void> postTriggerStatus() async {
+    try {
       // Calculate full range in bits
       final fullRange = 1 << deviceConfig.usefulBits;
 
@@ -208,13 +226,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Calculate percentage (0-100)
       final percentage = (rawTrigger / fullRange) * 100;
 
-      // Use injected service
-      httpService.post('/trigger', {
+      await httpService.post('/trigger', {
         'trigger_percentage': percentage.clamp(0, 100),
-        'trigger_edge': _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
+        'trigger_edge':
+            _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
       });
     } catch (e) {
-      print('Error converting trigger value: $e');
+      print('Error posting trigger status: $e');
+      rethrow;
     }
   }
 
@@ -234,7 +253,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   set triggerEdge(TriggerEdge value) {
     _triggerEdge = value;
-     postTriggerStatus();
+    postTriggerStatus();
     updateConfig();
   }
 
@@ -375,44 +394,42 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     });
   }
 
-  
-static void _processSingleModeData(
-  Queue<int> queue,
-  DataProcessingConfig config,
-  SendPort sendPort,
-  int samplesPerPacket
-) {
-  if (queue.isEmpty) return;
+  static void _processSingleModeData(Queue<int> queue,
+      DataProcessingConfig config, SendPort sendPort, int samplesPerPacket) {
+    if (queue.isEmpty) return;
 
-  // Solo procesar si tenemos suficientes datos
-  if (queue.length >= samplesPerPacket * 2) { // * 2 porque son bytes
-    final (points, maxValue, minValue) = _processData(queue, samplesPerPacket * 2, config, sendPort);
+    // Solo procesar si tenemos suficientes datos
+    if (queue.length >= samplesPerPacket * 2) {
+      // * 2 porque son bytes
+      final (points, maxValue, minValue) =
+          _processData(queue, samplesPerPacket * 2, config, sendPort);
 
-    // Si encontramos puntos y hay un trigger
-    if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
-      sendPort.send({
-        'type': 'data',
-        'points': points,
-        'maxValue': maxValue,
-        'minValue': minValue
-      });
+      // Si encontramos puntos y hay un trigger
+      if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+        sendPort.send({
+          'type': 'data',
+          'points': points,
+          'maxValue': maxValue,
+          'minValue': minValue
+        });
 
-      // Solo pausamos si tenemos suficientes datos y encontramos trigger
-      sendPort.send({'type': 'pause_graph'});
+        // Solo pausamos si tenemos suficientes datos y encontramos trigger
+        sendPort.send({'type': 'pause_graph'});
 
-      print("Size of points: ${points.length}");
-      print("Samples per packet: $samplesPerPacket");
-      
-      for (int i = 0; i < 5; i++) {
-        print("First 5 data points: ${points[i].x}, ${points[i].y}");
-      }
+        print("Size of points: ${points.length}");
+        print("Samples per packet: $samplesPerPacket");
 
-      for (int i = points.length - 5; i < points.length; i++) {
-        print("Last 5 data points: ${points[i].x}, ${points[i].y}");
+        for (int i = 0; i < 5; i++) {
+          print("First 5 data points: ${points[i].x}, ${points[i].y}");
+        }
+
+        for (int i = points.length - 5; i < points.length; i++) {
+          print("Last 5 data points: ${points[i].x}, ${points[i].y}");
+        }
       }
     }
   }
-}
+
   static void _processIncomingData(
     List<int> data,
     Queue<int> queue,
@@ -638,7 +655,7 @@ static void _processSingleModeData(
 
           if (config.useHysteresis) {
             // Calculate available points for trend
-            final maxWindowSize = 5;
+            const maxWindowSize = 5;
             final availablePoints = min(i + 1, points.length);
             final windowSize = min(maxWindowSize, availablePoints);
 
@@ -914,8 +931,8 @@ static void _processSingleModeData(
 
     // Ahora calculamos los valores de timeScale y valueScale basándonos en la frecuencia obtenida
     if (_currentFrequency <= 0) {
-        triggerLevel = 0;
-        return [100000, 1];
+      triggerLevel = 0;
+      return [100000, 1];
     }
 
     // Cálculo de la escala de tiempo
@@ -1006,7 +1023,7 @@ static void _processSingleModeData(
     return points;
   }
 
-    // Agregar este método a DataAcquisitionService
+  // Agregar este método a DataAcquisitionService
   @visibleForTesting
   static (List<DataPoint>, bool) processSingleModeDataForTest(
     Queue<int> queue,
@@ -1024,7 +1041,7 @@ static void _processSingleModeData(
     if (queue.length < samplesPerPacket * 2) {
       return ([], false); // Not enough data
     }
-  
+
     final config = DataProcessingConfig(
       scale: scale,
       distance: distance,
@@ -1036,15 +1053,11 @@ static void _processSingleModeData(
       useLowPassFilter: useLowPassFilter,
       triggerMode: TriggerMode.single,
     );
-  
+
     final queueCopy = Queue<int>.from(queue);
-    final (points, maxValue, minValue) = _processData(
-      queueCopy,
-      samplesPerPacket * 2,
-      config,
-      sendPort
-    );
-  
+    final (points, maxValue, minValue) =
+        _processData(queueCopy, samplesPerPacket * 2, config, sendPort);
+
     final hasTrigger = points.any((p) => p.isTrigger);
     return (points.take(samplesPerPacket).toList(), hasTrigger);
   }

@@ -1,4 +1,3 @@
-/// line_chart_provider.dart
 import 'dart:math';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
@@ -18,7 +17,6 @@ class LineChartProvider extends GetxController {
 
   static const double zoomFactor = 1.02;
   static const double unzoomFactor = 0.98;
-  Offset? _scaleStartFocalPoint;
 
   final _dataPoints = Rx<List<DataPoint>>([]);
   final _timeScale = RxDouble(1.0);

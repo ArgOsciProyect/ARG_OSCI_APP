@@ -74,6 +74,15 @@ abstract class DataAcquisitionRepository {
   /// Returns [timeScale, valueScale] for display
   Future<List<double>> autoset(double chartHeight, double chartWidth);
 
+  /// Posts trigger status to device
+  Future<void> postTriggerStatus();
+
+  /// Sends single trigger mode request
+  Future<void> sendSingleTriggerRequest();
+
+  /// Sends normal trigger mode request
+  Future<void> sendNormalTriggerRequest();
+
   /// Releases all resources
   void dispose();
 }

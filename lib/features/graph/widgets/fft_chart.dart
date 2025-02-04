@@ -16,9 +16,6 @@ class FFTChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fftChartProvider = Get.find<FFTChartProvider>();
-    final graphProvider = Get.find<DataAcquisitionProvider>();
-
     return Column(
       children: [
         Expanded(child: _ChartArea()),
@@ -32,9 +29,7 @@ class FFTChart extends StatelessWidget {
 class _ChartArea extends StatelessWidget {
   late final FFTChartProvider fftChartProvider;
 
-  _ChartArea({Key? key})
-      : fftChartProvider = Get.find<FFTChartProvider>(),
-        super(key: key);
+  _ChartArea() : fftChartProvider = Get.find<FFTChartProvider>();
 
   @override
   Widget build(BuildContext context) {
@@ -299,7 +294,7 @@ class FFTChartPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final gridPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.5)
+      ..color = Colors.grey.withValues()
       ..strokeWidth = 0.5;
 
     final chartArea = Rect.fromLTWH(
@@ -378,7 +373,7 @@ class FFTChartPainter extends CustomPainter {
       );
 
       textPainter.text = TextSpan(
-        text: '${yValue.toStringAsFixed(2)}',
+        text: yValue.toStringAsFixed(2),
         style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();

@@ -171,8 +171,16 @@ La aplicación implementa rigurosamente los principios SOLID:
 └── main.dart
 ```
 
-Cada feature sigue una estructura organizada:
-- **Domain**: Modelos, repositorios e interfaces de servicio
-- **Providers**: Gestión de estado específica por feature
-- **Screens**: Interfaces de usuario completas
-- **Widgets**: Componentes reutilizables
+Cada feature sigue una estructura organizada y detallada:
+
+- **Domain**:
+  - **Models**: Contiene todos los modelos de datos y funciones auxiliares para la conversión de JSON a Dart y viceversa. Estos modelos representan las entidades y estructuras de datos fundamentales que utiliza la aplicación.
+  - **Repository**: Contiene clases abstractas que describen la funcionalidad de la feature. Estas clases definen los contratos que deben cumplir las implementaciones de los servicios, asegurando una separación clara entre la lógica de negocio y la implementación concreta.
+  A la vez, incluyen la documentacion de lo que hace cada clase y sus metodos.
+  - **Services**: Contiene la implementación real de los repositorios. Aquí es donde se lleva a cabo la lógica de negocio, las llamadas a APIs, la gestión de bases de datos y cualquier otra operación necesaria para cumplir con los contratos definidos en los repositorios.
+
+- **Providers**: Contiene todo lo relacionado con la gestión del estado para esa feature en particular. Esto incluye controladores, proveedores de estado y cualquier otra lógica necesaria para mantener y actualizar el estado de la aplicación de manera reactiva.
+
+- **Screens**: Contiene pantallas completas que tienen un Scaffold. Estas pantallas representan vistas completas de la aplicación, incluyendo la disposición de widgets, la navegación y la interacción del usuario.
+
+- **Widgets**: Contiene todos los widgets necesarios para esa feature en particular. Estos componentes reutilizables encapsulan partes de la interfaz de usuario, permitiendo una construcción modular y mantenible de las vistas.

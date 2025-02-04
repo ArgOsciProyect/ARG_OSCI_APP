@@ -1,6 +1,4 @@
 // lib/features/graph/widgets/user_settings.dart
-import 'dart:async';
-
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -22,7 +20,6 @@ class UserSettings extends StatelessWidget {
   final FocusNode _windowSizeFocus = FocusNode();
   final FocusNode _alphaFocus = FocusNode();
   final FocusNode _cutoffFrequencyFocus = FocusNode();
-  static const _frequencyUpdateInterval = Duration(seconds: 2);
 
   UserSettings({
     required this.graphProvider,

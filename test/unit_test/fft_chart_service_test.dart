@@ -60,6 +60,7 @@ class MockGraphProvider extends Mock implements DataAcquisitionProvider {
   @override
   Rx<double> get maxValue => _maxValue;
 
+  @override
   void addPoints(List<DataPoint> points) {
     if (points.isNotEmpty) {
       _maxValue.value = points.map((p) => p.y.abs()).reduce(math.max);

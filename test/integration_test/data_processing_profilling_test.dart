@@ -82,18 +82,6 @@ class MockUserSettingsProvider extends GetxController
   void navigateToMode(String selectedMode) {}
 
   @override
-  void _startFrequencyUpdates() {}
-
-  @override
-  void _updateFrequency() {}
-
-  @override
-  void _updateServices() {}
-
-  @override
-  void _updateTitle() {}
-
-  @override
   bool get showFFTControls => false;
 
   @override

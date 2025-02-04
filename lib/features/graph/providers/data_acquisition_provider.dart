@@ -37,14 +37,12 @@ class DataAcquisitionProvider extends GetxController {
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
   final useHysteresis = true.obs;
   final useLowPassFilter = true.obs;
-  final HttpService httpService;
 
   // Kalman filter instance
   final SimpleKalman kalman =
       SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
 
-  DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection)
-      : httpService = HttpService(dataAcquisitionService.httpConfig) {
+  DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection) {
     // Subscribe to streams
 
     dataAcquisitionService.dataStream.listen((points) {
@@ -164,7 +162,7 @@ class DataAcquisitionProvider extends GetxController {
 
   Future<void> _sendSingleTriggerRequest() async {
     try {
-      await httpService.get('/single');
+      await dataAcquisitionService.sendSingleTriggerRequest();
     } catch (e) {
       print('Error sending single trigger request: $e');
     }
@@ -172,9 +170,9 @@ class DataAcquisitionProvider extends GetxController {
 
   Future<void> _sendNormalTriggerRequest() async {
     try {
-      await httpService.get('/normal');
+      await dataAcquisitionService.sendNormalTriggerRequest();
     } catch (e) {
-      print('Error sending single trigger request: $e');
+      print('Error sending normal trigger request: $e');
     }
   }
 

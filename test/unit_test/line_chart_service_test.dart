@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -11,10 +12,15 @@ import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.
 // Mocks
 class MockGraphProvider extends Mock implements DataAcquisitionProvider {
   final _controller = StreamController<List<DataPoint>>.broadcast();
+  final _triggerMode = Rx<TriggerMode>(TriggerMode.normal); // Add this line
 
   @override
   Stream<List<DataPoint>> get dataPointsStream => _controller.stream;
 
+  @override
+  Rx<TriggerMode> get triggerMode => _triggerMode; // Add this getter
+
+  @override
   void addPoints(List<DataPoint> points) => _controller.add(points);
 
   void close() => _controller.close();
