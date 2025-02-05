@@ -32,6 +32,7 @@ class FFTChart extends StatelessWidget {
     );
   }
 }
+
 /// The main chart area that displays the FFT plot
 class _ChartArea extends StatelessWidget {
   late final FFTChartProvider fftChartProvider;
@@ -76,18 +77,18 @@ class _ChartGestureHandler extends StatelessWidget {
       );
     } else if (details.pointerCount == 1) {
       // Pan with corrected vertical direction
-      final newHorizontalOffset = fftChartProvider.horizontalOffset + 
+      final newHorizontalOffset = fftChartProvider.horizontalOffset +
           details.focalPointDelta.dx / constraints.maxWidth;
-      
+
       // Prevent scrolling left of 0
       if (newHorizontalOffset <= 0) {
         fftChartProvider.setHorizontalOffset(newHorizontalOffset);
       }
-      
+
       // Corrected vertical direction (negative for upward movement)
       fftChartProvider.setVerticalOffset(
-        fftChartProvider.verticalOffset - 
-        details.focalPointDelta.dy / constraints.maxHeight,
+        fftChartProvider.verticalOffset -
+            details.focalPointDelta.dy / constraints.maxHeight,
       );
     }
   }
@@ -304,7 +305,6 @@ class _ControlPanel extends StatelessWidget {
   }
 }
 
-
 /// Scale adjustment buttons specific to FFT
 class _ScaleButtons extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
@@ -409,7 +409,8 @@ class FFTChartPainter extends CustomPainter {
     const xDivisions = 10;
     for (int i = 0; i <= xDivisions; i++) {
       final x = _offsetX + (chartArea.width * i / xDivisions);
-      final xValue = (maxX * timeScale * i / xDivisions);
+      final xValue = (maxX * timeScale * (i / xDivisions)) -
+          (maxX * timeScale * horizontalOffset);
       canvas.drawLine(
         Offset(x, chartArea.top),
         Offset(x, chartArea.bottom),
@@ -428,10 +429,11 @@ class FFTChartPainter extends CustomPainter {
 
     // Grid y labels with adjusted values
     const yDivisions = 10;
+    final yRange = scaledMaxY - scaledMinY;
     for (int i = 0; i <= yDivisions; i++) {
       final ratio = i / yDivisions;
       final y = chartArea.top + chartArea.height * ratio;
-      final yValue = scaledMaxY - ratio * (scaledMaxY - scaledMinY);
+      final yValue = scaledMaxY - ratio * yRange;
 
       canvas.drawLine(
         Offset(_offsetX, y),
@@ -453,14 +455,14 @@ class FFTChartPainter extends CustomPainter {
     // Draw data points with clipping
     final path = Path();
     bool firstPoint = true;
-    
+
     canvas.save();
     canvas.clipRect(chartArea);
-    
+
     for (final point in fftPoints) {
       final sx = toScreenX(point.x, chartArea.width, maxX);
       final sy = toScreenY(point.y, chartArea.height, scaledMinY, scaledMaxY);
-      
+
       if (firstPoint) {
         path.moveTo(sx, sy);
         firstPoint = false;
@@ -473,16 +475,18 @@ class FFTChartPainter extends CustomPainter {
     canvas.restore();
 
     // Draw border
-    canvas.drawRect(chartArea, Paint()
-      ..color = Colors.black
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke);
+    canvas.drawRect(
+        chartArea,
+        Paint()
+          ..color = Colors.black
+          ..strokeWidth = 1
+          ..style = PaintingStyle.stroke);
   }
 
   double toScreenX(double x, double width, double maxX) {
-    return _offsetX + 
-           ((x / (maxX * timeScale)) * width) + 
-           (horizontalOffset * width);
+    return _offsetX +
+        ((x / (maxX * timeScale)) * width) +
+        (horizontalOffset * width);
   }
 
   double toScreenY(double y, double height, double minY, double maxY) {

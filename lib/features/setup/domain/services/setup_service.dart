@@ -67,9 +67,9 @@ class NetworkInfoService {
     if (!Platform.isAndroid) return false;
 
     try {
-      print("Attempting to connect to ESP32_AP...");
+      print("Attempting to connect to ESP32_AP using IoT plugin...");
 
-      // Try to connect to WiFi
+      // First attempt: Try WiFiForIoTPlugin
       bool connected = await WiFiForIoTPlugin.connect(
         'ESP32_AP',
         password: 'password123',
@@ -78,32 +78,47 @@ class NetworkInfoService {
         withInternet: false,
       );
 
-      if (!connected) {
-        print("Failed to connect to ESP32_AP");
-        return false;
-      }
+      if (connected) {
+        print("WiFi connection successful via IoT plugin");
+        await Future.delayed(const Duration(seconds: 2));
 
-      print("WiFi connection successful, testing API connection...");
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Force WiFi usage and verify connection
-      if (!await WiFiForIoTPlugin.forceWifiUsage(true)) {
-        print("Failed to force WiFi usage");
-        return false;
-      }
-
-      // Test actual connection by making requests
-      const maxTestAttempts = 5;
-      for (int i = 0; i < maxTestAttempts; i++) {
-        if (await testConnection()) {
-          print("Connection verified successfully");
-          return true;
+        if (await WiFiForIoTPlugin.forceWifiUsage(true)) {
+          if (await testConnection()) {
+            print("Connection verified successfully via IoT plugin");
+            return true;
+          }
         }
-        print("Connection test attempt ${i + 1} failed, retrying...");
-        await Future.delayed(const Duration(seconds: 1));
       }
 
-      print("Could not verify connection after $maxTestAttempts attempts");
+      // Fallback method: Traditional SSID verification
+      print("IoT plugin connection failed, trying traditional method...");
+
+      const maxRetries = 30;
+      const checkInterval = Duration(seconds: 1);
+
+      for (int i = 0; i < maxRetries; i++) {
+        String? currentSSID = await getWifiName();
+        if (currentSSID != null) {
+          currentSSID = currentSSID.replaceAll('"', '');
+
+          if (currentSSID.startsWith('ESP32_AP')) {
+            print("Connected to ESP32_AP via traditional method");
+
+            // Test the connection
+            if (await testConnection()) {
+              print("Connection verified successfully via traditional method");
+              return true;
+            }
+          }
+        }
+
+        if (i < maxRetries - 1) {
+          print("Waiting for ESP32_AP connection... (${i + 1}/$maxRetries)");
+          await Future.delayed(checkInterval);
+        }
+      }
+
+      print("Failed to connect via both methods");
       return false;
     } catch (e) {
       print('Error connecting to ESP32: $e');

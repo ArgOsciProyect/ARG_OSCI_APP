@@ -51,16 +51,14 @@ class FFTChartProvider extends GetxController {
     }
   }
 
-
   void setHorizontalOffset(double offset) {
     // Prevent negative offsets (scrolling left of 0)
     _horizontalOffset.value = offset >= 0 ? 0 : offset;
   }
 
   void autoset(Size size, double frequency) {
-    // Calculate time scale to show frequency range from 0 to 5*sampling_frequency/2
-    // Note: We divide sampling frequency by 2 because of Nyquist frequency
-    final maxFreq = frequency;
+    // Calculate time scale to show frequency range from 0 to 7*sampling_frequency/2
+    final maxFreq = frequency / 7;
     final pointsPerFreq = size.width / maxFreq;
 
     // Set scales to show full range
