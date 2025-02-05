@@ -9,7 +9,6 @@ import 'package:pointycastle/asymmetric/api.dart';
 import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import '../../../socket/domain/models/socket_connection.dart';
-import '../../../socket/domain/services/socket_service.dart';
 import '../../../http/domain/services/http_service.dart';
 import '../../../http/domain/models/http_config.dart';
 import 'package:http/http.dart' as http;

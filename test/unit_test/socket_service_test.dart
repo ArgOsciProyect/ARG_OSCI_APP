@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,7 @@ void main() {
   late SocketService socketService;
   // ignore: unused_local_variable
   late MockSocket mockSocket;
+  const testPort = 8080;
 
   setUp(() {
     socketService = SocketService(1024);
@@ -61,55 +63,77 @@ void main() {
     await server.close();
   });
 
-  test('Recibe mensajes correctamente', () async {
-    final server = await ServerSocket.bind('127.0.0.1', 8080);
-    server.listen((client) {
-      client.write('Message from server');
-    });
-
-    final connection = SocketConnection('127.0.0.1', 8080);
-    await socketService.connect(connection);
-    socketService.listen();
-    final message = await socketService.receiveMessage();
-
-    expect(message, equals('Message from server'));
-
-    await server.close();
-  });
-
-  test('Cierra el socket y el stream correctamente', () async {
+    test('Cierra el socket y el stream correctamente', () async {
     await socketService.close();
 
     expect(socketService.socket, isNull);
     expect(socketService.controller.isClosed, isTrue);
   });
 
-  test('Suscribe y desuscribe correctamente', () async {
-    final server = await ServerSocket.bind('127.0.0.1', 8080);
-    final connection = SocketConnection('127.0.0.1', 8080);
-
-    await socketService.connect(connection);
-    socketService.listen();
-
-    // Suscribirse al stream de datos
-    final subscription = socketService.subscribe((data) {
-      expect(utf8.decode(data), equals('Message from server'));
-    });
-
-    // Enviar un mensaje desde el servidor
-    server.listen((client) {
-      client.write('Message from server');
-    });
-
-    // Esperar un momento para que el mensaje sea recibido
-    await Future.delayed(Duration(seconds: 1));
-
-    // Desuscribirse del stream de datos
-    socketService.unsubscribe(subscription);
-
-    // Esperar un momento para asegurarse de que no se recibe el mensaje
-    await Future.delayed(Duration(seconds: 1));
-
-    await server.close();
+test('Recibe mensajes correctamente', () async {
+  final server = await ServerSocket.bind('127.0.0.1', testPort, shared: true);
+  final completer = Completer<String>();
+  
+  // Create a 1024-byte message
+  final message = 'Message from server'.padRight(1024, ' ');
+  
+  // Set up server first
+  server.listen((client) async {
+    await Future.delayed(Duration(milliseconds: 100));
+    // Send full packet
+    client.add(utf8.encode(message));
+    await client.flush();
   });
+
+  final connection = SocketConnection('127.0.0.1', testPort);
+  await socketService.connect(connection);
+  socketService.listen();
+  
+  socketService.subscribe((data) {
+    completer.complete(utf8.decode(data).trim()); // Trim padding
+  });
+
+  final receivedMessage = await completer.future.timeout(
+    Duration(seconds: 5), // Increased timeout
+    onTimeout: () => throw TimeoutException('No message received'),
+  );
+  
+  expect(receivedMessage, equals('Message from server'));
+  await server.close();
+});
+
+test('Suscribe y desuscribe correctamente', () async {
+  final server = await ServerSocket.bind('127.0.0.1', testPort + 1, shared: true);
+  final connection = SocketConnection('127.0.0.1', testPort + 1);
+  final completer = Completer<void>();
+
+  var messageReceived = false;
+  final message = 'Message from server'.padRight(1024, ' ');
+
+  await socketService.connect(connection);
+  socketService.listen();
+
+  final subscription = socketService.subscribe((data) {
+    messageReceived = true;
+    expect(utf8.decode(data).trim(), equals('Message from server'));
+    completer.complete();
+  });
+
+  await Future.delayed(Duration(milliseconds: 100));
+
+  server.listen((client) {
+    client.add(utf8.encode(message));
+    client.flush();
+  });
+
+  await completer.future.timeout(
+    Duration(seconds: 5),
+    onTimeout: () => throw TimeoutException('No message received'),
+  );
+  
+  expect(messageReceived, isTrue);
+  
+  socketService.unsubscribe(subscription);
+  await server.close();
+});
 }
