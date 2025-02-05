@@ -139,7 +139,7 @@ class LineChartProvider extends GetxController {
 
   void clearAndResume() {
     _dataPoints.value = []; // Clear existing data
-    _isPaused.value = false;
+    _isPaused.value = false; // Unpause
     _lineChartService.resume();
   }
 
@@ -204,6 +204,7 @@ class LineChartProvider extends GetxController {
 
       // Si estamos en modo single, enviamos una nueva solicitud de trigger
       if (graphProvider.triggerMode.value == TriggerMode.single) {
+        _dataPoints.value = []; // Limpiamos los datos existentes
         graphProvider.setPause(false); // Esto enviará GET /single
       }
     }

@@ -23,9 +23,10 @@ class Initializer {
       final deviceConfigProvider = DeviceConfigProvider();
 
       // 2. Register base dependencies
+
+      Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
       Get.put<HttpConfig>(globalHttpConfig, permanent: true);
       Get.put<SocketConnection>(globalSocketConnection, permanent: true);
-      Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
 
       // NEW: Register HttpService before DataAcquisitionService
       final httpService = HttpService(globalHttpConfig);

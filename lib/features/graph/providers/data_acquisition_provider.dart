@@ -148,13 +148,16 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.triggerMode = mode;
 
     if (mode == TriggerMode.single) {
+      // Reiniciar el estado del procesamiento en el isolate
+      dataAcquisitionService.clearQueues();
+
       final lineChartProvider = Get.find<LineChartProvider>();
       lineChartProvider.clearForNewTrigger();
       _sendSingleTriggerRequest();
     } else if (mode == TriggerMode.normal) {
       _sendNormalTriggerRequest();
       final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.resume();
+      lineChartProvider.clearAndResume(); // Changed from just resume()
       lineChartProvider.resetOffsets();
     }
   }
@@ -175,10 +178,12 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
-// En DataAcquisitionProvider
   void setPause(bool paused) {
     if (!paused) {
       if (triggerMode.value == TriggerMode.single) {
+        // Reiniciar el estado del procesamiento en el isolate
+        dataAcquisitionService.clearQueues();
+
         // Primero limpiamos y preparamos para nuevo trigger
         final lineChartProvider = Get.find<LineChartProvider>();
         lineChartProvider.clearForNewTrigger();

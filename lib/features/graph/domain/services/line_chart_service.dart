@@ -52,6 +52,7 @@ class LineChartService implements LineChartRepository {
     }
   }
 
+  @override
   void resumeAndWaitForTrigger() {
     _isPaused = false;
     // No limpiamos los datos aquí - dejemos que el provider lo haga

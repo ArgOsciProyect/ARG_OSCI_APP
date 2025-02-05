@@ -138,7 +138,6 @@ class NetworkInfoService {
 class SetupService implements SetupRepository {
   SocketConnection globalSocketConnection;
   HttpConfig globalHttpConfig;
-  late SocketService localSocketService;
   late HttpService localHttpService;
   RSAPublicKey? _publicKey;
   final NetworkInfoService _networkInfo = NetworkInfoService();
@@ -155,7 +154,6 @@ class SetupService implements SetupRepository {
   }
 
   SetupService(this.globalSocketConnection, this.globalHttpConfig) {
-    localSocketService = SocketService();
     localHttpService = HttpService(globalHttpConfig);
   }
 
@@ -175,7 +173,6 @@ class SetupService implements SetupRepository {
   @override
   Future<void> initializeGlobalSocketConnection(String ip, int port) async {
     globalSocketConnection.updateConnection(ip, port);
-    localSocketService = SocketService();
   }
 
   @override

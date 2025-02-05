@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
+import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -590,7 +591,7 @@ class LineChartPainter extends CustomPainter {
         );
 
         _textPainter.text = TextSpan(
-          text: '${domainVal.toStringAsFixed(2)} V',
+          text: UnitFormat.formatWithUnit(domainVal, 'V'),
           style: const TextStyle(color: Colors.black, fontSize: 10),
         );
         _textPainter.layout();
@@ -621,9 +622,9 @@ class LineChartPainter extends CustomPainter {
         _gridPaint,
       );
 
-      final timeValue = domainVal * 1e6;
+      final timeValue = domainVal;
       _textPainter.text = TextSpan(
-        text: '${timeValue.toStringAsFixed(1)} µs',
+        text: UnitFormat.formatWithUnit(timeValue, 's'),
         style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       _textPainter.layout();

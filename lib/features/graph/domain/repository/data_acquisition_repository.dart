@@ -73,6 +73,9 @@ abstract class DataAcquisitionRepository {
   /// Updates current configuration in processing pipeline
   void updateConfig();
 
+  /// Clears all data points
+  void clearQueues();
+
   /// Sets voltage scale and updates related configurations
   ///
   /// [voltageScale] New voltage scale to apply

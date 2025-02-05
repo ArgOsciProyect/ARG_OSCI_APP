@@ -9,10 +9,14 @@ class SocketService implements SocketRepository {
   Socket? _socket;
   final _controller = StreamController<List<int>>.broadcast();
   final List<StreamSubscription<List<int>>> _subscriptions = [];
+  final List<int> _buffer = [];
+  final int _expectedPacketSize;
   @override
   dynamic ip;
   @override
   dynamic port;
+
+  SocketService(this._expectedPacketSize);
 
   @override
   Future<void> connect(SocketConnection connection) async {
@@ -28,7 +32,7 @@ class SocketService implements SocketRepository {
     if (_socket != null) {
       _socket!.listen(
         (data) {
-          _controller.add(data);
+          _processIncomingData(data);
         },
         onError: (error) {
           _controller.addError(error);
@@ -39,6 +43,16 @@ class SocketService implements SocketRepository {
       );
     } else {
       throw Exception('Socket is not connected');
+    }
+  }
+
+  void _processIncomingData(List<int> data) {
+    _buffer.addAll(data);
+
+    while (_buffer.length >= _expectedPacketSize) {
+      final packet = _buffer.sublist(0, _expectedPacketSize);
+      _buffer.removeRange(0, _expectedPacketSize);
+      _controller.add(packet);
     }
   }
 

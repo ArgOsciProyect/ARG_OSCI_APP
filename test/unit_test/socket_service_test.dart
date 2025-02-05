@@ -13,7 +13,7 @@ void main() {
   late MockSocket mockSocket;
 
   setUp(() {
-    socketService = SocketService();
+    socketService = SocketService(1024);
     mockSocket = MockSocket();
   });
 

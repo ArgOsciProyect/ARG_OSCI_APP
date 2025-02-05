@@ -1,6 +1,7 @@
 // fft_chart.dart
 import 'dart:math';
 
+import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -417,7 +418,7 @@ class FFTChartPainter extends CustomPainter {
         gridPaint,
       );
       textPainter.text = TextSpan(
-        text: '${xValue.toStringAsFixed(1)} Hz',
+        text: UnitFormat.formatWithUnit(xValue, 'Hz'),
         style: const TextStyle(color: Colors.black, fontSize: 10),
       );
       textPainter.layout();

@@ -26,8 +26,9 @@ class SocketIsolateSetup {
   final SendPort sendPort;
   final String ip;
   final int port;
+  final int packetSize;
 
-  const SocketIsolateSetup(this.sendPort, this.ip, this.port);
+  const SocketIsolateSetup(this.sendPort, this.ip, this.port, this.packetSize);
 }
 
 class ProcessingIsolateSetup {
@@ -328,7 +329,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   static Future<void> _socketIsolateFunction(SocketIsolateSetup setup) async {
-    final socketService = SocketService();
+    final socketService = SocketService(setup.packetSize);
     final connection = SocketConnection(setup.ip, setup.port);
 
     // Add exit handler
@@ -367,29 +368,82 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final maxQueueSize = processingChunkSize * 6;
     final queue = Queue<int>();
     final singleModeQueue = Queue<int>();
+    final maxSingleModeQueueSize = processingChunkSize * 10;
+    bool processingEnabled = true;
 
     receivePort.listen((message) {
       if (message == 'stop') {
+        processingEnabled = false;
         queue.clear();
         singleModeQueue.clear();
       } else if (message == 'clear_queue') {
         queue.clear();
         singleModeQueue.clear();
+        processingEnabled = true;
       } else if (message is List<int>) {
+        if (!processingEnabled) return;
+
         if (config.triggerMode == TriggerMode.single) {
+          // En modo single, acumulamos datos hasta llenar la cola
           singleModeQueue.addAll(message);
-          _processSingleModeData(
-              singleModeQueue, config, setup.sendPort, processingChunkSize);
+
+          // Si excedemos el tamaño máximo, eliminamos un bloque completo del principio
+          if (singleModeQueue.length > maxSingleModeQueueSize) {
+            for (var i = 0; i < processingChunkSize * 2; i++) {
+              if (singleModeQueue.isNotEmpty) singleModeQueue.removeFirst();
+            }
+          }
+
+          // Procesamos si tenemos suficientes datos
+          if (singleModeQueue.length >= processingChunkSize * 2) {
+            final tempQueue = Queue<int>.from(singleModeQueue);
+            final (points, maxValue, minValue) = _processData(
+                tempQueue, singleModeQueue.length, config, setup.sendPort);
+
+            // Si encontramos trigger, enviamos y pausamos
+            if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+              setup.sendPort.send({
+                'type': 'data',
+                'points': points,
+                'maxValue': maxValue,
+                'minValue': minValue
+              });
+              setup.sendPort.send({'type': 'pause_graph'});
+              singleModeQueue.clear();
+              processingEnabled = false;
+            }
+          }
         } else {
-          _processIncomingData(message, queue, config, setup.sendPort,
-              maxQueueSize, processingChunkSize);
+          // Modo normal
+          queue.addAll(message);
+
+          // Mantenemos el tamaño máximo eliminando bloques completos
+          while (queue.length > maxQueueSize) {
+            for (var i = 0; i < processingChunkSize; i++) {
+              if (queue.isNotEmpty) queue.removeFirst();
+            }
+          }
+
+          // Procesamos bloques completos
+          while (queue.length >= processingChunkSize) {
+            final (points, maxValue, minValue) = _processData(
+                queue, processingChunkSize, config, setup.sendPort);
+
+            setup.sendPort.send({
+              'type': 'data',
+              'points': points,
+              'maxValue': maxValue,
+              'minValue': minValue
+            });
+          }
         }
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
-        if (config.triggerMode == TriggerMode.single) {
-          queue.clear();
-          singleModeQueue.clear();
+        if (config.triggerMode == TriggerMode.normal) {
+          processingEnabled = true;
         }
+        queue.clear();
+        singleModeQueue.clear();
       }
     });
   }
@@ -398,35 +452,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       DataProcessingConfig config, SendPort sendPort, int samplesPerPacket) {
     if (queue.isEmpty) return;
 
-    // Solo procesar si tenemos suficientes datos
-    if (queue.length >= samplesPerPacket * 2) {
-      // * 2 porque son bytes
-      final (points, maxValue, minValue) =
-          _processData(queue, samplesPerPacket * 2, config, sendPort);
+    // Procesar todos los datos acumulados
+    final (points, maxValue, minValue) =
+        _processData(queue, queue.length, config, sendPort);
 
-      // Si encontramos puntos y hay un trigger
-      if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
-        sendPort.send({
-          'type': 'data',
-          'points': points,
-          'maxValue': maxValue,
-          'minValue': minValue
-        });
+    // Si encontramos puntos y hay un trigger
+    if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+      sendPort.send({
+        'type': 'data',
+        'points': points,
+        'maxValue': maxValue,
+        'minValue': minValue
+      });
 
-        // Solo pausamos si tenemos suficientes datos y encontramos trigger
-        sendPort.send({'type': 'pause_graph'});
-
-        print("Size of points: ${points.length}");
-        print("Samples per packet: $samplesPerPacket");
-
-        for (int i = 0; i < 5; i++) {
-          print("First 5 data points: ${points[i].x}, ${points[i].y}");
-        }
-
-        for (int i = points.length - 5; i < points.length; i++) {
-          print("Last 5 data points: ${points[i].x}, ${points[i].y}");
-        }
-      }
+      // Pausar después de enviar los datos
+      sendPort.send({'type': 'pause_graph'});
     }
   }
 
@@ -738,6 +778,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return (adjustedPoints, maxValue, minValue);
   }
 
+  @override
+  void clearQueues() {
+    _configSendPort?.send('clear_queue');
+  }
+
   void _updateMetrics(
       List<DataPoint> points, double maxValue, double minValue) {
     if (points.isEmpty) return;
@@ -786,6 +831,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerMode: triggerMode,
     );
 
+    // Limpiar cualquier dato anterior al iniciar
+    _dataController.add([]);
+
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
       ProcessingIsolateSetup(
@@ -822,9 +870,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   Future<void> _setupSocketIsolate(String ip, int port) async {
+    final packetSize = deviceConfig.samplesPerPacket * 2; // 2 bytes per sample
+
     _socketIsolate = await Isolate.spawn(
       _socketIsolateFunction,
-      SocketIsolateSetup(_socketToProcessingSendPort!, ip, port),
+      SocketIsolateSetup(_socketToProcessingSendPort!, ip, port, packetSize),
     );
   }
 
