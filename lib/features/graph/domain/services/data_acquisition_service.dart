@@ -8,6 +8,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:get/get.dart';
 import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
@@ -112,6 +113,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   final _frequencyController = StreamController<double>.broadcast();
   final _maxValueController = StreamController<double>.broadcast();
   late final HttpService httpService;
+  bool _isReconnecting = false;
 
   bool _disposed = false;
   bool _initialized = false;
@@ -167,6 +169,31 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     } catch (e) {
       print('Error sending normal trigger request: $e');
       rethrow;
+    }
+  }
+
+  Future<void> _handleConnectivityLost() async {
+    if (_isReconnecting) return;
+    _isReconnecting = true;
+
+    try {
+      // Try to reset connection
+      final response = await httpService.get('/reset');
+      final newIp = response['ip'] as String;
+      final newPort = response['port'] as int;
+
+      // Stop current connections
+      await stopData();
+
+      // Restart with new connection params
+      await fetchData(newIp, newPort);
+
+      _isReconnecting = false;
+    } catch (e) {
+      print('Failed to reset connection: $e');
+      // Complete disconnection - return to setup screen
+      await dispose();
+      Get.offAll(() => const SetupScreen());
     }
   }
 
@@ -331,25 +358,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   static Future<void> _socketIsolateFunction(SocketIsolateSetup setup) async {
     final socketService = SocketService(setup.packetSize);
     final connection = SocketConnection(setup.ip, setup.port);
-
-    // Add exit handler
     final exitPort = ReceivePort();
+
     Isolate.current.addOnExitListener(exitPort.sendPort);
     exitPort.listen((_) async {
-      print('Socket isolate exiting, cleaning up...');
       await socketService.close();
       exitPort.close();
     });
 
-    while (true) {
-      try {
-        await socketService.connect(connection);
-        _setupSocketListener(socketService, setup.sendPort);
-        break;
-      } catch (e) {
-        print('Socket connection error: $e');
-        await Future.delayed(_reconnectionDelay);
-      }
+    try {
+      await socketService.connect(connection);
+      _setupSocketListener(socketService, setup.sendPort);
+    } catch (e) {
+      setup.sendPort.send({'type': 'connection_error', 'error': e.toString()});
     }
   }
 
@@ -811,6 +832,39 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return averageInterval > 0 ? 1 / averageInterval : 0.0;
   }
 
+  Future<void> _handleConnectionError() async {
+    if (_isReconnecting) return;
+    _isReconnecting = true;
+
+    try {
+      // Mostrar popup de reconexión
+      Get.snackbar(
+        'Conexión perdida',
+        'Intentando reconectar...',
+        duration: const Duration(seconds: 5),
+      );
+
+      final response = await httpService.get('/reset');
+      final newIp = response['ip'] as String;
+      final newPort = response['port'] as int;
+
+      await stopData();
+      await fetchData(newIp, newPort);
+
+      _isReconnecting = false;
+
+      Get.snackbar(
+        'Conexión restaurada',
+        'La conexión se ha restablecido correctamente',
+        duration: const Duration(seconds: 3),
+      );
+    } catch (e) {
+      print('Failed to reset connection: $e');
+      await dispose();
+      Get.offAll(() => const SetupScreen());
+    }
+  }
+
   @override
   Future<void> fetchData(String ip, int port) async {
     await stopData();
@@ -862,6 +916,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           _updateMetrics(points, maxValue, minValue);
         } else if (message['type'] == 'pause_graph') {
           Get.find<DataAcquisitionProvider>().setPause(true);
+        } else if (message['type'] == 'connection_error') {
+          _handleConnectionError();
         }
       }
     });
@@ -893,6 +949,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> stopData() async {
     try {
+      _isReconnecting = false;
       _configSendPort?.send('stop');
       _socketToProcessingSendPort?.send('stop');
 

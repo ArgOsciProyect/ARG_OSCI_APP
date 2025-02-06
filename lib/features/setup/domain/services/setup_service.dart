@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:pointycastle/export.dart';
@@ -63,12 +64,21 @@ class NetworkInfoService {
   }
 
   Future<bool> connectToESP32() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid) {
+      // Instead of returning false, throw meaningful exception
+      throw PlatformException(
+          code: 'UNSUPPORTED_PLATFORM',
+          message: 'Auto-connect is only supported on Android');
+    }
 
     try {
-      print("Attempting to connect to ESP32_AP using IoT plugin...");
+      print("Attempting to connect to ESP32_AP...");
 
-      // First attempt: Try WiFiForIoTPlugin
+      // Reduced retry attempts for faster failure
+      const maxRetries = 15;
+      const checkInterval = Duration(seconds: 1);
+
+      // First try WiFiForIoTPlugin
       bool connected = await WiFiForIoTPlugin.connect(
         'ESP32_AP',
         password: 'password123',
@@ -77,51 +87,24 @@ class NetworkInfoService {
         withInternet: false,
       );
 
-      if (connected) {
-        print("WiFi connection successful via IoT plugin");
-        await Future.delayed(const Duration(seconds: 2));
+      if (connected && await testConnection()) {
+        return true;
+      }
 
-        if (await WiFiForIoTPlugin.forceWifiUsage(true)) {
+      // Fallback to traditional method
+      for (int i = 0; i < maxRetries; i++) {
+        String? currentSSID = await getWifiName();
+        if (currentSSID?.contains('ESP32_AP') == true) {
           if (await testConnection()) {
-            print("Connection verified successfully via IoT plugin");
             return true;
           }
         }
+        await Future.delayed(checkInterval);
       }
 
-      // Fallback method: Traditional SSID verification
-      print("IoT plugin connection failed, trying traditional method...");
-
-      const maxRetries = 30;
-      const checkInterval = Duration(seconds: 1);
-
-      for (int i = 0; i < maxRetries; i++) {
-        String? currentSSID = await getWifiName();
-        if (currentSSID != null) {
-          currentSSID = currentSSID.replaceAll('"', '');
-
-          if (currentSSID.startsWith('ESP32_AP')) {
-            print("Connected to ESP32_AP via traditional method");
-
-            // Test the connection
-            if (await testConnection()) {
-              print("Connection verified successfully via traditional method");
-              return true;
-            }
-          }
-        }
-
-        if (i < maxRetries - 1) {
-          print("Waiting for ESP32_AP connection... (${i + 1}/$maxRetries)");
-          await Future.delayed(checkInterval);
-        }
-      }
-
-      print("Failed to connect via both methods");
-      return false;
+      throw TimeoutException('Failed to connect to ESP32_AP');
     } catch (e) {
-      print('Error connecting to ESP32: $e');
-      return false;
+      throw SetupException('ESP32 connection failed: $e');
     }
   }
 
@@ -175,28 +158,54 @@ class SetupService implements SetupRepository {
   }
 
   @override
-  Future<void> connectToWiFi(WiFiCredentials credentials) async {
-    final response =
-        await localHttpService.post('/connect_wifi', credentials.toJson());
-    extIp = response['IP'];
-    extPort = response['Port'];
+  Future<bool> connectToWiFi(WiFiCredentials credentials) async {
+    print("Connecting ESP32 to WiFi");
+    try {
+      final response = await localHttpService
+          .post('/connect_wifi', credentials.toJson())
+          .timeout(Duration(seconds: 15));
 
-    print("ip recibido: $extIp");
-    print("port recibido: $extPort");
+      if (response['Success'] == "false") {
+        return false;
+      }
+
+      extIp = response['IP'];
+      extPort = response['Port'];
+
+      print("ip recibido: $extIp");
+      print("port recibido: $extPort");
+      return true;
+    } on TimeoutException {
+      throw SetupException('Connection attempt timed out');
+    } catch (e) {
+      throw SetupException('Failed to connect: $e');
+    }
   }
 
   @override
   Future<List<String>> scanForWiFiNetworks() async {
-    print("Scanning wifis");
-    final publicKeyResponse = await localHttpService.get('/get_public_key');
-    _pubKey = publicKeyResponse;
-    print(_pubKey["PublicKey"]);
-    RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
-    _publicKey = key as RSAPublicKey;
+    try {
+      final publicKeyResponse = await localHttpService
+          .get('/get_public_key')
+          .timeout(Duration(seconds: 5));
 
-    final wifiResponse = await localHttpService.get('/scan_wifi');
-    final wifiData = wifiResponse as List;
-    return wifiData.map((item) => item['SSID'] as String).toList();
+      _pubKey = publicKeyResponse;
+      RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
+      _publicKey = key as RSAPublicKey;
+
+      final wifiResponse = await localHttpService
+          .get('/scan_wifi')
+          .timeout(Duration(seconds: 15));
+
+      final wifiData = wifiResponse as List;
+      if (wifiData.isEmpty) {
+        throw SetupException('No WiFi networks found');
+      }
+
+      return wifiData.map((item) => item['SSID'] as String).toList();
+    } catch (e) {
+      throw SetupException('Failed to scan networks: $e');
+    }
   }
 
   @override
@@ -233,16 +242,17 @@ class SetupService implements SetupRepository {
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
-    int maxTestRetries = 100;
+    int maxTestRetries = 10;
     String testWord = _generateRandomWord();
     String encryptedWord = encriptWithPublicKey(testWord);
 
-    // Create JSON with same format as WiFiCredentials
     final testRequest = {'word': encryptedWord};
 
     for (int i = 0; i < maxTestRetries; i++) {
       try {
-        final response = await localHttpService.post('/test', testRequest);
+        final response = await localHttpService
+            .post('/test', testRequest)
+            .timeout(const Duration(seconds: 2));
 
         if (response['decrypted'] == testWord) {
           print("Connection verified - correct network");
@@ -253,6 +263,12 @@ class SetupService implements SetupRepository {
           print("Expected: $testWord, Received: ${response['decrypted']}");
           print("Crude Response: $response");
         }
+      } on TimeoutException {
+        print("Connection test attempt ${i + 1} timed out");
+        if (i == maxTestRetries - 1) {
+          throw TimeoutException('Failed to verify connection - timeout');
+        }
+        await Future.delayed(const Duration(seconds: 1));
       } catch (e) {
         print("Connection test attempt ${i + 1} failed: $e");
         if (i == maxTestRetries - 1) {
@@ -311,4 +327,11 @@ class SetupService implements SetupRepository {
       print("Current WiFi: $wifiName, Expected WiFi: $ssid");
     }
   }
+}
+
+class SetupException implements Exception {
+  final String message;
+  SetupException(this.message);
+  @override
+  String toString() => message;
 }
