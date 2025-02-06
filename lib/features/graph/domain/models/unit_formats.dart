@@ -1,37 +1,42 @@
-import 'dart:math' as math;
+import 'dart:math';
 
 class UnitFormat {
-  static const _prefixes = {
+  static final _prefixes = {
     -12: 'p',
     -9: 'n',
-    -6: 'µ',
+    -6: 'μ',
     -3: 'm',
     0: '',
     3: 'k',
     6: 'M',
     9: 'G',
+    12: 'T'
   };
 
-  static String formatWithUnit(double value, String baseUnit) {
-    if (value == 0) return "0.0 $baseUnit";
+  static String formatWithUnit(double value, String unit) {
+    if (value == 0) return "0 $unit";
 
-    // Get the order of magnitude using correct log function
-    final magnitude = (math.log(value.abs()) / math.ln10 / 3).floor() * 3;
-
-    // Find the closest available prefix
-    final prefixMagnitude = _prefixes.keys.where((k) => k <= magnitude).reduce(
-        (a, b) => (magnitude - a).abs() < (magnitude - b).abs() ? a : b);
-
-    final scaledValue = value / math.pow(10, prefixMagnitude);
-    final prefix = _prefixes[prefixMagnitude] ?? '';
-
-    // Format to ensure 3 digits + 1 decimal
-    if (scaledValue.abs() < 10) {
-      return "${scaledValue.toStringAsFixed(2)} $prefix$baseUnit";
-    } else if (scaledValue.abs() < 100) {
-      return "${scaledValue.toStringAsFixed(1)} $prefix$baseUnit";
-    } else {
-      return "${scaledValue.toStringAsFixed(0)} $prefix$baseUnit";
+    // Handle very small/large numbers
+    if (value.abs() < 1e-15 || value.abs() > 1e15) {
+      return "${value.toStringAsExponential(1)} $unit";
     }
+
+    // Find appropriate prefix
+    final exp = (log(value.abs()) / ln10).floor();
+    final prefixExp = (exp / 3).floor() * 3;
+
+    if (!_prefixes.containsKey(prefixExp)) {
+      return "${value.toStringAsExponential(1)} $unit";
+    }
+
+    final scaledValue = value / pow(10, prefixExp);
+    final prefix = _prefixes[prefixExp] ?? '';
+
+    // Calculate how many decimal places we can show
+    final integerPart = scaledValue.abs().floor();
+    final integerDigits = integerPart == 0 ? 1 : integerPart.toString().length;
+    final maxDecimals = 3 - integerDigits;  // 3 digits max for numbers, leaving room for decimal point
+
+    return "${scaledValue.toStringAsFixed(maxDecimals)} $prefix$unit";
   }
 }

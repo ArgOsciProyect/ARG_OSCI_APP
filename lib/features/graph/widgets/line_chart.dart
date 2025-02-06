@@ -529,6 +529,7 @@ class LineChartPainter extends CustomPainter {
   }
 
   double _domainToScreenY(double domainVal) {
+    if (domainVal.isNaN || domainVal.isInfinite) return 0.0;
     return _centerY -
         ((domainVal * valueScale + verticalOffset) * _drawingHeight / 2);
   }
@@ -539,6 +540,7 @@ class LineChartPainter extends CustomPainter {
   }
 
   double _domainToScreenX(double domainVal) {
+    if (domainVal.isNaN || domainVal.isInfinite) return _offsetX;
     return (domainVal * timeScale) +
         (horizontalOffset * _drawingWidth) +
         _offsetX;
@@ -566,40 +568,51 @@ class LineChartPainter extends CustomPainter {
   }
 
   void _drawYAxisGridAndLabels(Canvas canvas, Size size) {
-    final yDomainTop = _screenToDomainY(_offsetY);
-    final yDomainBottom = _screenToDomainY(size.height - _sqrOffsetBot);
-    final yMin = min(yDomainTop, yDomainBottom);
-    final yMax = max(yDomainTop, yDomainBottom);
+    try {
+      final yDomainTop = _screenToDomainY(_offsetY);
+      final yDomainBottom = _screenToDomainY(size.height - _sqrOffsetBot);
+      final yMin = min(yDomainTop, yDomainBottom);
+      final yMax = max(yDomainTop, yDomainBottom);
 
-    const rangeExtensionFactor = 2.0;
-    final yRange = yMax - yMin;
-    final extendedYMin = yMin - (yRange * (rangeExtensionFactor - 1) / 2);
-    final extendedYMax = yMax + (yRange * (rangeExtensionFactor - 1) / 2);
+      if (yMin.isInfinite || yMax.isInfinite) return;
 
-    const linesCountY = 20;
-    final stepY = (extendedYMax - extendedYMin) / linesCountY;
+      const rangeExtensionFactor = 2.0;
+      final yRange = yMax - yMin;
+      if (yRange == 0) return;
 
-    for (int i = 0; i <= linesCountY; i++) {
-      final domainVal = extendedYMin + i * stepY;
-      final y = _domainToScreenY(domainVal);
+      final extendedYMin = yMin - (yRange * (rangeExtensionFactor - 1) / 2);
+      final extendedYMax = yMax + (yRange * (rangeExtensionFactor - 1) / 2);
 
-      if (y >= _offsetY && y <= size.height - _sqrOffsetBot) {
-        canvas.drawLine(
-          Offset(_offsetX, y),
-          Offset(size.width, y),
-          _gridPaint,
-        );
+      const linesCountY = 20;
+      final stepY = (extendedYMax - extendedYMin) / linesCountY;
+      if (stepY == 0) return;
 
-        _textPainter.text = TextSpan(
-          text: UnitFormat.formatWithUnit(domainVal, 'V'),
-          style: const TextStyle(color: Colors.black, fontSize: 10),
-        );
-        _textPainter.layout();
-        _textPainter.paint(
-          canvas,
-          Offset(5, y - _textPainter.height / 2),
-        );
+      for (int i = 0; i <= linesCountY; i++) {
+        final domainVal = extendedYMin + i * stepY;
+        final y = _domainToScreenY(domainVal);
+
+        if (y >= _offsetY && y <= size.height - _sqrOffsetBot) {
+          canvas.drawLine(
+            Offset(_offsetX, y),
+            Offset(size.width, y),
+            _gridPaint,
+          );
+
+          final formattedValue = UnitFormat.formatWithUnit(domainVal, 'V');
+          _textPainter.text = TextSpan(
+            text: formattedValue,
+            style: const TextStyle(color: Colors.black, fontSize: 10),
+          );
+          _textPainter.layout();
+          _textPainter.paint(
+            canvas,
+            Offset(5, y - _textPainter.height / 2),
+          );
+        }
       }
+    } catch (e) {
+      // Handle or log error if needed
+      return;
     }
   }
 
@@ -649,21 +662,38 @@ class LineChartPainter extends CustomPainter {
     if (dataPoints.length <= 1) return;
 
     for (int i = 0; i < dataPoints.length - 1; i++) {
-      var p1 = Offset(
-        _domainToScreenX(dataPoints[i].x),
-        _domainToScreenY(dataPoints[i].y),
-      );
-      var p2 = Offset(
-        _domainToScreenX(dataPoints[i + 1].x),
-        _domainToScreenY(dataPoints[i + 1].y),
-      );
+      final x1 = _domainToScreenX(dataPoints[i].x);
+      final y1 = _domainToScreenY(dataPoints[i].y);
+      final x2 = _domainToScreenX(dataPoints[i + 1].x);
+      final y2 = _domainToScreenY(dataPoints[i + 1].y);
+
+      // Skip if any coordinate is NaN or infinite
+      if (x1.isNaN ||
+          y1.isNaN ||
+          x2.isNaN ||
+          y2.isNaN ||
+          x1.isInfinite ||
+          y1.isInfinite ||
+          x2.isInfinite ||
+          y2.isInfinite) {
+        continue;
+      }
+
+      var p1 = Offset(x1, y1);
+      var p2 = Offset(x2, y2);
 
       if (!_isLineVisible(p1, p2, size)) continue;
 
       p1 = _clipPoint(p1, p2, size);
       p2 = _clipPoint(p2, p1, size);
 
-      canvas.drawLine(p1, p2, _dataPaint);
+      // Final validation before drawing
+      if (p1.dx.isFinite &&
+          p1.dy.isFinite &&
+          p2.dx.isFinite &&
+          p2.dy.isFinite) {
+        canvas.drawLine(p1, p2, _dataPaint);
+      }
     }
   }
 
@@ -679,8 +709,15 @@ class LineChartPainter extends CustomPainter {
   }
 
   Offset _clipPoint(Offset point, Offset other, Size size) {
+    if (point.dx.isNaN || point.dy.isNaN || other.dx.isNaN || other.dy.isNaN) {
+      return Offset(_offsetX, _centerY);
+    }
+
     var result = point;
+    if (other.dx == point.dx) return result; // Prevent division by zero
+
     final slope = (other.dy - point.dy) / (other.dx - point.dx);
+    if (slope.isNaN || slope.isInfinite) return result;
 
     // Vertical clipping
     if (point.dy < _offsetY) {
