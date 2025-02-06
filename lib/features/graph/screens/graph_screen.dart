@@ -44,8 +44,8 @@ class GraphScreen extends StatelessWidget {
       } else if (graphMode == 'FFT') {
         final size = Get.size;
         final fftProvider = Get.find<FFTChartProvider>();
-        final frequency = fftProvider.frequency.value > 0 
-            ? fftProvider.frequency.value 
+        final frequency = fftProvider.frequency.value > 0
+            ? fftProvider.frequency.value
             : graphProvider.frequency.value;
         fftProvider.autoset(size, frequency);
       }

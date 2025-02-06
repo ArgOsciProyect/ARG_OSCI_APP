@@ -210,16 +210,19 @@ class _ChartGestureHandler extends StatelessWidget {
     final delta = event.scrollDelta.dy;
     if (HardwareKeyboard.instance.isControlPressed) {
       // Horizontal zoom (time)
+      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
       lineChartProvider.setTimeScale(
         lineChartProvider.timeScale * (1 - delta / 500),
       );
     } else if (HardwareKeyboard.instance.isShiftPressed) {
       // Vertical zoom (voltage)
+      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
       lineChartProvider.setValueScale(
         lineChartProvider.valueScale * (1 - delta / 500),
       );
     } else {
       // Combined zoom
+      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
       final scale = 1 - delta / 500;
       lineChartProvider.setTimeScale(lineChartProvider.timeScale * scale);
       lineChartProvider.setValueScale(lineChartProvider.valueScale * scale);

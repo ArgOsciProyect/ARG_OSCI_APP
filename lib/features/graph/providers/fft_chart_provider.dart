@@ -40,7 +40,6 @@ class FFTChartProvider extends GetxController {
     });
   }
 
-
   void setInitialScales() {
     _initialTimeScale = timeScale.value;
     _initialValueScale = valueScale.value;
@@ -55,20 +54,19 @@ class FFTChartProvider extends GetxController {
       final zoomFactor = pow(details.scale, 2.0);
       // Calcular nuevo timeScale
       final newTimeScale = _initialTimeScale * zoomFactor;
-      
+
       // Comprobar si el nuevo timeScale mostraría frecuencias más allá de Nyquist
       final nyquistFreq = deviceConfig.samplingFrequency / 2;
       final visibleFreqAtRightEdge = nyquistFreq / newTimeScale;
-      
+
       // Solo permitir zoom si no excede la frecuencia de Nyquist
       if (visibleFreqAtRightEdge >= nyquistFreq) {
         setTimeScale(newTimeScale);
       }
-      
+
       setValueScale(_initialValueScale * zoomFactor);
     }
   }
-
 
   double _calculateMaxOffset(double width) {
     if (width <= 0) return 0.0;
@@ -79,7 +77,6 @@ class FFTChartProvider extends GetxController {
     if (dataWidth <= width) return 0.0;
     return -(dataWidth - width) / width;
   }
-
 
   void setHorizontalOffset(double offset) {
     final maxOffset = _calculateMaxOffset(_drawingWidth);
@@ -154,7 +151,7 @@ class FFTChartProvider extends GetxController {
     // Calcular la frecuencia visible en el borde derecho con el nuevo scale
     final nyquistFreq = deviceConfig.samplingFrequency / 2;
     final visibleFreqAtRightEdge = nyquistFreq / scale;
-    
+
     // Solo permitir el cambio si no excede la frecuencia de Nyquist
     if (visibleFreqAtRightEdge >= nyquistFreq || scale < timeScale.value) {
       timeScale.value = scale;

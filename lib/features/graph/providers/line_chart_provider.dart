@@ -56,18 +56,33 @@ class LineChartProvider extends GetxController {
           screenToDomainY(details.focalPoint.dy, constraints, offsetX);
 
       final newZoomFactor = pow(details.scale, 2.0);
-      setTimeScale(_initialTimeScale * newZoomFactor);
-      setValueScale(_initialValueScale * newZoomFactor);
+      final newTimeScale = _initialTimeScale * newZoomFactor;
 
-      final newFocalScreenX =
-          domainToScreenX(focalDomainX, constraints, offsetX);
-      final newFocalScreenY =
-          domainToScreenY(focalDomainY, constraints, offsetX);
+      // Obtener el último punto de datos (máximo X)
+      final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
 
-      _horizontalOffset.value +=
-          (newFocalScreenX - details.focalPoint.dx) / constraints.width;
-      _verticalOffset.value -=
-          (newFocalScreenY - details.focalPoint.dy) / constraints.height;
+      // Permitir zoom solo si:
+      // 1. Estamos haciendo zoom in (aumentando la escala)
+      // 2. O si el zoom out no hará que los datos ocupen menos del 100% del ancho visible
+      if (newTimeScale > _timeScale.value ||
+          (maxDataX * newTimeScale >= _drawingWidth)) {
+        setTimeScale(newTimeScale);
+        setValueScale(_initialValueScale * newZoomFactor);
+
+        // Actualizar offset manteniendo el punto focal
+        final newFocalScreenX =
+            domainToScreenX(focalDomainX, constraints, offsetX);
+        final newFocalScreenY =
+            domainToScreenY(focalDomainY, constraints, offsetX);
+
+        final newHorizontalOffset = horizontalOffset +
+            (newFocalScreenX - details.focalPoint.dx) / _drawingWidth;
+        final newVerticalOffset = verticalOffset -
+            (newFocalScreenY - details.focalPoint.dy) / constraints.height;
+
+        setHorizontalOffset(newHorizontalOffset);
+        setVerticalOffset(newVerticalOffset);
+      }
     }
   }
 
@@ -101,8 +116,20 @@ class LineChartProvider extends GetxController {
   }
 
   void setTimeScale(double scale) {
-    if (scale > 0) {
+    if (scale <= 0) return;
+
+    final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
+
+    // Solo permitir cambios de escala si:
+    // 1. Estamos haciendo zoom in (aumentando la escala)
+    // 2. O si el zoom out no hará que los datos ocupen menos del 100% del ancho visible
+    if (_drawingWidth <= 0 ||
+        scale > _timeScale.value ||
+        (maxDataX * scale >= _drawingWidth)) {
       _timeScale.value = scale;
+
+      // Ajustar offset para mantener datos visibles
+      setHorizontalOffset(_horizontalOffset.value);
     }
   }
 
@@ -129,24 +156,26 @@ class LineChartProvider extends GetxController {
 
   void updateDrawingWidth(Size size, double offsetX) {
     _drawingWidth = size.width - offsetX;
+    // Reajustar offset al cambiar el tamaño
+    setHorizontalOffset(_horizontalOffset.value);
   }
 
   void setHorizontalOffset(double offset) {
     if (_drawingWidth <= 0) return;
 
-    // Calculate maximum offset based on data points
     final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
-    final visibleWidth = maxDataX * timeScale;
-    final maxOffset =
-        -visibleWidth / _drawingWidth; // Negative because we move left
+    final scaledDataWidth = maxDataX * timeScale;
 
-    if (graphProvider.triggerMode.value == TriggerMode.normal) {
-      // In normal mode, prevent moving left of 0 and right of maxOffset
-      _horizontalOffset.value = offset.clamp(maxOffset, 0.0);
-    } else {
-      // In single mode, allow full range movement but limit right edge
-      _horizontalOffset.value = offset.clamp(maxOffset, double.infinity);
+    // Si los datos son más pequeños que el área visible, centrar
+    if (scaledDataWidth <= _drawingWidth) {
+      _horizontalOffset.value = 0.0;
+      return;
     }
+
+    // Calcular el máximo desplazamiento permitido hacia la izquierda
+    // No permitir desplazamiento hacia la derecha (mantener offset <= 0)
+    final minOffset = -((scaledDataWidth - _drawingWidth) / _drawingWidth);
+    _horizontalOffset.value = offset.clamp(minOffset, 0.0);
   }
 
   void setVerticalOffset(double offset) {

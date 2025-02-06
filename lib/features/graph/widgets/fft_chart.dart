@@ -414,7 +414,8 @@ class FFTChartPainter extends CustomPainter {
     // Dibujamos líneas de la grilla y etiquetas
     for (int i = 0; i <= xDivisions; i++) {
       final rawFreq = (i / xDivisions) * nyquistFreq;
-      final xRatio = (rawFreq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
+      final xRatio =
+          (rawFreq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
       final scaledX = xRatio * chartArea.width;
       final x = _offsetX + scaledX;
 
@@ -436,7 +437,7 @@ class FFTChartPainter extends CustomPainter {
 
           final textX = x - textPainter.width / 2;
           // Dibujamos la etiqueta incluso si está parcialmente fuera, pero no más allá del área del gráfico
-          if (x >= chartArea.left - textPainter.width && 
+          if (x >= chartArea.left - textPainter.width &&
               x <= chartArea.right + textPainter.width) {
             textPainter.paint(
               canvas,
@@ -481,8 +482,9 @@ class FFTChartPainter extends CustomPainter {
     for (final point in fftPoints) {
       if (point.x > nyquistFreq) break;
 
-      final xRatio = (point.x.clamp(0.0, nyquistFreq) / (nyquistFreq * timeScale)) +
-          effectiveHorizontalOffset;
+      final xRatio =
+          (point.x.clamp(0.0, nyquistFreq) / (nyquistFreq * timeScale)) +
+              effectiveHorizontalOffset;
       final sx = _offsetX + (xRatio * chartArea.width);
 
       final normalizedY = (point.y - scaledMinY) / (scaledMaxY - scaledMinY);
