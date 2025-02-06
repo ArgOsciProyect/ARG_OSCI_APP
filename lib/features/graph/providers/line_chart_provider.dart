@@ -26,6 +26,8 @@ class LineChartProvider extends GetxController {
   final _verticalOffset = RxDouble(0.0);
   double _initialTimeScale = 1.0;
   double _initialValueScale = 1.0;
+  double _drawingWidth = 0.0;
+
   Timer? _incrementTimer;
 
   List<DataPoint> get dataPoints => _dataPoints.value;
@@ -125,11 +127,25 @@ class LineChartProvider extends GetxController {
     _verticalOffset.value = 0.0;
   }
 
+  void updateDrawingWidth(Size size, double offsetX) {
+    _drawingWidth = size.width - offsetX;
+  }
+
   void setHorizontalOffset(double offset) {
+    if (_drawingWidth <= 0) return;
+
+    // Calculate maximum offset based on data points
+    final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
+    final visibleWidth = maxDataX * timeScale;
+    final maxOffset =
+        -visibleWidth / _drawingWidth; // Negative because we move left
+
     if (graphProvider.triggerMode.value == TriggerMode.normal) {
-      _horizontalOffset.value = min(0.0, offset); // Prevent moving left of 0
+      // In normal mode, prevent moving left of 0 and right of maxOffset
+      _horizontalOffset.value = offset.clamp(maxOffset, 0.0);
     } else {
-      _horizontalOffset.value = offset; // Allow free movement in single mode
+      // In single mode, allow full range movement but limit right edge
+      _horizontalOffset.value = offset.clamp(maxOffset, double.infinity);
     }
   }
 

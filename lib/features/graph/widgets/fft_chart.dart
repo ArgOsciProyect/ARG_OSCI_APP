@@ -77,14 +77,14 @@ class _ChartGestureHandler extends StatelessWidget {
         fftChartProvider.initialValueScale * newScale,
       );
     } else if (details.pointerCount == 1) {
+      // Update drawing width before handling pan
+      fftChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+
       // Pan with corrected vertical direction
       final newHorizontalOffset = fftChartProvider.horizontalOffset +
           details.focalPointDelta.dx / constraints.maxWidth;
 
-      // Prevent scrolling left of 0
-      if (newHorizontalOffset <= 0) {
-        fftChartProvider.setHorizontalOffset(newHorizontalOffset);
-      }
+      fftChartProvider.setHorizontalOffset(newHorizontalOffset);
 
       // Corrected vertical direction (negative for upward movement)
       fftChartProvider.setVerticalOffset(
@@ -152,6 +152,7 @@ class _ChartPainter extends StatelessWidget {
           valueScale: fftChartProvider.valueScale.value,
           horizontalOffset: fftChartProvider.horizontalOffset,
           verticalOffset: fftChartProvider.verticalOffset,
+          fftChartProvider: fftChartProvider,
         ),
       );
     });
@@ -351,6 +352,7 @@ class FFTChartPainter extends CustomPainter {
   final double valueScale;
   final double horizontalOffset;
   final double verticalOffset;
+  final FFTChartProvider fftChartProvider;
 
   FFTChartPainter({
     required this.fftPoints,
@@ -358,11 +360,16 @@ class FFTChartPainter extends CustomPainter {
     required this.valueScale,
     required this.horizontalOffset,
     required this.verticalOffset,
+    required this.fftChartProvider,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (fftPoints.isEmpty) return;
+
+    const double _offsetY = 30;
+    const double _offsetX = 50;
+    const double _sqrOffsetBot = 30;
 
     final chartArea = Rect.fromLTWH(
       _offsetX,
@@ -371,6 +378,7 @@ class FFTChartPainter extends CustomPainter {
       size.height - _offsetY - _sqrOffsetBot,
     );
 
+    final bgPaint = Paint()..color = Colors.white;
     final paint = Paint()
       ..color = Colors.blue
       ..strokeWidth = 2
@@ -380,55 +388,66 @@ class FFTChartPainter extends CustomPainter {
       ..color = Colors.grey
       ..strokeWidth = 0.5;
 
-    // White background
-    canvas.drawRect(chartArea, Paint()..color = Colors.white);
+    canvas.drawRect(chartArea, bgPaint);
 
-    // Find max and min values
-    double maxX = double.negativeInfinity;
     double minY = double.infinity;
     double maxY = double.negativeInfinity;
-
     for (final point in fftPoints) {
-      if (point.x > maxX) maxX = point.x;
       if (point.y < minY) minY = point.y;
       if (point.y > maxY) maxY = point.y;
     }
 
-    // Calculate center and half range with vertical offset applied
     final centerY = (maxY + minY) / 2;
     final halfRange = ((maxY - minY) / 2) / valueScale;
     final scaledMinY = centerY - halfRange - verticalOffset * halfRange * 2;
     final scaledMaxY = centerY + halfRange - verticalOffset * halfRange * 2;
 
-    // Draw grid lines and labels with adjusted values
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    // Grid x labels
-    const xDivisions = 10;
+    const xDivisions = 12;
+    final nyquistFreq = fftChartProvider.samplingFrequency / 2;
+    final effectiveHorizontalOffset = horizontalOffset.clamp(-1.0, 0.0);
+
+    // Dibujamos líneas de la grilla y etiquetas
     for (int i = 0; i <= xDivisions; i++) {
-      final x = _offsetX + (chartArea.width * i / xDivisions);
-      final xValue = (maxX * timeScale * (i / xDivisions)) -
-          (maxX * timeScale * horizontalOffset);
-      canvas.drawLine(
-        Offset(x, chartArea.top),
-        Offset(x, chartArea.bottom),
-        gridPaint,
-      );
-      textPainter.text = TextSpan(
-        text: UnitFormat.formatWithUnit(xValue, 'Hz'),
-        style: const TextStyle(color: Colors.black, fontSize: 10),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, chartArea.bottom + 5),
-      );
+      final rawFreq = (i / xDivisions) * nyquistFreq;
+      final xRatio = (rawFreq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
+      final scaledX = xRatio * chartArea.width;
+      final x = _offsetX + scaledX;
+
+      if (rawFreq <= nyquistFreq) {
+        // Dibujamos la línea vertical
+        if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
+          canvas.drawLine(
+            Offset(x, chartArea.top),
+            Offset(x, chartArea.bottom),
+            gridPaint,
+          );
+
+          // Preparamos la etiqueta
+          textPainter.text = TextSpan(
+            text: UnitFormat.formatWithUnit(rawFreq, 'Hz'),
+            style: const TextStyle(color: Colors.black, fontSize: 8.5),
+          );
+          textPainter.layout();
+
+          final textX = x - textPainter.width / 2;
+          // Dibujamos la etiqueta incluso si está parcialmente fuera, pero no más allá del área del gráfico
+          if (x >= chartArea.left - textPainter.width && 
+              x <= chartArea.right + textPainter.width) {
+            textPainter.paint(
+              canvas,
+              Offset(textX, chartArea.bottom + 5),
+            );
+          }
+        }
+      }
     }
 
-    // Grid y labels with adjusted values
+    // Dibujamos las líneas horizontales y etiquetas
     const yDivisions = 10;
     final yRange = scaledMaxY - scaledMinY;
     for (int i = 0; i <= yDivisions; i++) {
@@ -443,8 +462,8 @@ class FFTChartPainter extends CustomPainter {
       );
 
       textPainter.text = TextSpan(
-        text: yValue.toStringAsFixed(2),
-        style: const TextStyle(color: Colors.black, fontSize: 10),
+        text: "${yValue.toStringAsFixed(1)} dBV",
+        style: const TextStyle(color: Colors.black, fontSize: 9),
       );
       textPainter.layout();
       textPainter.paint(
@@ -453,16 +472,21 @@ class FFTChartPainter extends CustomPainter {
       );
     }
 
-    // Draw data points with clipping
+    // Dibujamos los puntos de datos
     final path = Path();
     bool firstPoint = true;
-
     canvas.save();
     canvas.clipRect(chartArea);
 
     for (final point in fftPoints) {
-      final sx = toScreenX(point.x, chartArea.width, maxX);
-      final sy = toScreenY(point.y, chartArea.height, scaledMinY, scaledMaxY);
+      if (point.x > nyquistFreq) break;
+
+      final xRatio = (point.x.clamp(0.0, nyquistFreq) / (nyquistFreq * timeScale)) +
+          effectiveHorizontalOffset;
+      final sx = _offsetX + (xRatio * chartArea.width);
+
+      final normalizedY = (point.y - scaledMinY) / (scaledMaxY - scaledMinY);
+      final sy = _offsetY + chartArea.height * (1 - normalizedY);
 
       if (firstPoint) {
         path.moveTo(sx, sy);
@@ -475,24 +499,14 @@ class FFTChartPainter extends CustomPainter {
     canvas.drawPath(path, paint);
     canvas.restore();
 
-    // Draw border
+    // Dibujamos el borde
     canvas.drawRect(
-        chartArea,
-        Paint()
-          ..color = Colors.black
-          ..strokeWidth = 1
-          ..style = PaintingStyle.stroke);
-  }
-
-  double toScreenX(double x, double width, double maxX) {
-    return _offsetX +
-        ((x / (maxX * timeScale)) * width) +
-        (horizontalOffset * width);
-  }
-
-  double toScreenY(double y, double height, double minY, double maxY) {
-    final normalizedY = (y - minY) / (maxY - minY);
-    return _offsetY + height * (1 - normalizedY);
+      chartArea,
+      Paint()
+        ..color = Colors.black
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke,
+    );
   }
 
   @override

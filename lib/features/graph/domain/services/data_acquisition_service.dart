@@ -19,9 +19,6 @@ import '../../../socket/domain/services/socket_service.dart';
 import '../../../socket/domain/models/socket_connection.dart';
 import '../models/trigger_data.dart';
 
-// Configurations
-const Duration _reconnectionDelay = Duration(seconds: 5);
-
 // Message classes for isolate communication
 class SocketIsolateSetup {
   final SendPort sendPort;
@@ -366,11 +363,37 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       exitPort.close();
     });
 
-    try {
-      await socketService.connect(connection);
-      _setupSocketListener(socketService, setup.sendPort);
-    } catch (e) {
-      setup.sendPort.send({'type': 'connection_error', 'error': e.toString()});
+    bool isConnected = false;
+    int retryCount = 0;
+    const maxRetries = 3;
+
+    while (!isConnected && retryCount < maxRetries) {
+      try {
+        await socketService.connect(connection).timeout(
+              const Duration(seconds: 5),
+              onTimeout: () =>
+                  throw TimeoutException('Socket connection timeout'),
+            );
+
+        isConnected = true;
+        _setupSocketListener(socketService, setup.sendPort);
+
+        // Add error listener to detect disconnections
+        socketService.onError((error) {
+          setup.sendPort
+              .send({'type': 'connection_error', 'error': error.toString()});
+        });
+      } catch (e) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          setup.sendPort.send({
+            'type': 'connection_error',
+            'error': 'Failed to connect after $maxRetries attempts: $e'
+          });
+          return;
+        }
+        await Future.delayed(Duration(seconds: 1));
+      }
     }
   }
 
@@ -837,22 +860,28 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _isReconnecting = true;
 
     try {
-      // Mostrar popup de reconexión
       Get.snackbar(
         'Conexión perdida',
         'Intentando reconectar...',
         duration: const Duration(seconds: 5),
       );
 
-      final response = await httpService.get('/reset');
+      // Try to get new connection params from server
+      final response = await httpService.get('/reset').timeout(
+            const Duration(seconds: 5),
+            onTimeout: () => throw TimeoutException('Server not responding'),
+          );
+
       final newIp = response['ip'] as String;
       final newPort = response['port'] as int;
 
+      // Stop current connections
       await stopData();
+
+      // Restart with new params
       await fetchData(newIp, newPort);
 
       _isReconnecting = false;
-
       Get.snackbar(
         'Conexión restaurada',
         'La conexión se ha restablecido correctamente',
@@ -860,6 +889,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       );
     } catch (e) {
       print('Failed to reset connection: $e');
+      _isReconnecting = false;
       await dispose();
       Get.offAll(() => const SetupScreen());
     }

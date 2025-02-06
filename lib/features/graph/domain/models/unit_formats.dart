@@ -35,7 +35,8 @@ class UnitFormat {
     // Calculate how many decimal places we can show
     final integerPart = scaledValue.abs().floor();
     final integerDigits = integerPart == 0 ? 1 : integerPart.toString().length;
-    final maxDecimals = 3 - integerDigits;  // 3 digits max for numbers, leaving room for decimal point
+    final maxDecimals = 3 -
+        integerDigits; // 3 digits max for numbers, leaving room for decimal point
 
     return "${scaledValue.toStringAsFixed(maxDecimals)} $prefix$unit";
   }

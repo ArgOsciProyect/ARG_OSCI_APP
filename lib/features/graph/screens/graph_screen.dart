@@ -1,4 +1,5 @@
 // lib/features/graph/screens/graph_screen.dart
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../providers/data_acquisition_provider.dart';
@@ -33,6 +34,22 @@ class GraphScreen extends StatelessWidget {
     Get.put(controller, tag: 'trigger_level_controller');
 
     userSettingsProvider.setMode(graphMode);
+
+    // Ejecutar autoset después de la inicialización según el modo
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (graphMode == 'Oscilloscope') {
+        final size = Get.size;
+        graphProvider.autoset(size.height, size.width);
+        lineChartProvider.resetOffsets();
+      } else if (graphMode == 'FFT') {
+        final size = Get.size;
+        final fftProvider = Get.find<FFTChartProvider>();
+        final frequency = fftProvider.frequency.value > 0 
+            ? fftProvider.frequency.value 
+            : graphProvider.frequency.value;
+        fftProvider.autoset(size, frequency);
+      }
+    });
 
     return GraphScreen._(
       graphMode: graphMode,

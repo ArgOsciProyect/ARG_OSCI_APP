@@ -8,7 +8,9 @@ import '../repository/socket_repository.dart';
 class SocketService implements SocketRepository {
   Socket? _socket;
   final _controller = StreamController<List<int>>.broadcast();
+  final _errorController = StreamController<Object>.broadcast();
   final List<StreamSubscription<List<int>>> _subscriptions = [];
+  final List<StreamSubscription<Object>> _errorSubscriptions = [];
   final List<int> _buffer = [];
   final int _expectedPacketSize;
   @override
@@ -18,6 +20,11 @@ class SocketService implements SocketRepository {
 
   SocketService(this._expectedPacketSize);
 
+  void onError(void Function(Object) handler) {
+    final subscription = _errorController.stream.listen(handler);
+    _errorSubscriptions.add(subscription);
+  }
+
   @override
   Future<void> connect(SocketConnection connection) async {
     _socket = await Socket.connect(connection.ip.value, connection.port.value,
@@ -25,6 +32,11 @@ class SocketService implements SocketRepository {
     ip = connection.ip.value;
     port = connection.port.value;
     print("connected");
+
+    // Add error handler for socket
+    _socket!.handleError((error) {
+      _errorController.add(error);
+    });
   }
 
   @override
@@ -35,9 +47,11 @@ class SocketService implements SocketRepository {
           _processIncomingData(data);
         },
         onError: (error) {
+          _errorController.add(error);
           _controller.addError(error);
         },
         onDone: () {
+          _errorController.add(Exception('Socket connection closed'));
           _controller.close();
         },
       );
@@ -97,13 +111,22 @@ class SocketService implements SocketRepository {
 
   @override
   Future<void> close() async {
+    // Cancel error subscriptions
+    for (var subscription in _errorSubscriptions) {
+      await subscription.cancel();
+    }
+    _errorSubscriptions.clear();
+
+    // Cancel data subscriptions
     for (var subscription in _subscriptions) {
       await subscription.cancel();
     }
     _subscriptions.clear();
-    await socket?.flush();
+
+    await _socket?.flush();
     _socket?.destroy();
     await _controller.close();
+    await _errorController.close();
   }
 
   @override

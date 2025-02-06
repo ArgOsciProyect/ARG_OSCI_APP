@@ -228,18 +228,21 @@ class _ChartGestureHandler extends StatelessWidget {
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
-      // Pinch zoom
+      // Pinch zoom with bounds checking
+      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
       lineChartProvider.handleZoom(
         details,
         constraints.biggest,
         _offsetX,
       );
     } else if (details.pointerCount == 1) {
-      // Pan
-      lineChartProvider.setHorizontalOffset(
-        lineChartProvider.horizontalOffset +
-            details.focalPointDelta.dx / constraints.maxWidth,
-      );
+      // Pan with bounds checking
+      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      final newHorizontalOffset = lineChartProvider.horizontalOffset +
+          details.focalPointDelta.dx / constraints.maxWidth;
+
+      lineChartProvider.setHorizontalOffset(newHorizontalOffset);
+
       lineChartProvider.setVerticalOffset(
         lineChartProvider.verticalOffset -
             details.focalPointDelta.dy / constraints.maxHeight,
