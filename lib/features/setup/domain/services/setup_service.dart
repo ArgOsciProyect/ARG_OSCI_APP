@@ -250,7 +250,8 @@ class SetupService implements SetupRepository {
 
     for (int i = 0; i < maxTestRetries; i++) {
       try {
-        final response = await localHttpService
+        // print("Posting to: ${globalHttpConfig.baseUrl}");
+        final response = await HttpService(globalHttpConfig)
             .post('/test', testRequest)
             .timeout(const Duration(seconds: 2));
 
