@@ -4,7 +4,6 @@ import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:encrypt/encrypt.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:pointycastle/export.dart';
@@ -21,8 +20,10 @@ import 'package:wifi_iot/wifi_iot.dart';
 
 class NetworkInfoService {
   final NetworkInfo _networkInfo = NetworkInfo();
-  final _httpClient = http.Client();
+  final HttpService _httpService;
   static const String _baseUrl = 'http://192.168.4.1:81';
+
+  NetworkInfoService() : _httpService = HttpService(HttpConfig(_baseUrl));
 
   Future<bool> connectWithRetries() async {
     const maxRetries = 5;
@@ -47,16 +48,14 @@ class NetworkInfoService {
 
   Future<bool> testConnection() async {
     try {
-      final response = await _httpClient
-          .get(
-            Uri.parse('$_baseUrl/testConnect'),
-          )
-          .timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => throw TimeoutException('Connection timed out'),
-          );
-
-      return response.statusCode == 200;
+      await _httpService.get('/testConnect').timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => throw TimeoutException('Connection timed out'),
+      );
+      return true;
+    } on TimeoutException catch (e) {
+      print('Test connection timed out: $e');
+      return false;
     } catch (e) {
       print('Test connection failed: $e');
       return false;
@@ -64,21 +63,12 @@ class NetworkInfoService {
   }
 
   Future<bool> connectToESP32() async {
-    if (!Platform.isAndroid) {
-      // Instead of returning false, throw meaningful exception
-      throw PlatformException(
-          code: 'UNSUPPORTED_PLATFORM',
-          message: 'Auto-connect is only supported on Android');
-    }
+    if (!Platform.isAndroid) return false;
 
     try {
-      print("Attempting to connect to ESP32_AP...");
+      print("Attempting to connect to ESP32_AP using IoT plugin...");
 
-      // Reduced retry attempts for faster failure
-      const maxRetries = 15;
-      const checkInterval = Duration(seconds: 1);
-
-      // First try WiFiForIoTPlugin
+      // First attempt: Try WiFiForIoTPlugin
       bool connected = await WiFiForIoTPlugin.connect(
         'ESP32_AP',
         password: 'password123',
@@ -87,24 +77,51 @@ class NetworkInfoService {
         withInternet: false,
       );
 
-      if (connected && await testConnection()) {
-        return true;
-      }
+      if (connected) {
+        print("WiFi connection successful via IoT plugin");
+        await Future.delayed(const Duration(seconds: 2));
 
-      // Fallback to traditional method
-      for (int i = 0; i < maxRetries; i++) {
-        String? currentSSID = await getWifiName();
-        if (currentSSID?.contains('ESP32_AP') == true) {
+        if (await WiFiForIoTPlugin.forceWifiUsage(true)) {
           if (await testConnection()) {
+            print("Connection verified successfully via IoT plugin");
             return true;
           }
         }
-        await Future.delayed(checkInterval);
       }
 
-      throw TimeoutException('Failed to connect to ESP32_AP');
+      // Fallback method: Traditional SSID verification
+      print("IoT plugin connection failed, trying traditional method...");
+
+      const maxRetries = 30;
+      const checkInterval = Duration(seconds: 1);
+
+      for (int i = 0; i < maxRetries; i++) {
+        String? currentSSID = await getWifiName();
+        if (currentSSID != null) {
+          currentSSID = currentSSID.replaceAll('"', '');
+
+          if (currentSSID.startsWith('ESP32_AP')) {
+            print("Connected to ESP32_AP via traditional method");
+
+            // Test the connection
+            if (await testConnection()) {
+              print("Connection verified successfully via traditional method");
+              return true;
+            }
+          }
+        }
+
+        if (i < maxRetries - 1) {
+          print("Waiting for ESP32_AP connection... (${i + 1}/$maxRetries)");
+          await Future.delayed(checkInterval);
+        }
+      }
+
+      print("Failed to connect via both methods");
+      return false;
     } catch (e) {
-      throw SetupException('ESP32 connection failed: $e');
+      print('Error connecting to ESP32: $e');
+      return false;
     }
   }
 
@@ -235,10 +252,6 @@ class SetupService implements SetupRepository {
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client}) async {
     print("Testing connection to network");
-
-    if (Platform.isAndroid) {
-      await WiFiForIoTPlugin.forceWifiUsage(false);
-    }
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
