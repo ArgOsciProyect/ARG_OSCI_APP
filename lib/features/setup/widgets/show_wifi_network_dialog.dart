@@ -1,7 +1,7 @@
 import 'package:arg_osci_app/features/setup/domain/models/setup_status.dart';
+import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/setup_provider.dart';
 
 Future<void> showWiFiNetworkDialog() async {
   final controller = Get.find<SetupProvider>();

@@ -9,6 +9,7 @@ import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
@@ -122,8 +123,10 @@ class MockSocketService extends Mock implements SocketService {
   @override
   Future<void> connect(SocketConnection connection) async {
     // Simular conexión exitosa
-    print(
-        "MockSocketService: connect called with ${connection.ip.value}:${connection.port.value}");
+    if (kDebugMode) {
+      print(
+          "MockSocketService: connect called with ${connection.ip.value}:${connection.port.value}");
+    }
     // Puedes agregar lógica adicional si es necesario
     return;
   }
@@ -145,7 +148,9 @@ class MockSocketService extends Mock implements SocketService {
   @override
   Future<void> sendMessage(String message) async {
     // Simular envío de mensaje
-    print("MockSocketService: sendMessage called with $message");
+    if (kDebugMode) {
+      print("MockSocketService: sendMessage called with $message");
+    }
   }
 
   @override
@@ -165,32 +170,13 @@ class MockSocketService extends Mock implements SocketService {
 
 class MockHttpService extends Mock implements HttpService {
   double? lastTriggerPercentage;
+  String? lastGetEndpoint;
+  String? lastPostEndpoint;
+  Map<String, dynamic>? lastPostData;
 
   @override
-  Future<Response<dynamic>> post(String path, [dynamic data]) async {
-    if (path == '/trigger' && data != null) {
-      //     print('MockHttpService.post called with path: $path, data: $data');
-
-      if (data['trigger_percentage'] != null) {
-        // Asegurar que lastTriggerPercentage sea double
-        lastTriggerPercentage = (data['trigger_percentage'] as num).toDouble();
-        //       print('Setting lastTriggerPercentage to: $lastTriggerPercentage');
-
-        return Response(
-          body: {
-            'status': 'success',
-            'set_percentage': lastTriggerPercentage!
-                .toInt(), // Convertir a int para la respuesta
-          },
-          statusCode: 200,
-        );
-      }
-    }
-    throw Exception('Invalid trigger data');
-  }
-
-  @override
-  Future<Response<dynamic>> get(String path) async {
+  Future<Response> get(String path) async {
+    lastGetEndpoint = path;
     switch (path) {
       case '/config':
         return Response(
@@ -204,9 +190,40 @@ class MockHttpService extends Mock implements HttpService {
           },
           statusCode: 200,
         );
+      case '/reset':
+        return Response(
+          body: {'ip': '127.0.0.1', 'port': 8080},
+          statusCode: 200,
+        );
+      case '/single':
+      case '/normal':
+        return Response(
+          body: {'status': 'success'},
+          statusCode: 200,
+        );
       default:
         throw Exception('Unknown endpoint');
     }
+  }
+
+  @override
+  Future<Response> post(String path, [dynamic data]) async {
+    lastPostEndpoint = path;
+    lastPostData = data as Map<String, dynamic>?;
+
+    if (path == '/trigger' && data != null) {
+      if (data['trigger_percentage'] != null) {
+        lastTriggerPercentage = (data['trigger_percentage'] as num).toDouble();
+        return Response(
+          body: {
+            'status': 'success',
+            'set_percentage': lastTriggerPercentage!.toInt(),
+          },
+          statusCode: 200,
+        );
+      }
+    }
+    throw Exception('Invalid trigger data');
   }
 }
 
@@ -275,7 +292,7 @@ void main() {
 
   group('Voltage Scale Handling', () {
     test('should correctly set and update voltage scale', () {
-      final newScale = VoltageScales.volts_2;
+      const newScale = VoltageScales.volts_2;
 
       service.setVoltageScale(newScale);
 
@@ -1066,6 +1083,35 @@ void main() {
   });
 
   group('Socket and Processing Isolate', () {
+    test('should handle single trigger request', () async {
+      final mockHttpService = Get.find<HttpService>() as MockHttpService;
+      await service.sendSingleTriggerRequest();
+      expect(mockHttpService.lastGetEndpoint, equals('/single'));
+    });
+
+    test('should handle normal trigger request', () async {
+      final mockHttpService = Get.find<HttpService>() as MockHttpService;
+      await service.sendNormalTriggerRequest();
+      expect(mockHttpService.lastGetEndpoint, equals('/normal'));
+    });
+    test('should handle config messaging', () async {
+      // Probar actualización de configuración
+      service.scale = 2.0;
+      service.triggerLevel = 1.0;
+      service.triggerEdge = TriggerEdge.negative;
+      service.useHysteresis = true;
+      service.useLowPassFilter = true;
+      service.triggerMode = TriggerMode.single;
+
+      // Verificar que los valores se actualizaron
+      expect(service.scale, equals(2.0));
+      expect(service.triggerLevel, equals(1.0));
+      expect(service.triggerEdge, equals(TriggerEdge.negative));
+      expect(service.useHysteresis, isTrue);
+      expect(service.useLowPassFilter, isTrue);
+      expect(service.triggerMode, equals(TriggerMode.single));
+    });
+
     test('should initialize with default values', () async {
       expect(service.scale, isNotNull);
       expect(service.distance, isNotNull);
@@ -1217,6 +1263,35 @@ void main() {
   });
 
   group('Configuration Updates', () {
+    test('should copy config with selected fields', () {
+      final config = DataProcessingConfig(
+        scale: 1.0,
+        distance: 1.0,
+        triggerLevel: 0.0,
+        triggerEdge: TriggerEdge.positive,
+        mid: 256.0,
+        deviceConfig: mockDeviceConfigProvider.config!,
+      );
+
+      final newConfig = config.copyWith(
+        scale: 2.0,
+        triggerLevel: 1.0,
+        triggerEdge: TriggerEdge.negative,
+        useHysteresis: false,
+        useLowPassFilter: false,
+        triggerMode: TriggerMode.single,
+      );
+
+      expect(newConfig.scale, 2.0);
+      expect(newConfig.triggerLevel, 1.0);
+      expect(newConfig.triggerEdge, TriggerEdge.negative);
+      expect(newConfig.useHysteresis, false);
+      expect(newConfig.useLowPassFilter, false);
+      expect(newConfig.triggerMode, TriggerMode.single);
+      expect(newConfig.distance, config.distance);
+      expect(newConfig.mid, config.mid);
+      expect(newConfig.deviceConfig, config.deviceConfig);
+    });
     test('should toggle hysteresis', () {
       service.useHysteresis = true;
       expect(service.useHysteresis, isTrue);
@@ -1277,6 +1352,20 @@ void main() {
   });
 
   group('Resource Management', () {
+    test('should clean up resources on stop', () async {
+      await service.fetchData('127.0.0.1', 8080);
+
+      // Verificar estado inicial
+      final subscription = service.dataStream.listen((_) {});
+      expect(() => subscription.cancel(), returnsNormally);
+
+      await service.stopData();
+
+      // Verificar limpieza
+      final newSubscription = service.dataStream.listen((_) {});
+      expect(newSubscription, isNotNull);
+      await newSubscription.cancel();
+    });
     test('should clean up processing isolate', () async {
       final exitPort = ReceivePort();
       service.processingIsolate?.addOnExitListener(exitPort.sendPort);
@@ -1357,6 +1446,19 @@ void main() {
   });
 
   group('Error Handling', () {
+    test('should handle initialization errors', () {
+      Get.reset();
+
+      // No registramos el DeviceConfigProvider para forzar el error
+      expect(
+        () => DataAcquisitionService(mockHttpConfig).initialize(),
+        throwsA(isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('Failed to initialize DataAcquisitionService'),
+        )),
+      );
+    });
     test('should handle empty data in processData', () {
       final queue = Queue<int>();
       final points = DataAcquisitionService.processDataForTest(

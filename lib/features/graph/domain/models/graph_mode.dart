@@ -1,21 +1,37 @@
-// lib/features/graph/domain/models/graph_mode.dart
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
 import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
 import 'package:flutter/material.dart';
 
+/// Base class defining display modes for the oscilloscope
 abstract class GraphMode {
+  /// Short name identifier for this mode
   String get name;
+
+  /// Display title shown in the UI
   String get title;
+
+  /// Builds the chart widget for this mode
   Widget buildChart();
+
+  /// Whether to show trigger control panel
   bool get showTriggerControls;
+
+  /// Whether to show timebase control panel
   bool get showTimebaseControls;
+
+  /// Whether to show mode-specific controls
   bool get showCustomControls;
+
+  /// Called when switching to this mode
   void onActivate();
+
+  /// Called when switching away from this mode
   void onDeactivate();
 }
 
+/// Time domain oscilloscope display mode
 class OscilloscopeMode extends GraphMode {
   final LineChartService lineChartService;
 
@@ -46,6 +62,7 @@ class OscilloscopeMode extends GraphMode {
   void onDeactivate() => lineChartService.pause();
 }
 
+/// Frequency domain FFT display mode
 class FFTMode extends GraphMode {
   final FFTChartService fftChartService;
 

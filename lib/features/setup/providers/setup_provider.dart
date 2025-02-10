@@ -1,8 +1,8 @@
-// lib/features/setup/providers/setup_provider.dart
 import 'package:arg_osci_app/features/setup/domain/models/setup_status.dart';
+import 'package:arg_osci_app/features/setup/domain/models/wifi_credentials.dart';
+import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import '../domain/models/wifi_credentials.dart';
-import '../domain/services/setup_service.dart';
 
 class SetupProvider extends GetxController {
   final SetupService setupService;
@@ -50,7 +50,9 @@ class SetupProvider extends GetxController {
 
   Future<void> connectToExternalAP(String ssid, String password) async {
     int attempts = 0;
-    print("Connecting ESP32 to ExternalAP");
+    if (kDebugMode) {
+      print("Connecting ESP32 to ExternalAP");
+    }
     try {
       _updateState((s) => s.copyWith(status: SetupStatus.configuring));
 
@@ -60,7 +62,9 @@ class SetupProvider extends GetxController {
 
       while (attempts < maxRetries) {
         attempts++;
-        print("Connection attempt $attempts/$maxRetries");
+        if (kDebugMode) {
+          print("Connection attempt $attempts/$maxRetries");
+        }
 
         try {
           final success = await setupService.connectToWiFi(credentials);

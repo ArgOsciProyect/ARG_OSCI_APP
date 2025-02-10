@@ -1,12 +1,11 @@
-// lib/features/graph/widgets/user_settings.dart
+import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/data_acquisition_provider.dart';
-import '../providers/line_chart_provider.dart';
-import '../domain/models/trigger_data.dart';
-import '../domain/models/filter_types.dart';
-import '../domain/models/voltage_scale.dart';
 
 class UserSettings extends StatelessWidget {
   final DataAcquisitionProvider graphProvider;

@@ -51,6 +51,7 @@ void main() {
     server.listen((client) {
       client.listen((data) {
         final message = utf8.decode(data);
+        // ignore: unnecessary_string_escapes
         expect(message, equals(utf8.encode('Hello World\0').toString()));
       });
     });

@@ -1,11 +1,10 @@
-// lib/features/graph/screens/graph_screen.dart
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/graph/widgets/user_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/data_acquisition_provider.dart';
-import '../widgets/user_settings.dart';
-import '../providers/line_chart_provider.dart';
-import '../providers/user_settings_provider.dart';
 
 class GraphScreen extends StatelessWidget {
   final String graphMode;

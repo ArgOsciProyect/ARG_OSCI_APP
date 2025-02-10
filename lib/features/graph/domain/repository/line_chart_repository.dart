@@ -1,27 +1,36 @@
-// lib/features/graph/domain/repository/line_chart_repository.dart
 import 'dart:async';
-import '../models/data_point.dart';
 
-// In LineChartRepository, add missing methods:
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
+
+/// Repository interface for real-time line chart display functionality
 abstract class LineChartRepository {
-  /// Stream of filtered data points
+  /// Stream of processed data points for chart display
+  /// Returns continuous time-domain signal measurements
   Stream<List<DataPoint>> get dataStream;
 
-  /// Gets the pause state of the chart
+  /// Whether chart updating is currently paused
   bool get isPaused;
 
-  /// Gets the time between samples (1/sampling frequency)
+  /// Time interval between samples in seconds
+  /// Calculated as 1/sampling_frequency
   double get distance;
 
-  /// Pauses the data stream
+  /// Updates data source provider
+  /// [provider] New data acquisition provider to use
+  void updateProvider(DataAcquisitionProvider provider);
+
+  /// Pauses chart updates while maintaining current display
   void pause();
 
-  /// Resumes the data stream
+  /// Resumes normal chart updating
   void resume();
 
-  /// Clears current data and waits for new trigger
+  /// Clears display and resumes waiting for next trigger event
+  /// Used in single trigger mode to prepare for next capture
   void resumeAndWaitForTrigger();
 
-  /// Disposes of resources
+  /// Releases all resources used by chart
+  /// Should be called when chart is no longer needed
   Future<void> dispose();
 }

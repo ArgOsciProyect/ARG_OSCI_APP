@@ -1,11 +1,10 @@
-// lib/features/graph/services/fft_chart_service.dart
 import 'dart:async';
-import 'dart:typed_data';
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-import '../models/data_point.dart';
-import '../../providers/data_acquisition_provider.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
 
@@ -27,27 +26,29 @@ class FFTChartService {
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
 
   FFTChartService(this._graphProvider) {
-    print("Starting FFT Service");
+    if (kDebugMode) {
+      print("Starting FFT Service");
+    }
     blockSize = deviceConfig.samplesPerPacket * 2;
     _setupSubscriptions();
   }
 
   double get frequency {
     if (_lastFFTPoints.isEmpty) return 0.0;
-  
+
     // Parameters for peak detection
     const minPeakHeight = -160.0; // Adjusted threshold for dB scale
-    const minAmplitude = 0.001;  // Minimum amplitude threshold
+    const minAmplitude = 0.001; // Minimum amplitude threshold
     const startIndex = 1;
-  
+
     // First check if signal amplitude is too low
     if (_currentMaxValue < minAmplitude) {
       return 0.0;
     }
-  
+
     var maxIndex = 0;
     var maxMagnitude = -160.0;
-  
+
     // First find valid positive slope
     var validSlopeIndex = -1;
     for (var i = startIndex; i < _lastFFTPoints.length - 1; i++) {
@@ -56,13 +57,13 @@ class FFTChartService {
         break;
       }
     }
-  
+
     // Only look for peaks after valid slope
     if (validSlopeIndex >= 0) {
       for (var i = validSlopeIndex; i < _lastFFTPoints.length - 1; i++) {
         final currentMagnitude = _lastFFTPoints[i].y;
         final nextMagnitude = _lastFFTPoints[i + 1].y;
-  
+
         if (currentMagnitude > minPeakHeight &&
             currentMagnitude > maxMagnitude &&
             currentMagnitude > nextMagnitude) {
@@ -71,37 +72,37 @@ class FFTChartService {
         }
       }
     }
-  
+
     // Return 0 if no significant peak found
     if (maxMagnitude < minPeakHeight) {
       return 0.0;
     }
-  
+
     return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
 
   void _setupSubscriptions() {
     _dataPointsSubscription?.cancel();
-  
+
     if (_graphProvider != null) {
       _dataPointsSubscription = _graphProvider!.dataPointsStream.listen(
         (points) {
           if (_isProcessing || _isPaused) return;
-  
+
           // Validate input points
           if (points.isEmpty) {
             _fftController.addError(StateError('Empty points list'));
             return;
           }
-  
+
           _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
           _dataBuffer.addAll(points);
-  
+
           if (_dataBuffer.length >= blockSize) {
             _isProcessing = true;
             final dataToProcess = _dataBuffer.sublist(0, blockSize);
             _dataBuffer.clear();
-  
+
             try {
               final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
               if (!_isPaused) {
@@ -120,6 +121,7 @@ class FFTChartService {
       );
     }
   }
+
   void updateProvider(DataAcquisitionProvider provider) {
     _graphProvider = provider;
     _setupSubscriptions();
@@ -133,11 +135,11 @@ class FFTChartService {
       if (points.isEmpty) {
         throw ArgumentError('Empty points list');
       }
-      
+
       final n = points.length;
       final real = Float32List(n);
       final imag = Float32List(n);
-  
+
       // Load data points with validation
       for (var i = 0; i < n; i++) {
         final value = points[i].y;
@@ -147,40 +149,40 @@ class FFTChartService {
         real[i] = value;
         imag[i] = 0.0;
       }
-  
+
       // Perform FFT with error handling
       try {
         _fft(real, imag);
       } catch (e) {
         throw StateError('FFT computation failed: $e');
       }
-  
+
       // Normalize with validation
       for (var i = 0; i < n; i++) {
         if (n == 0) throw StateError('Division by zero in normalization');
         real[i] /= n;
         imag[i] /= n;
       }
-  
+
       // Calculate frequency domain points
       final halfLength = (n / 2).ceil();
       final samplingRate = deviceConfig.samplingFrequency;
       final freqResolution = samplingRate / n;
-  
+
       _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
         final re = real[i];
         final im = imag[i];
-        
+
         // Validate complex values
         if (re.isInfinite || re.isNaN || im.isInfinite || im.isNaN) {
           throw StateError('Invalid FFT result at index $i');
         }
-        
+
         final magnitude = math.sqrt(re * re + im * im);
         final db = _outputInDb ? _toDecibels(magnitude, maxValue) : magnitude;
         return DataPoint(i * freqResolution, db);
       });
-  
+
       return _lastFFTPoints;
     } catch (e) {
       // Propagar error con contexto

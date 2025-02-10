@@ -1,6 +1,5 @@
-// lib/features/setup/providers/device_config_provider.dart
+import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:get/get.dart';
-import '../../graph/domain/models/device_config.dart';
 
 class DeviceConfigProvider extends GetxController {
   final _config = Rx<DeviceConfig?>(DeviceConfig(

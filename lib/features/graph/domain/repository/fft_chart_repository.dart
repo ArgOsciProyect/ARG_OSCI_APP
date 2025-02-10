@@ -1,35 +1,44 @@
-// lib/features/graph/domain/repository/fft_chart_repository.dart
 import 'dart:async';
-import '../models/data_point.dart';
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
+/// Repository interface for FFT (Fast Fourier Transform) chart functionality
 abstract class FFTChartRepository {
   /// Stream of processed FFT data points
+  /// Returns frequency domain representation of time-domain signals
   Stream<List<DataPoint>> get fftStream;
 
-  /// Gets the current output format (dB or linear)
-  bool get outputInDb;
+  /// Current frequency calculated from FFT data
+  /// Returns dominant frequency in Hz, or 0 if no significant peak found
+  double get frequency;
 
   /// Block size for FFT processing
-  /// Obtained from device configuration
+  /// Number of samples used in each FFT computation
   int get blockSize;
 
-  /// Sets the output format
-  /// [inDb] true for decibel output, false for linear
-  void setOutputFormat(bool inDb);
+  /// Current maximum signal value
+  /// Used for decibel calculations and scaling
+  double get currentMaxValue;
 
-  /// Pauses FFT processing
+  /// Whether FFT processing is currently paused
+  bool get isPaused;
+
+  /// Updates data provider used as signal source
+  /// [provider] New data provider to use
+  void updateProvider(DataAcquisitionProvider provider);
+
+  /// Computes FFT for given data points
+  /// [points] Time domain data points to transform
+  /// [maxValue] Maximum signal value for normalization
+  /// Returns frequency domain representation
+  List<DataPoint> computeFFT(List<DataPoint> points, double maxValue);
+
+  /// Pauses FFT processing and clears buffers
   void pause();
 
   /// Resumes FFT processing
   void resume();
 
-  /// Computes FFT for given data points and max value
-  ///
-  /// [points] List of data points to process
-  /// [maxValue] Maximum value for dB calculation
-  /// Returns FFT processed data points
-  List<DataPoint> computeFFT(List<DataPoint> points, double maxValue);
-
-  /// Disposes resources
+  /// Releases resources used by FFT processor
   Future<void> dispose();
 }

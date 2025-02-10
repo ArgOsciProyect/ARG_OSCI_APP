@@ -1,20 +1,20 @@
-// lib/features/setup/domain/services/setup_service.dart
 import 'dart:async';
 
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
+import 'package:arg_osci_app/features/setup/domain/models/wifi_credentials.dart';
+import 'package:arg_osci_app/features/setup/domain/repository/setup_repository.dart';
+import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:encrypt/encrypt.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:pointycastle/export.dart';
 import 'package:network_info_plus/network_info_plus.dart';
-import '../../../socket/domain/models/socket_connection.dart';
-import '../../../http/domain/services/http_service.dart';
-import '../../../http/domain/models/http_config.dart';
 import 'package:http/http.dart' as http;
-import '../models/wifi_credentials.dart';
-import '../repository/setup_repository.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:wifi_iot/wifi_iot.dart';
@@ -31,19 +31,25 @@ class NetworkInfoService {
     const retryDelay = Duration(seconds: 1);
 
     for (int attempt = 0; attempt < maxRetries; attempt++) {
-      print("Connection attempt ${attempt + 1}/$maxRetries");
+      if (kDebugMode) {
+        print("Connection attempt ${attempt + 1}/$maxRetries");
+      }
 
       if (await connectToESP32()) {
         return true;
       }
 
       if (attempt < maxRetries - 1) {
-        print("Retrying in ${retryDelay.inSeconds} second...");
+        if (kDebugMode) {
+          print("Retrying in ${retryDelay.inSeconds} second...");
+        }
         await Future.delayed(retryDelay);
       }
     }
 
-    print("Failed to connect after $maxRetries attempts");
+    if (kDebugMode) {
+      print("Failed to connect after $maxRetries attempts");
+    }
     return false;
   }
 
@@ -55,10 +61,14 @@ class NetworkInfoService {
           );
       return true;
     } on TimeoutException catch (e) {
-      print('Test connection timed out: $e');
+      if (kDebugMode) {
+        print('Test connection timed out: $e');
+      }
       return false;
     } catch (e) {
-      print('Test connection failed: $e');
+      if (kDebugMode) {
+        print('Test connection failed: $e');
+      }
       return false;
     }
   }
@@ -71,7 +81,9 @@ class NetworkInfoService {
       const pluginRetries = 5;
       const pluginInterval = Duration(seconds: 1);
 
-      print("Attempting to connect to ESP32_AP using IoT plugin...");
+      if (kDebugMode) {
+        print("Attempting to connect to ESP32_AP using IoT plugin...");
+      }
 
       for (int i = 0; i < pluginRetries; i++) {
         try {
@@ -85,32 +97,42 @@ class NetworkInfoService {
           );
 
           if (connected) {
-            print("WiFi connection successful via IoT plugin");
+            if (kDebugMode) {
+              print("WiFi connection successful via IoT plugin");
+            }
             await Future.delayed(const Duration(seconds: 2));
 
             if (await WiFiForIoTPlugin.forceWifiUsage(true)
                 .timeout(const Duration(seconds: 5))) {
               if (await testConnection().timeout(const Duration(seconds: 5))) {
-                print("Connection verified successfully via IoT plugin");
+                if (kDebugMode) {
+                  print("Connection verified successfully via IoT plugin");
+                }
                 return true;
               }
             }
           }
 
           if (i < pluginRetries - 1) {
-            print(
-                "Plugin connection attempt ${i + 1}/$pluginRetries failed, retrying...");
+            if (kDebugMode) {
+              print(
+                  "Plugin connection attempt ${i + 1}/$pluginRetries failed, retrying...");
+            }
             await Future.delayed(pluginInterval);
           }
         } catch (e) {
-          print('Plugin connection error on attempt ${i + 1}: $e');
+          if (kDebugMode) {
+            print('Plugin connection error on attempt ${i + 1}: $e');
+          }
           if (i == pluginRetries - 1) break;
           await Future.delayed(pluginInterval);
         }
       }
 
       // Fallback: Traditional SSID verification with 30 retries
-      print("IoT plugin connection failed, trying traditional method...");
+      if (kDebugMode) {
+        print("IoT plugin connection failed, trying traditional method...");
+      }
       //Snackbar asking to connecto to ESP32 net manually
       SnackBar(
           content: Text(
@@ -125,32 +147,44 @@ class NetworkInfoService {
             currentSSID = currentSSID.replaceAll('"', '');
 
             if (currentSSID.startsWith('ESP32_AP')) {
-              print("Connected to ESP32_AP via traditional method");
+              if (kDebugMode) {
+                print("Connected to ESP32_AP via traditional method");
+              }
 
               if (await testConnection()) {
-                print(
-                    "Connection verified successfully via traditional method");
+                if (kDebugMode) {
+                  print(
+                      "Connection verified successfully via traditional method");
+                }
                 return true;
               }
             }
           }
 
           if (i < traditionalRetries - 1) {
-            print(
-                "Waiting for ESP32_AP connection... (${i + 1}/$traditionalRetries)");
+            if (kDebugMode) {
+              print(
+                  "Waiting for ESP32_AP connection... (${i + 1}/$traditionalRetries)");
+            }
             await Future.delayed(checkInterval);
           }
         } catch (e) {
-          print('Traditional method error on attempt ${i + 1}: $e');
+          if (kDebugMode) {
+            print('Traditional method error on attempt ${i + 1}: $e');
+          }
           if (i == traditionalRetries - 1) break;
           await Future.delayed(checkInterval);
         }
       }
 
-      print("Failed to connect via both methods");
+      if (kDebugMode) {
+        print("Failed to connect via both methods");
+      }
       return false;
     } catch (e) {
-      print('Fatal error connecting to ESP32: $e');
+      if (kDebugMode) {
+        print('Fatal error connecting to ESP32: $e');
+      }
       return false;
     }
   }
@@ -186,6 +220,7 @@ class SetupService implements SetupRepository {
     localHttpService = HttpService(globalHttpConfig);
   }
 
+  @override
   Future<void> fetchDeviceConfig() async {
     final response = await HttpService(globalHttpConfig).get('/config');
     final config = DeviceConfig.fromJson(response);
@@ -206,7 +241,9 @@ class SetupService implements SetupRepository {
 
   @override
   Future<bool> connectToWiFi(WiFiCredentials credentials) async {
-    print("Connecting ESP32 to WiFi");
+    if (kDebugMode) {
+      print("Connecting ESP32 to WiFi");
+    }
     try {
       final response = await localHttpService
           .post('/connect_wifi', credentials.toJson())
@@ -219,8 +256,12 @@ class SetupService implements SetupRepository {
       extIp = response['IP'];
       extPort = response['Port'];
 
-      print("ip recibido: $extIp");
-      print("port recibido: $extPort");
+      if (kDebugMode) {
+        print("ip recibido: $extIp");
+      }
+      if (kDebugMode) {
+        print("port recibido: $extPort");
+      }
       return true;
     } on TimeoutException {
       throw SetupException('Connection attempt timed out');
@@ -281,7 +322,9 @@ class SetupService implements SetupRepository {
   @override
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client}) async {
-    print("Testing connection to network");
+    if (kDebugMode) {
+      print("Testing connection to network");
+    }
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
 
@@ -299,22 +342,30 @@ class SetupService implements SetupRepository {
             .timeout(const Duration(seconds: 2));
 
         if (response['decrypted'] == testWord) {
-          print("Connection verified - correct network");
+          if (kDebugMode) {
+            print("Connection verified - correct network");
+          }
           await initializeGlobalSocketConnection(extIp, extPort);
           return;
         } else {
-          print("Connection test failed: incorrect response");
-          print("Expected: $testWord, Received: ${response['decrypted']}");
-          print("Crude Response: $response");
+          if (kDebugMode) {
+            print("Connection test failed: incorrect response");
+            print("Expected: $testWord, Received: ${response['decrypted']}");
+            print("Crude Response: $response");
+          }
         }
       } on TimeoutException {
-        print("Connection test attempt ${i + 1} timed out");
+        if (kDebugMode) {
+          print("Connection test attempt ${i + 1} timed out");
+        }
         if (i == maxTestRetries - 1) {
           throw TimeoutException('Failed to verify connection - timeout');
         }
         await Future.delayed(const Duration(seconds: 1));
       } catch (e) {
-        print("Connection test attempt ${i + 1} failed: $e");
+        if (kDebugMode) {
+          print("Connection test attempt ${i + 1} failed: $e");
+        }
         if (i == maxTestRetries - 1) {
           throw Exception(
               'Failed to verify connection after $maxTestRetries attempts');
@@ -334,8 +385,10 @@ class SetupService implements SetupRepository {
         throw Exception('Failed to connect to ESP32_AP');
       }
       await Future.delayed(const Duration(seconds: 2));
-      print(await _networkInfo.getWifiName());
-      print(await _networkInfo.getWifiIP());
+      if (kDebugMode) {
+        print(await _networkInfo.getWifiName());
+        print(await _networkInfo.getWifiIP());
+      }
     } else {
       while (true) {
         String? wifiName = await _networkInfo.getWifiName();
@@ -347,7 +400,9 @@ class SetupService implements SetupRepository {
           break;
         }
 
-        print('Please connect manually to ESP32_AP network');
+        if (kDebugMode) {
+          print('Please connect manually to ESP32_AP network');
+        }
         await Future.delayed(const Duration(seconds: 1));
       }
     }
@@ -368,7 +423,9 @@ class SetupService implements SetupRepository {
       if (Platform.isAndroid && wifiName != null) {
         wifiName = wifiName.replaceAll('"', '');
       }
-      print("Current WiFi: $wifiName, Expected WiFi: $ssid");
+      if (kDebugMode) {
+        print("Current WiFi: $wifiName, Expected WiFi: $ssid");
+      }
     }
   }
 }

@@ -1,15 +1,13 @@
-// lib/features/graph/providers/user_settings_provider.dart
-
 import 'dart:async';
+import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/screens/graph_screen.dart';
+import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
+import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../domain/services/line_chart_service.dart';
-import '../domain/services/fft_chart_service.dart';
-import '../widgets/line_chart.dart';
-import '../widgets/fft_chart.dart';
-import '../screens/graph_screen.dart';
-import './data_acquisition_provider.dart';
-import './fft_chart_provider.dart';
 
 enum FrequencySource { timeDomain, fft }
 

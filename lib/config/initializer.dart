@@ -1,18 +1,19 @@
-// lib/config/initializer.dart
+import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
+import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
+import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
+import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import '../features/http/domain/models/http_config.dart';
-import '../features/socket/domain/models/socket_connection.dart';
-import '../features/setup/domain/services/setup_service.dart';
-import '../features/setup/providers/setup_provider.dart';
-import '../features/graph/domain/services/data_acquisition_service.dart';
-import '../features/graph/providers/data_acquisition_provider.dart';
-import '../features/graph/domain/services/fft_chart_service.dart';
-import '../features/graph/providers/fft_chart_provider.dart';
-import '../features/graph/domain/services/line_chart_service.dart';
-import '../features/graph/providers/line_chart_provider.dart';
+
 
 class Initializer {
   static Future<void> init() async {
@@ -74,7 +75,9 @@ class Initializer {
       Get.put<SetupService>(setupService);
       Get.put<SetupProvider>(setupProvider);
     } catch (e) {
-      print('Error during initialization: $e');
+      if (kDebugMode) {
+        print('Error during initialization: $e');
+      }
       rethrow;
     }
   }

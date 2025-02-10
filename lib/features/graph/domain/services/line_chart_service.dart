@@ -1,12 +1,10 @@
-// lib/features/graph/services/line_chart_service.dart
 import 'dart:async';
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/repository/line_chart_repository.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:get/get.dart';
-
-import '../models/data_point.dart';
-import '../../providers/data_acquisition_provider.dart';
 
 class LineChartService implements LineChartRepository {
   DataAcquisitionProvider? _graphProvider;
@@ -69,6 +67,7 @@ class LineChartService implements LineChartRepository {
     _isPaused = false;
   }
 
+  @override
   void updateProvider(DataAcquisitionProvider provider) {
     _graphProvider = provider;
     _setupSubscriptions();

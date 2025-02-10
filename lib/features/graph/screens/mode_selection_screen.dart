@@ -1,5 +1,5 @@
-// lib/features/graph/screens/mode_selection_screen.dart
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
@@ -25,7 +25,9 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     // Stop data when screen is disposed
-    print('Stopping data');
+    if (kDebugMode) {
+      print('Stopping data');
+    }
     dataProvider.stopData();
     super.dispose();
   }

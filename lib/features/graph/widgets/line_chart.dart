@@ -1,14 +1,14 @@
 import 'dart:math';
 import 'dart:ui';
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import '../../graph/domain/models/data_point.dart';
-import '../../graph/providers/line_chart_provider.dart';
-import '../providers/data_acquisition_provider.dart';
 
 const double _offsetY = 15;
 const double _offsetX = 50;

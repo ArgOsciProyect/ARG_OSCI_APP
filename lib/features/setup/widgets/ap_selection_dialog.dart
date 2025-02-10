@@ -1,8 +1,8 @@
+import 'package:arg_osci_app/features/graph/screens/mode_selection_screen.dart';
+import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../providers/setup_provider.dart';
 import 'show_wifi_network_dialog.dart';
-import '../../graph/screens/mode_selection_screen.dart';
 
 Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();

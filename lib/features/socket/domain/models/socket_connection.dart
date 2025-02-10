@@ -1,4 +1,3 @@
-// lib/features/socket/domain/models/socket_connection.dart
 import 'package:get/get.dart';
 
 class SocketConnection extends GetxController {

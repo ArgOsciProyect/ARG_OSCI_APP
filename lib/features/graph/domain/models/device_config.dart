@@ -1,13 +1,27 @@
-// lib/features/graph/domain/models/device_config.dart
+/// Configuration parameters for the oscilloscope device
 class DeviceConfig {
+  /// Sampling frequency in Hz
   final double samplingFrequency;
+
+  /// Number of bits per data packet
   final int bitsPerPacket;
+
+  /// Bit mask for extracting data values
   final int dataMask;
+
+  /// Bit mask for extracting channel information
   final int channelMask;
+
+  /// Number of useful data bits per sample
   final int usefulBits;
+
+  /// Number of samples contained in each packet
   final int samplesPerPacket;
+
+  /// Factor used to divide incoming data stream
   final int dividingFactor;
 
+  /// Creates a new device configuration
   const DeviceConfig({
     required this.samplingFrequency,
     required this.bitsPerPacket,
@@ -18,16 +32,9 @@ class DeviceConfig {
     required this.dividingFactor,
   });
 
+  /// Creates DeviceConfig from JSON map with error handling
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {
     try {
-      // Debug prints for incoming values
-      print('sampling_frequency: ${json['sampling_frequency']}');
-      print('bits_per_packet: ${json['bits_per_packet']}');
-      print('data_mask: ${json['data_mask']}');
-      print('channel_mask: ${json['channel_mask']}');
-      print('useful_bits: ${json['useful_bits']}');
-      print('samples_per_packet: ${json['samples_per_packet']}');
-      print('dividing_factor: ${json['dividing_factor']}');
       return DeviceConfig(
         samplingFrequency: double.parse(json['sampling_frequency'].toString()),
         bitsPerPacket: int.parse(json['bits_per_packet'].toString()),
@@ -43,6 +50,7 @@ class DeviceConfig {
     }
   }
 
+  /// Converts DeviceConfig to JSON map
   Map<String, dynamic> toJson() => {
         'sampling_frequency': samplingFrequency,
         'bits_per_packet': bitsPerPacket,

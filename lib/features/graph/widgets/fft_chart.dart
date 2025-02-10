@@ -1,14 +1,13 @@
-// fft_chart.dart
 import 'dart:math';
 
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import '../../graph/domain/models/data_point.dart';
-import '../../graph/providers/fft_chart_provider.dart';
 
 const double _offsetX = 50;
 
@@ -365,15 +364,15 @@ class FFTChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (fftPoints.isEmpty) return;
 
-    const double _offsetY = 30;
-    const double _offsetX = 50;
-    const double _sqrOffsetBot = 30;
+    const double offsetY = 30;
+    const double offsetX = 50;
+    const double sqrOffsetBot = 30;
 
     final chartArea = Rect.fromLTWH(
-      _offsetX,
-      _offsetY,
-      size.width - _offsetX - 10,
-      size.height - _offsetY - _sqrOffsetBot,
+      offsetX,
+      offsetY,
+      size.width - offsetX - 10,
+      size.height - offsetY - sqrOffsetBot,
     );
 
     final bgPaint = Paint()..color = Colors.white;
@@ -415,7 +414,7 @@ class FFTChartPainter extends CustomPainter {
       final xRatio =
           (rawFreq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
       final scaledX = xRatio * chartArea.width;
-      final x = _offsetX + scaledX;
+      final x = offsetX + scaledX;
 
       if (rawFreq <= nyquistFreq) {
         // Dibujamos la línea vertical
@@ -455,7 +454,7 @@ class FFTChartPainter extends CustomPainter {
       final yValue = scaledMaxY - ratio * yRange;
 
       canvas.drawLine(
-        Offset(_offsetX, y),
+        Offset(offsetX, y),
         Offset(chartArea.right, y),
         gridPaint,
       );
@@ -467,7 +466,7 @@ class FFTChartPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(_offsetX - textPainter.width - 5, y - textPainter.height / 2),
+        Offset(offsetX - textPainter.width - 5, y - textPainter.height / 2),
       );
     }
 
@@ -483,10 +482,10 @@ class FFTChartPainter extends CustomPainter {
       final xRatio =
           (point.x.clamp(0.0, nyquistFreq) / (nyquistFreq * timeScale)) +
               effectiveHorizontalOffset;
-      final sx = _offsetX + (xRatio * chartArea.width);
+      final sx = offsetX + (xRatio * chartArea.width);
 
       final normalizedY = (point.y - scaledMinY) / (scaledMaxY - scaledMinY);
-      final sy = _offsetY + chartArea.height * (1 - normalizedY);
+      final sy = offsetY + chartArea.height * (1 - normalizedY);
 
       if (firstPoint) {
         path.moveTo(sx, sy);

@@ -1,15 +1,15 @@
-// lib/features/graph/providers/graph_provider.dart
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
+import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
 import 'dart:async';
-import '../domain/models/data_point.dart';
-import '../domain/services/data_acquisition_service.dart';
-import '../domain/models/trigger_data.dart';
-import 'line_chart_provider.dart';
-import '../domain/models/filter_types.dart';
 
 class DataAcquisitionProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
@@ -99,14 +99,18 @@ class DataAcquisitionProvider extends GetxController {
   void setUseHysteresis(bool value) {
     useHysteresis.value = value;
     dataAcquisitionService.useHysteresis = value;
-    print("Use hysteresis: $value");
+    if (kDebugMode) {
+      print("Use hysteresis: $value");
+    }
     dataAcquisitionService.updateConfig();
   }
 
   void setUseLowPassFilter(bool value) {
     useLowPassFilter.value = value;
     dataAcquisitionService.useLowPassFilter = value;
-    print("Use low pass filter: $value");
+    if (kDebugMode) {
+      print("Use low pass filter: $value");
+    }
     dataAcquisitionService.updateConfig();
   }
 
@@ -138,12 +142,16 @@ class DataAcquisitionProvider extends GetxController {
       await Future.delayed(
           const Duration(milliseconds: 100)); // Dar tiempo para cerrar
     } catch (e) {
-      print('Error stopping data: $e');
+      if (kDebugMode) {
+        print('Error stopping data: $e');
+      }
     }
   }
 
   void setTriggerMode(TriggerMode mode) {
-    print("Changing to $mode");
+    if (kDebugMode) {
+      print("Changing to $mode");
+    }
     triggerMode.value = mode;
     dataAcquisitionService.triggerMode = mode;
 
@@ -166,7 +174,9 @@ class DataAcquisitionProvider extends GetxController {
     try {
       await dataAcquisitionService.sendSingleTriggerRequest();
     } catch (e) {
-      print('Error sending single trigger request: $e');
+      if (kDebugMode) {
+        print('Error sending single trigger request: $e');
+      }
     }
   }
 
@@ -174,7 +184,9 @@ class DataAcquisitionProvider extends GetxController {
     try {
       await dataAcquisitionService.sendNormalTriggerRequest();
     } catch (e) {
-      print('Error sending normal trigger request: $e');
+      if (kDebugMode) {
+        print('Error sending normal trigger request: $e');
+      }
     }
   }
 
@@ -240,7 +252,9 @@ class DataAcquisitionProvider extends GetxController {
   void setTriggerLevel(double level) {
     triggerLevel.value = level;
     dataAcquisitionService.triggerLevel = level;
-    print("Trigger level: $level");
+    if (kDebugMode) {
+      print("Trigger level: $level");
+    }
     dataAcquisitionService
         .updateConfig(); // Send updated config to processing isolate
   }

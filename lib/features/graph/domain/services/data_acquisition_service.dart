@@ -1,23 +1,23 @@
 import 'dart:async';
 import 'dart:isolate';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:collection';
+
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+import 'package:arg_osci_app/features/graph/domain/repository/data_acquisition_repository.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
+import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
+import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:meta/meta.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
-import '../models/data_point.dart';
-import '../repository/data_acquisition_repository.dart';
-import '../../../http/domain/services/http_service.dart';
-import '../../../socket/domain/services/socket_service.dart';
-import '../../../socket/domain/models/socket_connection.dart';
-import '../models/trigger_data.dart';
 
 // Message classes for isolate communication
 class SocketIsolateSetup {
@@ -138,6 +138,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   SendPort? _configSendPort;
   SendPort? _socketToProcessingSendPort;
 
+  /// Creates a new DataAcquisitionService instance
+  ///
+  /// Requires [httpConfig] for network configuration
+  /// Initializes with default values and locates required dependencies
   DataAcquisitionService(this.httpConfig) {
     try {
       deviceConfig = Get.find<DeviceConfigProvider>();
@@ -155,7 +159,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     try {
       await httpService.get('/single');
     } catch (e) {
-      print('Error sending single trigger request: $e');
+      if (kDebugMode) {
+        print('Error sending single trigger request: $e');
+      }
       rethrow;
     }
   }
@@ -165,7 +171,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     try {
       await httpService.get('/normal');
     } catch (e) {
-      print('Error sending normal trigger request: $e');
+      if (kDebugMode) {
+        print('Error sending normal trigger request: $e');
+      }
       rethrow;
     }
   }
@@ -233,7 +241,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
       });
     } catch (e) {
-      print('Error posting trigger status: $e');
+      if (kDebugMode) {
+        print('Error posting trigger status: $e');
+      }
       rethrow;
     }
   }
@@ -304,7 +314,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   void setVoltageScale(VoltageScale voltageScale) {
-    print('Setting voltage scale to: ${voltageScale.scale}');
+    if (kDebugMode) {
+      print('Setting voltage scale to: ${voltageScale.scale}');
+    }
     final oldScale = _currentVoltageScale.scale;
     _currentVoltageScale = voltageScale;
     scale = voltageScale.scale;
@@ -843,7 +855,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         duration: const Duration(seconds: 3),
       );
     } catch (e) {
-      print('Failed to reset connection: $e');
+      if (kDebugMode) {
+        print('Failed to reset connection: $e');
+      }
       _isReconnecting = false;
       await dispose();
       Get.offAll(() => const SetupScreen());
@@ -971,10 +985,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       await Future.wait([
         processingDone.future.timeout(
           const Duration(seconds: 2),
+          // ignore: avoid_print
           onTimeout: () => print('Processing isolate kill timeout'),
         ),
         socketDone.future.timeout(
           const Duration(seconds: 2),
+          // ignore: avoid_print
           onTimeout: () => print('Socket isolate kill timeout'),
         ),
       ]);
@@ -996,7 +1012,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _dataController.add([]);
       }
     } catch (e) {
-      print('Error stopping data: $e');
+      if (kDebugMode) {
+        print('Error stopping data: $e');
+      }
       rethrow;
     }
   }
@@ -1102,7 +1120,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     SendPort sendPort,
   ) {
     if (queue.isEmpty) {
-      print('Empty queue in processDataForTest');
+      if (kDebugMode) {
+        print('Empty queue in processDataForTest');
+      }
       return [];
     }
 

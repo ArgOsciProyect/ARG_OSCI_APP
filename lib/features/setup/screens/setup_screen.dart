@@ -1,6 +1,5 @@
-// lib/features/setup/screens/setup_screen.dart
+import 'package:arg_osci_app/features/setup/widgets/ap_selection_dialog.dart';
 import 'package:flutter/material.dart';
-import '../widgets/ap_selection_dialog.dart';
 
 class SetupScreen extends StatelessWidget {
   const SetupScreen({super.key});

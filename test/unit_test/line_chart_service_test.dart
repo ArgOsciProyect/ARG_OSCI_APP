@@ -21,7 +21,9 @@ class MockDataAcquisitionProvider extends Mock
   @override
   Rx<TriggerMode> get triggerMode => _triggerMode;
 
+  @override
   void addPoints(List<DataPoint> points) => _dataController.add(points);
+  @override
   void dispose() => _dataController.close();
 }
 

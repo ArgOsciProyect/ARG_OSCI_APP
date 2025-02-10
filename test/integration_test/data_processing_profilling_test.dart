@@ -8,6 +8,7 @@ import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.d
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
@@ -145,7 +146,7 @@ void main() {
       ..writeln(
           'Block Info: ${dataSize ~/ 8192 * 2} blocks of ${8192 * 2} points')
       ..writeln(
-          'Duration: ${durationMicros}µs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
+          'Duration: $durationMicrosµs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
 
     if (extraData != null) {
       logEntry.writeln('\nPerformance Metrics:');
@@ -164,7 +165,9 @@ void main() {
     try {
       logFile.writeAsStringSync(logEntry.toString(), mode: FileMode.append);
     } catch (e) {
-      print('Error writing to log: $e');
+      if (kDebugMode) {
+        print('Error writing to log: $e');
+      }
     }
   }
 
@@ -179,7 +182,9 @@ void main() {
         await logFile.create();
       }
     } catch (e) {
-      print('Error initializing log file: $e');
+      if (kDebugMode) {
+        print('Error initializing log file: $e');
+      }
       // Create temp file as fallback
       logFile = File('${Directory.systemTemp.path}/test_performance.log');
       await logFile.create();
@@ -226,7 +231,9 @@ void main() {
       try {
         await logFile.delete();
       } catch (e) {
-        print('Error cleaning up log file: $e');
+        if (kDebugMode) {
+          print('Error cleaning up log file: $e');
+        }
       }
     }
   });
@@ -354,7 +361,9 @@ void main() {
         while (blocksReceived < blocksSent) {
           await Future.delayed(const Duration(milliseconds: 10));
           if (stopwatch.elapsed > const Duration(seconds: 20)) {
-            print('Timeout waiting for FFT processing');
+            if (kDebugMode) {
+              print('Timeout waiting for FFT processing');
+            }
             break;
           }
         }
