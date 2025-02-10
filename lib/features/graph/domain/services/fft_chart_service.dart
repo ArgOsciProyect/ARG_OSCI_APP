@@ -34,14 +34,20 @@ class FFTChartService {
 
   double get frequency {
     if (_lastFFTPoints.isEmpty) return 0.0;
-
+  
     // Parameters for peak detection
-    const minPeakHeight = -160;
+    const minPeakHeight = -160.0; // Adjusted threshold for dB scale
+    const minAmplitude = 0.001;  // Minimum amplitude threshold
     const startIndex = 1;
-
+  
+    // First check if signal amplitude is too low
+    if (_currentMaxValue < minAmplitude) {
+      return 0.0;
+    }
+  
     var maxIndex = 0;
     var maxMagnitude = -160.0;
-
+  
     // First find valid positive slope
     var validSlopeIndex = -1;
     for (var i = startIndex; i < _lastFFTPoints.length - 1; i++) {
@@ -50,13 +56,13 @@ class FFTChartService {
         break;
       }
     }
-
+  
     // Only look for peaks after valid slope
     if (validSlopeIndex >= 0) {
       for (var i = validSlopeIndex; i < _lastFFTPoints.length - 1; i++) {
         final currentMagnitude = _lastFFTPoints[i].y;
         final nextMagnitude = _lastFFTPoints[i + 1].y;
-
+  
         if (currentMagnitude > minPeakHeight &&
             currentMagnitude > maxMagnitude &&
             currentMagnitude > nextMagnitude) {
@@ -65,45 +71,55 @@ class FFTChartService {
         }
       }
     }
-
+  
+    // Return 0 if no significant peak found
+    if (maxMagnitude < minPeakHeight) {
+      return 0.0;
+    }
+  
     return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
 
   void _setupSubscriptions() {
-    // Cancel existing subscription if any
     _dataPointsSubscription?.cancel();
-
+  
     if (_graphProvider != null) {
-      _dataPointsSubscription =
-          _graphProvider!.dataPointsStream.listen((points) {
-        if (_isProcessing || _isPaused) return;
-
-        if (points.isNotEmpty) {
-          _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
-        }
-
-        _dataBuffer.addAll(points);
-
-        if (_dataBuffer.length >= blockSize) {
-          _isProcessing = true;
-          final dataToProcess = _dataBuffer.sublist(0, blockSize);
-          _dataBuffer.clear();
-
-          try {
-            final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
-            if (!_isPaused) {
-              _fftController.add(fftPoints);
-            }
-          } catch (error) {
-            print('Error processing FFT: $error');
-          } finally {
-            _isProcessing = false;
+      _dataPointsSubscription = _graphProvider!.dataPointsStream.listen(
+        (points) {
+          if (_isProcessing || _isPaused) return;
+  
+          // Validate input points
+          if (points.isEmpty) {
+            _fftController.addError(StateError('Empty points list'));
+            return;
           }
-        }
-      });
+  
+          _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
+          _dataBuffer.addAll(points);
+  
+          if (_dataBuffer.length >= blockSize) {
+            _isProcessing = true;
+            final dataToProcess = _dataBuffer.sublist(0, blockSize);
+            _dataBuffer.clear();
+  
+            try {
+              final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
+              if (!_isPaused) {
+                _fftController.add(fftPoints);
+              }
+            } catch (error) {
+              _fftController.addError(error);
+            } finally {
+              _isProcessing = false;
+            }
+          }
+        },
+        onError: (error) {
+          _fftController.addError(error);
+        },
+      );
     }
   }
-
   void updateProvider(DataAcquisitionProvider provider) {
     _graphProvider = provider;
     _setupSubscriptions();
@@ -112,39 +128,64 @@ class FFTChartService {
   List<DataPoint> _lastFFTPoints = [];
 
   List<DataPoint> computeFFT(List<DataPoint> points, double maxValue) {
-    final n = points.length;
-    final real = Float32List(n);
-    final imag = Float32List(n);
-
-    // Load data points
-    for (var i = 0; i < n; i++) {
-      real[i] = points[i].y;
-      imag[i] = 0.0;
+    try {
+      // Validar entrada
+      if (points.isEmpty) {
+        throw ArgumentError('Empty points list');
+      }
+      
+      final n = points.length;
+      final real = Float32List(n);
+      final imag = Float32List(n);
+  
+      // Load data points with validation
+      for (var i = 0; i < n; i++) {
+        final value = points[i].y;
+        if (value.isInfinite || value.isNaN) {
+          throw ArgumentError('Invalid data point at index $i: $value');
+        }
+        real[i] = value;
+        imag[i] = 0.0;
+      }
+  
+      // Perform FFT with error handling
+      try {
+        _fft(real, imag);
+      } catch (e) {
+        throw StateError('FFT computation failed: $e');
+      }
+  
+      // Normalize with validation
+      for (var i = 0; i < n; i++) {
+        if (n == 0) throw StateError('Division by zero in normalization');
+        real[i] /= n;
+        imag[i] /= n;
+      }
+  
+      // Calculate frequency domain points
+      final halfLength = (n / 2).ceil();
+      final samplingRate = deviceConfig.samplingFrequency;
+      final freqResolution = samplingRate / n;
+  
+      _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
+        final re = real[i];
+        final im = imag[i];
+        
+        // Validate complex values
+        if (re.isInfinite || re.isNaN || im.isInfinite || im.isNaN) {
+          throw StateError('Invalid FFT result at index $i');
+        }
+        
+        final magnitude = math.sqrt(re * re + im * im);
+        final db = _outputInDb ? _toDecibels(magnitude, maxValue) : magnitude;
+        return DataPoint(i * freqResolution, db);
+      });
+  
+      return _lastFFTPoints;
+    } catch (e) {
+      // Propagar error con contexto
+      throw StateError('FFT computation failed: $e');
     }
-
-    // Perform FFT
-    _fft(real, imag);
-
-    // Normalize
-    for (var i = 0; i < n; i++) {
-      real[i] /= n;
-      imag[i] /= n;
-    }
-
-    // Calculate frequency domain points using device sampling rate
-    final halfLength = (n / 2).ceil();
-    final samplingRate = deviceConfig.samplingFrequency;
-    final freqResolution = samplingRate / n;
-
-    _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
-      final re = real[i];
-      final im = imag[i];
-      final magnitude = math.sqrt(re * re + im * im);
-      final db = _outputInDb ? _toDecibels(magnitude, maxValue) : magnitude;
-      return DataPoint(i * freqResolution, db);
-    });
-
-    return _lastFFTPoints;
   }
 
   static double _toDecibels(double magnitude, double maxValue) {
