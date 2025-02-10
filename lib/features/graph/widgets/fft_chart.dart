@@ -10,9 +10,7 @@ import 'package:get/get.dart';
 import '../../graph/domain/models/data_point.dart';
 import '../../graph/providers/fft_chart_provider.dart';
 
-const double _offsetY = 30;
 const double _offsetX = 50;
-const double _sqrOffsetBot = 30;
 
 class FFTChart extends StatelessWidget {
   const FFTChart({super.key});

@@ -179,25 +179,20 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   void setPause(bool paused) {
-    if (!paused) {
+    if (paused) {
+      final lineChartProvider = Get.find<LineChartProvider>();
+      lineChartProvider.pause();
+    } else {
       if (triggerMode.value == TriggerMode.single) {
-        // Reiniciar el estado del procesamiento en el isolate
         dataAcquisitionService.clearQueues();
-
-        // Primero limpiamos y preparamos para nuevo trigger
         final lineChartProvider = Get.find<LineChartProvider>();
         lineChartProvider.clearForNewTrigger();
-
-        // Luego enviamos la petición de single
         _sendSingleTriggerRequest();
       } else {
         _sendNormalTriggerRequest();
         final lineChartProvider = Get.find<LineChartProvider>();
         lineChartProvider.resume();
       }
-    } else {
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.pause();
     }
   }
 

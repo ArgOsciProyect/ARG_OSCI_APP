@@ -118,6 +118,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   double _triggerLevel = 1;
   // ignore: unused_field
   double _distance = 0.0;
+  // ignore: unused_field
   double _mid = 0.0;
   TriggerEdge _triggerEdge = TriggerEdge.positive;
   TriggerMode _triggerMode = TriggerMode.normal;
@@ -166,31 +167,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     } catch (e) {
       print('Error sending normal trigger request: $e');
       rethrow;
-    }
-  }
-
-  Future<void> _handleConnectivityLost() async {
-    if (_isReconnecting) return;
-    _isReconnecting = true;
-
-    try {
-      // Try to reset connection
-      final response = await httpService.get('/reset');
-      final newIp = response['ip'] as String;
-      final newPort = response['port'] as int;
-
-      // Stop current connections
-      await stopData();
-
-      // Restart with new connection params
-      await fetchData(newIp, newPort);
-
-      _isReconnecting = false;
-    } catch (e) {
-      print('Failed to reset connection: $e');
-      // Complete disconnection - return to setup screen
-      await dispose();
-      Get.offAll(() => const SetupScreen());
     }
   }
 
@@ -328,6 +304,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   void setVoltageScale(VoltageScale voltageScale) {
+    print('Setting voltage scale to: ${voltageScale.scale}');
     final oldScale = _currentVoltageScale.scale;
     _currentVoltageScale = voltageScale;
     scale = voltageScale.scale;
@@ -403,6 +380,69 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     socketService.subscribe(sendPort.send);
   }
 
+  // New helper function to handle single mode processing
+  static List<DataPoint>? _handleSingleModeProcessing(
+    Queue<int> singleModeQueue,
+    int processingChunkSize,
+    DataProcessingConfig config,
+    SendPort sendPort,
+  ) {
+    // Si tenemos suficientes datos para procesar
+    if (singleModeQueue.length >= processingChunkSize * 2) {
+      final tempQueue = Queue<int>.from(singleModeQueue);
+      final (points, maxValue, minValue) =
+          _processData(tempQueue, singleModeQueue.length, config, sendPort);
+
+      // Si encontramos trigger, enviamos y retornamos los puntos
+      if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
+        sendPort.send({
+          'type': 'data',
+          'points': points,
+          'maxValue': maxValue,
+          'minValue': minValue
+        });
+        return points;
+      }
+    }
+    return null;
+  }
+
+  // New helper function to handle normal mode processing
+  static void _handleNormalModeProcessing(
+    Queue<int> queue,
+    int processingChunkSize,
+    DataProcessingConfig config,
+    SendPort sendPort,
+  ) {
+    while (queue.length >= processingChunkSize) {
+      final (points, maxValue, minValue) =
+          _processData(queue, processingChunkSize, config, sendPort);
+
+      sendPort.send({
+        'type': 'data',
+        'points': points,
+        'maxValue': maxValue,
+        'minValue': minValue
+      });
+    }
+  }
+
+  // New helper function to manage queue size
+  static void _manageQueueSize(
+    Queue<int> queue,
+    List<int> newData,
+    int maxQueueSize,
+    int processingChunkSize,
+  ) {
+    queue.addAll(newData);
+    while (queue.length > maxQueueSize) {
+      for (var i = 0; i < processingChunkSize * 2; i++) {
+        if (queue.isNotEmpty) queue.removeFirst();
+      }
+    }
+  }
+
+  // Refactored processing isolate function
   static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
@@ -424,62 +464,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         queue.clear();
         singleModeQueue.clear();
         processingEnabled = true;
-      } else if (message is List<int>) {
-        if (!processingEnabled) return;
-
+      } else if (message is List<int> && processingEnabled) {
         if (config.triggerMode == TriggerMode.single) {
-          // En modo single, acumulamos datos hasta llenar la cola
-          singleModeQueue.addAll(message);
+          _manageQueueSize(singleModeQueue, message, maxSingleModeQueueSize,
+              processingChunkSize);
 
-          // Si excedemos el tamaño máximo, eliminamos un bloque completo del principio
-          if (singleModeQueue.length > maxSingleModeQueueSize) {
-            for (var i = 0; i < processingChunkSize * 2; i++) {
-              if (singleModeQueue.isNotEmpty) singleModeQueue.removeFirst();
-            }
-          }
+          final points = _handleSingleModeProcessing(
+              singleModeQueue, processingChunkSize, config, setup.sendPort);
 
-          // Procesamos si tenemos suficientes datos
-          if (singleModeQueue.length >= processingChunkSize * 2) {
-            final tempQueue = Queue<int>.from(singleModeQueue);
-            final (points, maxValue, minValue) = _processData(
-                tempQueue, singleModeQueue.length, config, setup.sendPort);
-
-            // Si encontramos trigger, enviamos y pausamos
-            if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
-              setup.sendPort.send({
-                'type': 'data',
-                'points': points,
-                'maxValue': maxValue,
-                'minValue': minValue
-              });
-              setup.sendPort.send({'type': 'pause_graph'});
-              singleModeQueue.clear();
-              processingEnabled = false;
-            }
+          if (points != null) {
+            setup.sendPort.send({'type': 'pause_graph'});
+            singleModeQueue.clear();
+            processingEnabled = false;
           }
         } else {
           // Modo normal
-          queue.addAll(message);
-
-          // Mantenemos el tamaño máximo eliminando bloques completos
-          while (queue.length > maxQueueSize) {
-            for (var i = 0; i < processingChunkSize; i++) {
-              if (queue.isNotEmpty) queue.removeFirst();
-            }
-          }
-
-          // Procesamos bloques completos
-          while (queue.length >= processingChunkSize) {
-            final (points, maxValue, minValue) = _processData(
-                queue, processingChunkSize, config, setup.sendPort);
-
-            setup.sendPort.send({
-              'type': 'data',
-              'points': points,
-              'maxValue': maxValue,
-              'minValue': minValue
-            });
-          }
+          _manageQueueSize(queue, message, maxQueueSize, processingChunkSize);
+          _handleNormalModeProcessing(
+              queue, processingChunkSize, config, setup.sendPort);
         }
       } else if (message is UpdateConfigMessage) {
         config = _updateConfig(config, message);
@@ -490,53 +492,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         singleModeQueue.clear();
       }
     });
-  }
-
-  static void _processSingleModeData(Queue<int> queue,
-      DataProcessingConfig config, SendPort sendPort, int samplesPerPacket) {
-    if (queue.isEmpty) return;
-
-    // Procesar todos los datos acumulados
-    final (points, maxValue, minValue) =
-        _processData(queue, queue.length, config, sendPort);
-
-    // Si encontramos puntos y hay un trigger
-    if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
-      sendPort.send({
-        'type': 'data',
-        'points': points,
-        'maxValue': maxValue,
-        'minValue': minValue
-      });
-
-      // Pausar después de enviar los datos
-      sendPort.send({'type': 'pause_graph'});
-    }
-  }
-
-  static void _processIncomingData(
-    List<int> data,
-    Queue<int> queue,
-    DataProcessingConfig config,
-    SendPort sendPort,
-    int maxQueueSize,
-    int processingChunkSize,
-  ) {
-    queue.addAll(data);
-    while (queue.length > maxQueueSize) {
-      queue.removeFirst();
-    }
-    while (queue.length >= processingChunkSize) {
-      final (points, maxValue, minValue) =
-          _processData(queue, processingChunkSize, config, sendPort);
-
-      sendPort.send({
-        'type': 'data',
-        'points': points,
-        'maxValue': maxValue,
-        'minValue': minValue
-      });
-    }
   }
 
   static DataProcessingConfig _updateConfig(

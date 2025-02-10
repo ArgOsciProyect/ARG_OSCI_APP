@@ -12,9 +12,6 @@ import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:pointycastle/asymmetric/api.dart';
 import 'package:encrypt/encrypt.dart';
-import 'package:pointycastle/src/impl/base_asymmetric_block_cipher.dart';
-import 'package:pointycastle/asn1.dart';
-import 'package:pointycastle/asn1/primitives/asn1_sequence.dart';
 
 class MockSocketService extends Mock implements SocketService {}
 
@@ -24,13 +21,11 @@ final privateKey =
 
 void main() {
   late SetupService setupService;
-  late MockSocketService mockSocketService;
   const baseUrl = 'http://192.168.4.1:81';
   final globalHttpConfig = HttpConfig(baseUrl);
   final globalSocketConnection = SocketConnection('192.168.4.1', 8080);
 
   setUp(() {
-    mockSocketService = MockSocketService();
     setupService = SetupService(globalSocketConnection, globalHttpConfig);
   });
 

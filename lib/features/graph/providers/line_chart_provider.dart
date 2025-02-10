@@ -120,15 +120,19 @@ class LineChartProvider extends GetxController {
 
     final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
 
-    // Solo permitir cambios de escala si:
-    // 1. Estamos haciendo zoom in (aumentando la escala)
-    // 2. O si el zoom out no hará que los datos ocupen menos del 100% del ancho visible
+    // En modo trigger, permitir cualquier escala
+    if (graphProvider.triggerMode.value != TriggerMode.normal) {
+      _timeScale.value = scale;
+      return;
+    }
+
+    // Solo para modo normal:
+    // 1. Zoom in siempre permitido
+    // 2. Zoom out solo si los datos ocupan al menos el ancho visible
     if (_drawingWidth <= 0 ||
         scale > _timeScale.value ||
         (maxDataX * scale >= _drawingWidth)) {
       _timeScale.value = scale;
-
-      // Ajustar offset para mantener datos visibles
       setHorizontalOffset(_horizontalOffset.value);
     }
   }
@@ -166,14 +170,20 @@ class LineChartProvider extends GetxController {
     final maxDataX = dataPoints.isEmpty ? 0.0 : dataPoints.last.x;
     final scaledDataWidth = maxDataX * timeScale;
 
-    // Si los datos son más pequeños que el área visible, centrar
-    if (scaledDataWidth <= _drawingWidth) {
+    // Si los datos son más pequeños que el área visible y estamos en modo normal, centrar
+    if (scaledDataWidth <= _drawingWidth &&
+        graphProvider.triggerMode.value == TriggerMode.normal) {
       _horizontalOffset.value = 0.0;
       return;
     }
 
-    // Calcular el máximo desplazamiento permitido hacia la izquierda
-    // No permitir desplazamiento hacia la derecha (mantener offset <= 0)
+    // En modo trigger, permitir desplazamiento completamente libre
+    if (graphProvider.triggerMode.value != TriggerMode.normal) {
+      _horizontalOffset.value = offset;
+      return;
+    }
+
+    // Para modo normal, mantener límites anteriores
     final minOffset = -((scaledDataWidth - _drawingWidth) / _drawingWidth);
     _horizontalOffset.value = offset.clamp(minOffset, 0.0);
   }

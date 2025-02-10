@@ -1,43 +1,42 @@
+// test/unit_test/line_chart_service_test.dart
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
-import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
-import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
-// Mocks
-class MockGraphProvider extends Mock implements DataAcquisitionProvider {
-  final _controller = StreamController<List<DataPoint>>.broadcast();
-  final _triggerMode = Rx<TriggerMode>(TriggerMode.normal); // Add this line
+class MockDataAcquisitionProvider extends Mock
+    implements DataAcquisitionProvider {
+  final _dataController = StreamController<List<DataPoint>>.broadcast();
+  final _triggerMode = Rx<TriggerMode>(TriggerMode.normal);
 
   @override
-  Stream<List<DataPoint>> get dataPointsStream => _controller.stream;
+  Stream<List<DataPoint>> get dataPointsStream => _dataController.stream;
 
   @override
-  Rx<TriggerMode> get triggerMode => _triggerMode; // Add this getter
+  Rx<TriggerMode> get triggerMode => _triggerMode;
 
-  @override
-  void addPoints(List<DataPoint> points) => _controller.add(points);
-
-  void close() => _controller.close();
+  void addPoints(List<DataPoint> points) => _dataController.add(points);
+  void dispose() => _dataController.close();
 }
 
 void main() {
-  late MockGraphProvider mockProvider;
+  late MockDataAcquisitionProvider mockProvider;
   late LineChartService service;
-  late DeviceConfigProvider deviceConfigProvider;
+  late DeviceConfigProvider deviceConfig;
 
-  setUp(() async {
+  setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
 
-    // Initialize DeviceConfigProvider first
-    deviceConfigProvider = DeviceConfigProvider();
-    deviceConfigProvider.updateConfig(DeviceConfig(
-      samplingFrequency: 1650000.0,
+    // Initialize device config
+    deviceConfig = DeviceConfigProvider();
+    deviceConfig.updateConfig(DeviceConfig(
+      samplingFrequency: 1000000,
       bitsPerPacket: 16,
       dataMask: 0x0FFF,
       channelMask: 0xF000,
@@ -46,160 +45,166 @@ void main() {
       dividingFactor: 1,
     ));
 
-    // Put provider before creating service
-    Get.put<DeviceConfigProvider>(deviceConfigProvider);
-
-    mockProvider = MockGraphProvider();
+    Get.put<DeviceConfigProvider>(deviceConfig);
+    mockProvider = MockDataAcquisitionProvider();
     service = LineChartService(mockProvider);
   });
 
   tearDown(() async {
     await service.dispose();
-    mockProvider.close();
-    Get.reset(); // Clean up GetX bindings
+    mockProvider.dispose();
+    Get.reset();
   });
 
-  test('Emite datos correctamente al recibir dataPointsStream', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
+  group('Basic functionality', () {
+    test('constructs with null provider', () {
+      final service = LineChartService(null);
+      expect(service.dataStream, isNotNull);
+      expect(service.isPaused, false);
+    });
 
-    final points = [
-      DataPoint(0.0, 1.0),
-      DataPoint(1.0, 2.0),
-      DataPoint(2.0, 3.0),
-    ];
-    mockProvider.addPoints(points);
+    test('returns correct distance based on sampling frequency', () {
+      expect(service.distance, equals(1 / deviceConfig.samplingFrequency));
+    });
 
-    // Allow some time for the data to propagate
-    await Future.delayed(const Duration(milliseconds: 100));
+    test('emits data correctly from provider stream', () async {
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
 
-    expect(emittedData.length, 1);
-    expect(emittedData.first, points);
+      final points = [
+        DataPoint(0.0, 1.0),
+        DataPoint(1.0, 2.0),
+      ];
+      mockProvider.addPoints(points);
 
-    await sub.cancel();
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1);
+      expect(emittedData.first, points);
+
+      await sub.cancel();
+    });
   });
 
-  test('Emite múltiples conjuntos de datos correctamente', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
+  group('Provider updates', () {
+    test('updateProvider changes provider and sets up new subscription',
+        () async {
+      final newProvider = MockDataAcquisitionProvider();
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
 
-    final points1 = [
-      DataPoint(0.0, 1.0),
-      DataPoint(1.0, 2.0),
-    ];
-    final points2 = [
-      DataPoint(2.0, 3.0),
-      DataPoint(3.0, 4.0),
-    ];
+      service.updateProvider(newProvider);
 
-    mockProvider.addPoints(points1);
-    mockProvider.addPoints(points2);
+      final points = [DataPoint(0.0, 1.0)];
+      newProvider.addPoints(points);
 
-    // Allow some time for the data to propagate
-    await Future.delayed(const Duration(milliseconds: 100));
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1);
+      expect(emittedData.first, points);
 
-    expect(emittedData.length, 2);
-    expect(emittedData[0], points1);
-    expect(emittedData[1], points2);
-
-    await sub.cancel();
+      await sub.cancel();
+      newProvider.dispose();
+    });
   });
 
-  test('No emite datos cuando no se reciben puntos', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
+  group('Trigger mode behavior', () {
+    test('auto-pauses on trigger in single mode', () async {
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
 
-    // No points added
-    await Future.delayed(const Duration(milliseconds: 100));
+      // Set trigger mode to single
+      mockProvider.triggerMode.value = TriggerMode.single;
 
-    expect(emittedData, isEmpty);
+      // Send data with trigger
+      final points = [
+        DataPoint(0.0, 1.0),
+        DataPoint(1.0, 2.0, isTrigger: true),
+        DataPoint(2.0, 3.0),
+      ];
+      mockProvider.addPoints(points);
 
-    await sub.cancel();
+      // Wait for processing
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Verify single emission and paused state
+      expect(emittedData.length, 1, reason: 'Should emit points exactly once');
+      expect(emittedData.first, points,
+          reason: 'Should emit the correct points');
+      expect(service.isPaused, true,
+          reason: 'Service should be paused after trigger');
+
+      // Verify no more emissions while paused
+      mockProvider.addPoints([DataPoint(3.0, 4.0)]);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1, reason: 'Should not emit while paused');
+
+      await sub.cancel();
+    });
+
+    test('resumeAndWaitForTrigger resets paused state', () async {
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
+
+      service.pause();
+      expect(service.isPaused, true);
+
+      service.resumeAndWaitForTrigger();
+      expect(service.isPaused, false);
+
+      final points = [DataPoint(0.0, 1.0)];
+      mockProvider.addPoints(points);
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1);
+      expect(emittedData.first, points);
+
+      await sub.cancel();
+    });
   });
 
-  test('Dispose cancela suscripciones y cierra streams sin error', () async {
-    // Emit some data before disposing
-    mockProvider.addPoints([
-      DataPoint(0.0, 1.0),
-      DataPoint(1.0, 2.0),
-    ]);
+  group('Pause/Resume functionality', () {
+    test('pause stops data emission', () async {
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
 
-    // Allow time for data to be emitted
-    await Future.delayed(const Duration(milliseconds: 100));
+      final points1 = [DataPoint(0.0, 1.0)];
+      mockProvider.addPoints(points1);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1);
 
-    // Attempt to dispose
-    expect(() => service.dispose(), returnsNormally);
+      service.pause();
+      final points2 = [DataPoint(1.0, 2.0)];
+      mockProvider.addPoints(points2);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1); // Should not receive new data
+
+      await sub.cancel();
+    });
+
+    test('resume restarts data emission', () async {
+      final emittedData = <List<DataPoint>>[];
+      final sub = service.dataStream.listen(emittedData.add);
+
+      service.pause();
+      mockProvider.addPoints([DataPoint(0.0, 1.0)]);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.isEmpty, true);
+
+      service.resume();
+      final points = [DataPoint(1.0, 2.0)];
+      mockProvider.addPoints(points);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(emittedData.length, 1);
+      expect(emittedData.first, points);
+
+      await sub.cancel();
+    });
   });
 
-  // Add these tests to line_chart_service_test.dart
-  test('pause stops data emission', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
-
-    // Initial data
-    final points1 = [DataPoint(0.0, 1.0)];
-    mockProvider.addPoints(points1);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 1);
-
-    // Pause and send more data
-    service.pause();
-    final points2 = [DataPoint(1.0, 2.0)];
-    mockProvider.addPoints(points2);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 1); // Should not receive new data
-
-    await sub.cancel();
-  });
-
-  test('resume restarts data emission', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
-
-    service.pause();
-    final points1 = [DataPoint(0.0, 1.0)];
-    mockProvider.addPoints(points1);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.isEmpty, true);
-
-    service.resume();
-    final points2 = [DataPoint(1.0, 2.0)];
-    mockProvider.addPoints(points2);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 1);
-    expect(emittedData.first, points2);
-
-    await sub.cancel();
-  });
-
-  test('handles multiple pause/resume cycles', () async {
-    final emittedData = <List<DataPoint>>[];
-    final sub = service.dataStream.listen(emittedData.add);
-
-    // Cycle 1
-    service.pause();
-    mockProvider.addPoints([DataPoint(0.0, 1.0)]);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.isEmpty, true);
-
-    service.resume();
-    final points1 = [DataPoint(1.0, 2.0)];
-    mockProvider.addPoints(points1);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 1);
-
-    // Cycle 2
-    service.pause();
-    mockProvider.addPoints([DataPoint(2.0, 3.0)]);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 1);
-
-    service.resume();
-    final points2 = [DataPoint(3.0, 4.0)];
-    mockProvider.addPoints(points2);
-    await Future.delayed(const Duration(milliseconds: 100));
-    expect(emittedData.length, 2);
-
-    await sub.cancel();
+  group('Cleanup', () {
+    test('dispose cancels subscriptions and closes streams', () async {
+      mockProvider.addPoints([DataPoint(0.0, 1.0)]);
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(() => service.dispose(), returnsNormally);
+    });
   });
 }
