@@ -407,43 +407,44 @@ class FFTChartPainter extends CustomPainter {
     const xDivisions = 12;
     final nyquistFreq = fftChartProvider.samplingFrequency / 2;
     final effectiveHorizontalOffset = horizontalOffset.clamp(-1.0, 0.0);
+    final visibleStartFreq = -effectiveHorizontalOffset * nyquistFreq * timeScale;
+    final visibleEndFreq = visibleStartFreq + (nyquistFreq * timeScale);
+    final freqStep = (visibleEndFreq - visibleStartFreq) / xDivisions;
 
-    // Dibujamos líneas de la grilla y etiquetas
-    for (int i = 0; i <= xDivisions; i++) {
-      final rawFreq = (i / xDivisions) * nyquistFreq;
-      final xRatio =
-          (rawFreq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
-      final scaledX = xRatio * chartArea.width;
-      final x = offsetX + scaledX;
 
-      if (rawFreq <= nyquistFreq) {
-        // Dibujamos la línea vertical
-        if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
-          canvas.drawLine(
-            Offset(x, chartArea.top),
-            Offset(x, chartArea.bottom),
-            gridPaint,
-          );
+  // Draw grid lines and labels
+  for (int i = 0; i <= xDivisions; i++) {
+    final freq = visibleStartFreq + (i * freqStep);
+    if (freq < 0 || freq > nyquistFreq) continue;
 
-          // Preparamos la etiqueta
-          textPainter.text = TextSpan(
-            text: UnitFormat.formatWithUnit(rawFreq, 'Hz'),
-            style: const TextStyle(color: Colors.black, fontSize: 8.5),
-          );
-          textPainter.layout();
+    final xRatio = (freq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
+    final x = offsetX + (xRatio * chartArea.width);
 
-          final textX = x - textPainter.width / 2;
-          // Dibujamos la etiqueta incluso si está parcialmente fuera, pero no más allá del área del gráfico
-          if (x >= chartArea.left - textPainter.width &&
-              x <= chartArea.right + textPainter.width) {
-            textPainter.paint(
-              canvas,
-              Offset(textX, chartArea.bottom + 5),
-            );
-          }
-        }
+    if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
+      // Draw vertical grid line
+      canvas.drawLine(
+        Offset(x, chartArea.top),
+        Offset(x, chartArea.bottom),
+        gridPaint,
+      );
+
+      // Draw frequency label
+      textPainter.text = TextSpan(
+        text: UnitFormat.formatWithUnit(freq, 'Hz'),
+        style: const TextStyle(color: Colors.black, fontSize: 8.5),
+      );
+      textPainter.layout();
+
+      final textX = x - textPainter.width / 2;
+      if (x >= chartArea.left - textPainter.width && 
+          x <= chartArea.right + textPainter.width) {
+        textPainter.paint(
+          canvas,
+          Offset(textX, chartArea.bottom + 5),
+        );
       }
     }
+  }
 
     // Dibujamos las líneas horizontales y etiquetas
     const yDivisions = 10;
