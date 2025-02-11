@@ -9,6 +9,7 @@ import 'package:get/get.dart';
 
 import 'dart:async';
 
+/// [OscilloscopeChartProvider] manages the state and logic for the Oscilloscope chart.
 class OscilloscopeChartProvider extends GetxController {
   final OscilloscopeChartService _oscilloscopeChartService;
   final graphProvider = Get.find<DataAcquisitionProvider>();
@@ -41,13 +42,16 @@ class OscilloscopeChartProvider extends GetxController {
   double get initialValueScale => _initialValueScale;
 
   OscilloscopeChartProvider(this._oscilloscopeChartService) {
+    // Subscribe to the data stream from the service and update the data points
     _dataSubscription = _oscilloscopeChartService.dataStream.listen((points) {
       _dataPoints.value = points;
     });
     _timeScale.value = 1.0;
+    // Set initial value scale based on device configuration
     _valueScale.value = 1.0 / (1 << deviceConfig.usefulBits);
   }
 
+  /// Handles zoom gestures, updating scales and offsets while maintaining the focal point.
   void handleZoom(
       ScaleUpdateDetails details, Size constraints, double offsetX) {
     if (details.pointerCount == 2) {
@@ -87,35 +91,41 @@ class OscilloscopeChartProvider extends GetxController {
     }
   }
 
+  /// Converts a screen X coordinate to a domain X coordinate.
   double screenToDomainX(double screenX, Size size, double offsetX) {
     final drawingWidth = size.width;
     return (screenX - offsetX) / timeScale -
         (horizontalOffset * drawingWidth / timeScale);
   }
 
+  /// Converts a domain X coordinate to a screen X coordinate.
   double domainToScreenX(double domainX, Size size, double offsetX) {
     final drawingWidth = size.width;
     return (domainX * timeScale) + (horizontalOffset * drawingWidth) + offsetX;
   }
 
+  /// Clears the data points and resumes data acquisition, waiting for a new trigger.
   void clearForNewTrigger() {
     _dataPoints.value = [];
     resume(); // Quitamos la pausa primero
     _oscilloscopeChartService.resumeAndWaitForTrigger();
   }
 
+  /// Converts a screen Y coordinate to a domain Y coordinate.
   double screenToDomainY(double screenY, Size size, double offsetX) {
     final drawingHeight = size.height;
     return -((screenY - drawingHeight / 2) / (drawingHeight / 2)) / valueScale -
         verticalOffset;
   }
 
+  /// Converts a domain Y coordinate to a screen Y coordinate.
   double domainToScreenY(double domainY, Size size, double offsetX) {
     final drawingHeight = size.height;
     return (drawingHeight / 2) -
         (domainY + verticalOffset) * (drawingHeight / 2) * valueScale;
   }
 
+  /// Sets the time scale, limiting zoom out and enforcing constraints based on trigger mode.
   void setTimeScale(double scale) {
     if (scale <= 0) return;
 
@@ -138,33 +148,39 @@ class OscilloscopeChartProvider extends GetxController {
     }
   }
 
+  /// Sets the value scale.
   void setValueScale(double scale) {
     if (scale > 0) {
       _valueScale.value = scale;
     }
   }
 
+  /// Sets the initial scales for zooming.
   void setInitialScales() {
     _initialTimeScale = timeScale;
     _initialValueScale = valueScale;
   }
 
+  /// Resets the scales to their default values.
   void resetScales() {
     _timeScale.value = 1.0;
     _valueScale.value = 1.0;
   }
 
+  /// Resets the offsets to zero.
   void resetOffsets() {
     _horizontalOffset.value = 0.0;
     _verticalOffset.value = 0.0;
   }
 
+  /// Updates the drawing width and adjusts the horizontal offset.
   void updateDrawingWidth(Size size, double offsetX) {
     _drawingWidth = size.width - offsetX;
     // Reajustar offset al cambiar el tamaño
     setHorizontalOffset(_horizontalOffset.value);
   }
 
+  /// Sets the horizontal offset, clamping it to valid ranges based on trigger mode and data width.
   void setHorizontalOffset(double offset) {
     if (_drawingWidth <= 0) return;
 
@@ -189,50 +205,61 @@ class OscilloscopeChartProvider extends GetxController {
     _horizontalOffset.value = offset.clamp(minOffset, 0.0);
   }
 
+  /// Sets the vertical offset.
   void setVerticalOffset(double offset) {
     _verticalOffset.value = offset;
   }
 
+  /// Clears the data and resumes data acquisition.
   void clearAndResume() {
     _dataPoints.value = []; // Clear existing data
     _isPaused.value = false; // Unpause
     _oscilloscopeChartService.resume();
   }
 
+  /// Increments the time scale (zoom in).
   void incrementTimeScale() {
     setTimeScale(timeScale * zoomFactor);
   }
 
+  /// Decrements the time scale (zoom out).
   void decrementTimeScale() {
     setTimeScale(timeScale * unzoomFactor);
   }
 
+  /// Increments the value scale (zoom in).
   void incrementValueScale() {
     setValueScale(valueScale * zoomFactor);
   }
 
+  /// Decrements the value scale (zoom out).
   void decrementValueScale() {
     setValueScale(valueScale * unzoomFactor);
   }
 
+  /// Increments the horizontal offset.
   void incrementHorizontalOffset() {
     final newOffset = horizontalOffset + 0.01;
     setHorizontalOffset(newOffset);
   }
 
+  /// Decrements the horizontal offset.
   void decrementHorizontalOffset() {
     final newOffset = horizontalOffset - 0.01;
     setHorizontalOffset(newOffset);
   }
 
+  /// Increments the vertical offset.
   void incrementVerticalOffset() {
     setVerticalOffset(verticalOffset + 0.1);
   }
 
+  /// Decrements the vertical offset.
   void decrementVerticalOffset() {
     setVerticalOffset(verticalOffset - 0.1);
   }
 
+  /// Starts a timer to repeatedly execute a callback function.
   void startIncrementing(VoidCallback callback) {
     callback();
     _incrementTimer?.cancel();
@@ -241,11 +268,13 @@ class OscilloscopeChartProvider extends GetxController {
     });
   }
 
+  /// Stops the incrementing timer.
   void stopIncrementing() {
     _incrementTimer?.cancel();
     _incrementTimer = null;
   }
 
+  /// Pauses data acquisition.
   void pause() {
     if (!_isPaused.value) {
       _isPaused.value = true;
@@ -253,6 +282,7 @@ class OscilloscopeChartProvider extends GetxController {
     }
   }
 
+  /// Resumes data acquisition.
   void resume() {
     if (_isPaused.value) {
       _isPaused.value = false;

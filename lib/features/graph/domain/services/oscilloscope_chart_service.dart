@@ -6,6 +6,7 @@ import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:get/get.dart';
 
+/// [OscilloscopeChartService] implements the [OscilloscopeChartRepository] to manage the data stream for the oscilloscope chart.
 class OscilloscopeChartService implements OscilloscopeChartRepository {
   DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
@@ -29,6 +30,7 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
     }
   }
 
+  /// Sets up the data stream subscription to receive data points from the [DataAcquisitionProvider].
   void _setupSubscriptions() {
     _dataSubscription?.cancel();
 

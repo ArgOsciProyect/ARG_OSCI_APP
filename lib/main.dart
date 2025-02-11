@@ -27,6 +27,7 @@ void main() async {
   runApp(MyApp());
 }
 
+/// Requests necessary permissions for the app.
 Future<void> requestPermissions() async {
   await [
     Permission.locationAlways,
@@ -35,6 +36,7 @@ Future<void> requestPermissions() async {
   ].request();
 }
 
+/// [MyApp] is the root [StatelessWidget] of the application.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 

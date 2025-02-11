@@ -7,6 +7,8 @@ import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dar
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+/// [UserSettings] is a Flutter [StatelessWidget] that provides a user interface for adjusting various settings
+/// related to data acquisition and display, such as voltage scale, trigger settings, filter settings, and information display.
 class UserSettings extends StatelessWidget {
   final DataAcquisitionProvider graphProvider;
   final OscilloscopeChartProvider oscilloscopeChartProvider;
@@ -27,6 +29,7 @@ class UserSettings extends StatelessWidget {
     super.key,
   });
 
+  /// Builds the voltage scale selector dropdown.
   Widget _buildScaleSelector() {
     return Container(
       width: double.infinity,
@@ -42,6 +45,7 @@ class UserSettings extends StatelessWidget {
           const Text('Voltage Scale',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
+          // Dropdown to select the voltage scale. Updates the graphProvider's currentVoltageScale.
           Obx(() => DropdownButton<VoltageScale>(
                 value: graphProvider.currentVoltageScale.value,
                 isExpanded: true,
@@ -62,6 +66,7 @@ class UserSettings extends StatelessWidget {
     );
   }
 
+  /// Builds the trigger settings section.
   Widget _buildTriggerSettings() {
     return Container(
       width: double.infinity,
@@ -79,6 +84,7 @@ class UserSettings extends StatelessWidget {
           const SizedBox(height: 12),
           // Add Trigger Mode selector first
           const Text('Trigger Mode:'),
+          // Dropdown to select the trigger mode. Updates the graphProvider's triggerMode.
           Obx(() => DropdownButton<TriggerMode>(
                 value: graphProvider.triggerMode.value,
                 isExpanded: true,
@@ -96,6 +102,7 @@ class UserSettings extends StatelessWidget {
               )),
           const SizedBox(height: 12),
           const Text('Trigger Level:'),
+          // TextField to set the trigger level. Updates the graphProvider's triggerLevel.
           Obx(() {
             triggerLevelController.text =
                 graphProvider.triggerLevel.value.toStringAsFixed(2);
@@ -119,6 +126,7 @@ class UserSettings extends StatelessWidget {
           }),
           const SizedBox(height: 12),
           const Text('Trigger Edge:'),
+          // Dropdown to select the trigger edge. Updates the graphProvider's triggerEdge.
           Obx(() => DropdownButton<TriggerEdge>(
                 value: graphProvider.triggerEdge.value,
                 isExpanded: true,
@@ -145,6 +153,7 @@ class UserSettings extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Checkbox to enable/disable the low pass filter. Updates the graphProvider's useLowPassFilter.
                     Obx(() => Checkbox(
                           value: graphProvider.useLowPassFilter.value,
                           onChanged: (value) =>
@@ -159,6 +168,7 @@ class UserSettings extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Checkbox to enable/disable hysteresis. Updates the graphProvider's useHysteresis.
                     Obx(() => Checkbox(
                           value: graphProvider.useHysteresis.value,
                           onChanged: (value) =>
@@ -175,6 +185,7 @@ class UserSettings extends StatelessWidget {
     );
   }
 
+  /// Builds the filter settings section.
   Widget _buildFilterSettings() {
     return Container(
       width: double.infinity,
@@ -190,6 +201,7 @@ class UserSettings extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           const Text('Filter Type:'),
+          // Dropdown to select the filter type. Updates the graphProvider's currentFilter.
           Obx(() => DropdownButton<FilterType>(
                 value: graphProvider.currentFilter.value,
                 isExpanded: true,
@@ -211,6 +223,7 @@ class UserSettings extends StatelessWidget {
                     .toList(),
               )),
           const SizedBox(height: 8),
+          // Conditionally display filter-specific settings based on the selected filter type.
           Obx(() {
             final currentFilter = graphProvider.currentFilter.value;
             if (currentFilter is MovingAverageFilter) {
@@ -218,6 +231,7 @@ class UserSettings extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Window Size:'),
+                  // TextField to set the window size for the moving average filter. Updates the graphProvider's windowSize.
                   Obx(() {
                     windowSizeController.text =
                         graphProvider.windowSize.value.toString();
@@ -246,6 +260,7 @@ class UserSettings extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Alpha:'),
+                  // TextField to set the alpha value for the exponential filter. Updates the graphProvider's alpha.
                   Obx(() {
                     alphaController.text = graphProvider.alpha.value.toString();
                     return TextField(
@@ -273,6 +288,7 @@ class UserSettings extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Cutoff Frequency (Hz):'),
+                  // TextField to set the cutoff frequency for the low pass filter. Updates the graphProvider's cutoffFrequency.
                   Obx(() {
                     cutoffFrequencyController.text =
                         graphProvider.cutoffFrequency.value.toString();
@@ -305,6 +321,7 @@ class UserSettings extends StatelessWidget {
     );
   }
 
+  /// Builds the information section to display frequency source and value.
   Widget _buildInformationSection() {
     final userSettings = Get.find<UserSettingsProvider>();
 
@@ -328,6 +345,7 @@ class UserSettings extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text('Frequency Source:'),
+              // Dropdown to select the frequency source. Updates the userSettingsProvider's frequencySource.
               Obx(() => DropdownButton<FrequencySource>(
                     value: userSettings.frequencySource.value,
                     onChanged: (source) {
@@ -348,6 +366,7 @@ class UserSettings extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text('Frequency:'),
+          // Displays the current frequency value.
           Obx(() =>
               Text('${userSettings.frequency.value.toStringAsFixed(2)} Hz')),
         ],

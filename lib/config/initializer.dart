@@ -14,8 +14,9 @@ import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dar
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-
+/// [Initializer] is a utility class that initializes the app's dependencies.
 class Initializer {
+  /// Initializes all necessary dependencies for the app.
   static Future<void> init() async {
     try {
       // 1. Initialize configs and base providers
@@ -24,12 +25,11 @@ class Initializer {
       final deviceConfigProvider = DeviceConfigProvider();
 
       // 2. Register base dependencies
-
       Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
       Get.put<HttpConfig>(globalHttpConfig, permanent: true);
       Get.put<SocketConnection>(globalSocketConnection, permanent: true);
 
-      // NEW: Register HttpService before DataAcquisitionService
+      // Register HttpService before DataAcquisitionService
       final httpService = HttpService(globalHttpConfig);
       Get.put<HttpService>(httpService, permanent: true);
 

@@ -1,13 +1,25 @@
 # Documentación Técnica - Osciloscopio AR
 
 ## Índice
-1. Marco Teórico y Conceptos Fundamentales
-2. Arquitectura del Sistema
-3. Sistema de Inicialización y Configuración
-4. Sistema de Adquisición y Procesamiento de Datos
-5. Sistema de Visualización
-6. Sistemas de Comunicación
-7. Gestión de Estados y Eventos
+1.  Marco Teórico y Conceptos Fundamentales
+2.  Sistema de Inicialización y Configuración
+    *   2.1 Proceso de Inicialización
+    *   2.2 Sistema de Inicialización Jerárquica
+3.  Sistema de Configuración y Conexión
+    *   3.1 Establecimiento de Conexión
+    *   3.2 Servicios de Red
+    *   3.3 Interfaz de Usuario
+    *   3.4 Flujo de Configuración
+4.  Servicios de Comunicación
+    *   4.1 Sistema de Comunicación HTTP
+    *   4.2 Sistema de Comunicación Socket
+5.  Sistema de Visualización y Procesamiento
+    *   5.1 Configuración y Adquisición de Datos
+    *   5.2 Preprocesamiento y Gestión de Datos
+    *   5.3 Visualización Temporal
+    *   5.4 Análisis Espectral
+    *   5.5 Sistema de Adquisición y Procesamiento
+6.  Gestión de Estados y Eventos
 
 # 1. Marco Teórico y Conceptos Fundamentales
 
@@ -36,167 +48,101 @@
 22. Sistemas de procesamiento en tiempo real con Isolates
 23. Pipeline Design Pattern
 
-# 2. Sistema de Inicialización y Configuración Base
+## 2. Sistema de Inicialización y Configuración Base
 
-## 2.1 Proceso de Inicialización
+### 2.1 Proceso de Inicialización
 
-### 2.1.1 Configuración Base del Sistema
+#### 2.1.1 Configuración Base del Sistema
 El proceso de inicialización del sistema establece las condiciones fundamentales para la ejecución de la aplicación:
 
-1. **Preparación del Framework**
-   - Inicialización del binding de Flutter para garantizar la disponibilidad de servicios nativos
-   - Configuración forzada de orientación landscape para optimizar la visualización de señales
-   - Establecimiento del entorno de ejecución
+1.  **Preparación del Framework**
+    *   Inicialización del binding de Flutter para garantizar la disponibilidad de servicios nativos
+    *   Configuración forzada de orientación landscape para optimizar la visualización de señales
+    *   Establecimiento del entorno de ejecución
 
-2. **Gestión de Permisos**
-   El sistema requiere permisos específicos para su funcionamiento en dispositivos Android:
-   - Ubicación permanente: Necesario para operaciones WiFi en segundo plano
-   - Detección de dispositivos WiFi cercanos: Esencial para la conexión con el hardware
-   - Ubicación general: Requerido para funcionalidades de red
+2.  **Gestión de Permisos**
+    El sistema requiere permisos específicos para su funcionamiento en dispositivos Android:
+    *   Ubicación permanente: Necesario para operaciones WiFi en segundo plano
+    *   Detección de dispositivos WiFi cercanos: Esencial para la conexión con el hardware
+    *   Ubicación general: Requerido para funcionalidades de red
 
-### 2.1.2 Estructura de Navegación
+#### 2.1.2 Estructura de Navegación
 La aplicación implementa un sistema de navegación jerárquico mediante GetMaterialApp:
 
-1. **Configuración General**
-   - Identificador: 'ARG_OSCI'
-   - Tema personalizado adaptado a la visualización de señales
-   - Sistema de navegación basado en rutas nombradas
+1.  **Configuración General**
+    *   Identificador: 'ARG\_OSCI'
+    *   Tema personalizado adaptado a la visualización de señales
+    *   Sistema de navegación basado en rutas nombradas
 
-2. **Jerarquía de Navegación**
-   - Pantalla inicial (SetupScreen): Configuración y conexión
-   - Selección de modo (ModeSelectionScreen): Definición del tipo de análisis
-   - Visualización (GraphScreen): Presentación y análisis de señales
+2.  **Jerarquía de Navegación**
+    *   Pantalla inicial (SetupScreen): Configuración y conexión
+    *   Selección de modo (ModeSelectionScreen): Definición del tipo de análisis
+    *   Visualización (GraphScreen): Presentación y análisis de señales
 
-## 2.2 Sistema de Inicialización Jerárquica
+### 2.2 Sistema de Inicialización Jerárquica
 
-### 2.2.1 Gestión de Dependencias
+#### 2.2.1 Gestión de Dependencias
 El sistema implementa una secuencia específica de inicialización para garantizar la disponibilidad de servicios:
 
-1. **Configuración del Dispositivo**
-   - Registro del DeviceConfigProvider como servicio permanente
-   - Establecimiento de parámetros base de operación
-   - Sistema de persistencia de configuración
+1.  **Configuración del Dispositivo**
+    *   Registro del `DeviceConfigProvider` como servicio permanente
+    *   Establecimiento de parámetros base de operación
+    *   Sistema de persistencia de configuración
 
-2. **Servicios de Comunicación**
-   - Configuración HTTP: Establecimiento de endpoint base (192.168.4.1:81)
-   - Configuración Socket: Preparación de canal bidireccional (Puerto 8080)
-   - Sistema de reconexión automática
+2.  **Servicios de Comunicación**
+    *   Configuración HTTP: Establecimiento de endpoint base (http://192.168.4.1:81)
+    *   Configuración Socket: Preparación de canal bidireccional (Puerto 8080)
+    *   Sistema de reconexión automática
 
-3. **Sistema de Procesamiento**
-   La inicialización establece una cadena de procesamiento de datos:
-   - Servicio de adquisición vinculado al sistema de comunicación
-   - Proveedor de datos para gestión de estado
-   - Sistema de buffering para procesamiento en tiempo real
+3.  **Sistema de Procesamiento**
+    La inicialización establece una cadena de procesamiento de datos:
+    *   Servicio de adquisición vinculado al sistema de comunicación
+    *   Proveedor de datos para gestión de estado
+    *   Sistema de buffering para procesamiento en tiempo real
 
-4. **Servicios de Visualización**
-   Se establecen los sistemas de representación visual:
-   - Servicio FFT para análisis espectral
-   - Servicio de gráfico temporal
-   - Sistema de control de modo de visualización
+4.  **Servicios de Visualización**
+    Se establecen los sistemas de representación visual:
+    *   Servicio FFT para análisis espectral
+    *   Servicio de gráfico temporal
+    *   Sistema de control de modo de visualización
 
-5. **Sistema de Configuración**
-   - Inicialización del servicio de configuración
-   - Establecimiento del proveedor de estados
-   - Preparación de interfaces de usuario
-
-# 3. Sistema de Configuración y Conexión
-
-## 3.1 Establecimiento de Conexión
-
-### 3.1.1 Gestión de Credenciales WiFi
-La conexión con el dispositivo requiere un sistema robusto de gestión de credenciales:
-
-1. **Modelo de Credenciales**
-   - Estructura de datos para credenciales WiFi
-   - Sistema de serialización JSON bidireccional
-   - Encriptación de datos sensibles
-   - Validación de formato de credenciales
-
-2. **Procesamiento de Credenciales**
-   - Encriptación RSA de contraseñas
-   - Verificación de integridad de datos
-   - Gestión de errores de formato
-   - Sistema de respaldo de configuración
-
-### 3.1.2 Control de Red
-El sistema implementa múltiples capas de control para garantizar una conexión estable:
-
-1. **Monitoreo de Estado**
-   - Verificación continua de conectividad
-   - Detección de cambios de red
-   - Sistema de reconexión automática
-   - Registro de eventos de red
-
-2. **Gestión de Access Points**
-   - Control de acceso al AP local
-   - Validación de identidad del dispositivo
-   - Monitoreo de potencia de señal
-   - Sistema de fallback automático
-
-## 3.2 Servicios de Red
-
-### 3.2.1 NetworkInfoService
-Implementa las operaciones fundamentales de red:
-
-1. **Sistema de Reintentos**
-   - Máximo 5 intentos de conexión
-   - Intervalos de reintento configurables
-   - Gestión de timeouts
-   - Notificación de estado de conexión
-
-2. **Verificación de Conectividad**
-   - Pruebas de endpoint periódicas
-   - Sistema de heartbeat
-   - Detección de latencia
-   - Registro de métricas de red
-
-### 3.2.2 SetupService
-Coordina todas las operaciones de configuración:
-
-1. **Gestión de Conexiones**
-   - Control de sockets y HTTP
-   - Manejo de estados de conexión
-   - Sistema de verificación challenge-response
-   - Coordinación de servicios de red
-
-2. **Control de Seguridad**
-   - Gestión de claves RSA
-   - Verificación de identidad
-   - Protección de datos sensibles
-   - Auditoría de operaciones
+5.  **Sistema de Configuración**
+    *   Inicialización del servicio de configuración
+    *   Establecimiento del proveedor de estados
+    *   Preparación de interfaces de usuario
 
 ## 3.3 Interfaz de Usuario
 
 ### 3.3.1 Pantalla de Configuración
 La interfaz principal de configuración implementa:
 
-1. **Componentes Visuales**
-   - Barra de título personalizada
-   - Botón principal de configuración
-   - Indicadores de estado
-   - Sistema de notificaciones
+1.  **Componentes Visuales**
+    *   Barra de título personalizada
+    *   Botón principal de configuración
+    *   Indicadores de estado
+    *   Sistema de notificaciones
 
-2. **Gestión de Estados**
-   - Indicación de progreso
-   - Estados de conexión
-   - Mensajes de error
-   - Retroalimentación visual
+2.  **Gestión de Estados**
+    *   Indicación de progreso
+    *   Estados de conexión
+    *   Mensajes de error
+    *   Retroalimentación visual
 
 ### 3.3.2 Diálogos del Sistema
 El sistema implementa diálogos especializados:
 
-1. **Selección de AP**
-   - Indicador de progreso
-   - Opciones de modo AP
-   - Sistema de notificaciones
-   - Gestión de errores
+1.  **Selección de AP**
+    *   Indicador de progreso
+    *   Opciones de modo AP
+    *   Sistema de notificaciones
+    *   Gestión de errores
 
-2. **Configuración de Red**
-   - Lista de redes disponibles
-   - Sistema de credenciales
-   - Indicadores de estado
-   - Control de proceso
-
+2.  **Configuración de Red**
+    *   Lista de redes disponibles
+    *   Sistema de credenciales
+    *   Indicadores de estado
+    *   Control de proceso
+    
 ## 3.4 Flujo de Configuración
 
 ### 3.4.1 Proceso de Inicialización

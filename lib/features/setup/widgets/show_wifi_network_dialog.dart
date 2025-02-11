@@ -3,10 +3,12 @@ import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+/// [showWiFiNetworkDialog] displays a dialog to scan and select available WiFi networks.
 Future<void> showWiFiNetworkDialog() async {
   final controller = Get.find<SetupProvider>();
 
   try {
+    // Initiate the WiFi network scanning process
     controller.handleExternalAPSelection();
 
     await Get.dialog(
@@ -19,6 +21,7 @@ Future<void> showWiFiNetworkDialog() async {
 
             switch (state.status) {
               case SetupStatus.scanning:
+                // Display a loading indicator while scanning
                 return const SizedBox(
                   width: 60,
                   height: 60,
@@ -28,6 +31,7 @@ Future<void> showWiFiNetworkDialog() async {
                 );
 
               case SetupStatus.selecting:
+                // Display the list of available WiFi networks
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -47,6 +51,7 @@ Future<void> showWiFiNetworkDialog() async {
                     ),
                     const SizedBox(height: 8),
                     ElevatedButton.icon(
+                      // Button to rescan for WiFi networks
                       onPressed: () {
                         controller.handleExternalAPSelection();
                       },
@@ -57,6 +62,7 @@ Future<void> showWiFiNetworkDialog() async {
                 );
 
               case SetupStatus.error:
+                // Display an error message and retry options
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -94,6 +100,7 @@ Future<void> showWiFiNetworkDialog() async {
   }
 }
 
+/// [askForPassword] displays a dialog to prompt the user for the password of a selected WiFi network.
 Future<void> askForPassword(String ssid) async {
   final passwordController = TextEditingController();
   final controller = Get.find<SetupProvider>();

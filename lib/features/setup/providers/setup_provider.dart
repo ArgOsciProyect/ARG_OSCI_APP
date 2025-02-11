@@ -4,6 +4,7 @@ import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
+/// [SetupProvider] manages the state and logic for the setup process.
 class SetupProvider extends GetxController {
   final SetupService setupService;
   final _state = SetupState().obs;
@@ -15,10 +16,12 @@ class SetupProvider extends GetxController {
 
   SetupProvider(this.setupService);
 
+  /// Updates the setup state using a function.
   void _updateState(SetupState Function(SetupState) update) {
     _state.value = update(_state.value);
   }
 
+  /// Connects to the local access point.
   Future<void> connectToLocalAP() async {
     try {
       _updateState((s) => s.copyWith(status: SetupStatus.connecting));
@@ -31,10 +34,12 @@ class SetupProvider extends GetxController {
     }
   }
 
+  /// Handles the selection of a mode.
   Future<void> handleModeSelection(String mode) async {
     await setupService.selectMode(mode);
   }
 
+  /// Handles the selection of an external access point.
   Future<void> handleExternalAPSelection() async {
     try {
       _updateState((s) => s.copyWith(status: SetupStatus.scanning));
@@ -48,6 +53,7 @@ class SetupProvider extends GetxController {
     }
   }
 
+  /// Connects to an external access point.
   Future<void> connectToExternalAP(String ssid, String password) async {
     int attempts = 0;
     if (kDebugMode) {
@@ -109,15 +115,18 @@ class SetupProvider extends GetxController {
     }
   }
 
+  /// Waits for the network to change to the specified SSID.
   Future<void> waitForNetworkChange(String ssid) async {
     await setupService.waitForNetworkChange(ssid);
   }
 
+  /// Handles the network change and connects to the new network.
   Future<void> handleNetworkChangeAndConnect(
       String ssid, String password) async {
     await setupService.handleNetworkChangeAndConnect(ssid, password);
   }
 
+  /// Resets the setup state.
   void reset() {
     _updateState((_) => SetupState());
   }

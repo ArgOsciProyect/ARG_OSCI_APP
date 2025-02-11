@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'dart:math' as math;
 import 'package:vector_math/vector_math_64.dart';
 
+/// [FFTChartService] manages the FFT (Fast Fourier Transform) data processing for the FFT chart.
 class FFTChartService {
   DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
@@ -33,6 +34,7 @@ class FFTChartService {
     _setupSubscriptions();
   }
 
+  /// Calculates the dominant frequency from the FFT data.
   double get frequency {
     if (_lastFFTPoints.isEmpty) return 0.0;
 
@@ -81,6 +83,7 @@ class FFTChartService {
     return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
 
+  /// Sets up the data stream subscription to receive data points from the [DataAcquisitionProvider].
   void _setupSubscriptions() {
     _dataPointsSubscription?.cancel();
 
@@ -129,6 +132,7 @@ class FFTChartService {
 
   List<DataPoint> _lastFFTPoints = [];
 
+  /// Computes the FFT (Fast Fourier Transform) of the given data points.
   List<DataPoint> computeFFT(List<DataPoint> points, double maxValue) {
     try {
       // Validar entrada

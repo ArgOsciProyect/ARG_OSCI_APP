@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
 import 'dart:async';
 
+/// [DataAcquisitionProvider] manages the acquisition, processing, and filtering of data for the oscilloscope and FFT charts.
 class DataAcquisitionProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
   final SocketConnection socketConnection;
@@ -43,7 +44,6 @@ class DataAcquisitionProvider extends GetxController {
 
   DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection) {
     // Subscribe to streams
-
     dataAcquisitionService.dataStream.listen((points) {
       final filteredPoints = _applyFilter(points);
       dataPoints.value = filteredPoints;
@@ -80,22 +80,26 @@ class DataAcquisitionProvider extends GetxController {
     });
   }
 
+  /// Provides a stream of data points for the chart.
   Stream<List<DataPoint>> get dataPointsStream => _dataPointsController.stream;
   double getDistance() => distance.value;
   double getScale() => scale.value;
   double getFrequency() => frequency.value;
   double getMaxValue() => maxValue.value;
 
+  /// Adds a list of data points to the data stream.
   void addPoints(List<DataPoint> points) {
     dataPoints.value = points;
     _dataPointsController.add(points);
   }
 
+  /// Restarts data acquisition by stopping and then re-fetching data.
   Future<void> restartDataAcquisition() async {
     await stopData();
     await fetchData();
   }
 
+  /// Sets whether hysteresis is used for triggering.
   void setUseHysteresis(bool value) {
     useHysteresis.value = value;
     dataAcquisitionService.useHysteresis = value;
@@ -105,6 +109,7 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.updateConfig();
   }
 
+  /// Sets whether the low pass filter is used.
   void setUseLowPassFilter(bool value) {
     useLowPassFilter.value = value;
     dataAcquisitionService.useLowPassFilter = value;
@@ -114,6 +119,7 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.updateConfig();
   }
 
+  /// Sets the voltage scale and updates related parameters.
   void setVoltageScale(VoltageScale scale) {
     currentVoltageScale.value = scale;
 
@@ -130,17 +136,19 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.updateConfig();
   }
 
+  /// Fetches data from the data acquisition service.
   Future<void> fetchData() async {
     await dataAcquisitionService.fetchData(
         socketConnection.ip.value, socketConnection.port.value);
   }
 
+  /// Stops data acquisition.
   Future<void> stopData() async {
-    // Asegurar que los sockets se cierran correctamente
+    // Ensure that sockets are closed correctly
     try {
       await dataAcquisitionService.stopData();
       await Future.delayed(
-          const Duration(milliseconds: 100)); // Dar tiempo para cerrar
+          const Duration(milliseconds: 100)); // Give time to close
     } catch (e) {
       if (kDebugMode) {
         print('Error stopping data: $e');
@@ -148,6 +156,7 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
+  /// Sets the trigger mode and handles related actions.
   void setTriggerMode(TriggerMode mode) {
     if (kDebugMode) {
       print("Changing to $mode");
@@ -156,7 +165,7 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.triggerMode = mode;
 
     if (mode == TriggerMode.single) {
-      // Reiniciar el estado del procesamiento en el isolate
+      // Reset the processing state in the isolate
       dataAcquisitionService.clearQueues();
 
       final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
@@ -170,6 +179,7 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
+  /// Sends a single trigger request to the data acquisition service.
   Future<void> _sendSingleTriggerRequest() async {
     try {
       await dataAcquisitionService.sendSingleTriggerRequest();
@@ -180,6 +190,7 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
+  /// Sends a normal trigger request to the data acquisition service.
   Future<void> _sendNormalTriggerRequest() async {
     try {
       await dataAcquisitionService.sendNormalTriggerRequest();
@@ -190,6 +201,7 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
+  /// Sets the pause state of the data acquisition.
   void setPause(bool paused) {
     if (paused) {
       final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
@@ -208,6 +220,7 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
+  /// Automatically adjusts the time and value scales based on the data.
   Future<List<double>> autoset(double chartHeight, double chartWidth) async {
     final result =
         await dataAcquisitionService.autoset(chartHeight, chartWidth);
@@ -223,6 +236,7 @@ class DataAcquisitionProvider extends GetxController {
     return result;
   }
 
+  /// Applies the selected filter to the data points.
   List<DataPoint> _applyFilter(List<DataPoint> points) {
     final params = {
       'windowSize': windowSize.value,
@@ -233,22 +247,27 @@ class DataAcquisitionProvider extends GetxController {
     return currentFilter.value.apply(points, params);
   }
 
+  /// Sets the current filter type.
   void setFilter(FilterType filter) {
     currentFilter.value = filter;
   }
 
+  /// Sets the window size for the moving average filter.
   void setWindowSize(int size) {
     windowSize.value = size;
   }
 
+  /// Sets the alpha value for the exponential filter.
   void setAlpha(double value) {
     alpha.value = value;
   }
 
+  /// Sets the cutoff frequency for the low pass filter.
   void setCutoffFrequency(double freq) {
     cutoffFrequency.value = freq;
   }
 
+  /// Sets the trigger level.
   void setTriggerLevel(double level) {
     triggerLevel.value = level;
     dataAcquisitionService.triggerLevel = level;
@@ -259,6 +278,7 @@ class DataAcquisitionProvider extends GetxController {
         .updateConfig(); // Send updated config to processing isolate
   }
 
+  /// Sets the trigger edge.
   void setTriggerEdge(TriggerEdge edge) {
     triggerEdge.value = edge;
     dataAcquisitionService.triggerEdge = edge;
@@ -266,6 +286,7 @@ class DataAcquisitionProvider extends GetxController {
         .updateConfig(); // Send updated config to processing isolate
   }
 
+  /// Sets the time scale.
   void setTimeScale(double scale) {
     timeScale.value = scale;
     dataAcquisitionService.scale = scale;
@@ -273,6 +294,7 @@ class DataAcquisitionProvider extends GetxController {
         .updateConfig(); // Send updated config to processing isolate
   }
 
+  /// Sets the value scale.
   void setValueScale(double scale) {
     valueScale.value = scale;
     dataAcquisitionService.scale = scale;

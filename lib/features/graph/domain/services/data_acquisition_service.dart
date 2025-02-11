@@ -103,6 +103,7 @@ class UpdateConfigMessage {
   });
 }
 
+/// [DataAcquisitionService] implements the [DataAcquisitionRepository] to manage data acquisition, processing, and control.
 class DataAcquisitionService implements DataAcquisitionRepository {
   final HttpConfig httpConfig;
   late final DeviceConfigProvider deviceConfig;
@@ -178,6 +179,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  /// Initializes the service from the device configuration.
   void _initializeFromDeviceConfig() {
     postTriggerStatus();
   }
@@ -223,6 +225,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
   }
 
+  /// Sends the trigger configuration to the device via HTTP.
   @override
   Future<void> postTriggerStatus() async {
     try {
@@ -341,6 +344,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _initialized = true;
   }
 
+  /// Isolate function for handling socket connections.
   static Future<void> _socketIsolateFunction(SocketIsolateSetup setup) async {
     final socketService = SocketService(setup.packetSize);
     final connection = SocketConnection(setup.ip, setup.port);
@@ -386,6 +390,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  /// Sets up the socket listener to receive data and send it to the main isolate.
   static void _setupSocketListener(
       SocketService socketService, SendPort sendPort) {
     socketService.listen();
@@ -454,7 +459,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  // Refactored processing isolate function
+  /// Isolate function for processing data.
   static void _processingIsolateFunction(ProcessingIsolateSetup setup) {
     final receivePort = ReceivePort();
     setup.sendPort.send(receivePort.sendPort);
@@ -506,6 +511,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     });
   }
 
+  /// Updates the data processing configuration.
   static DataProcessingConfig _updateConfig(
     DataProcessingConfig currentConfig,
     UpdateConfigMessage message,
@@ -520,6 +526,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     );
   }
 
+  /// Reads data from the queue and extracts the value and channel.
   static (int value, int channel) _readDataFromQueue(
     Queue<int> queue,
     DeviceConfig deviceConfig,
@@ -540,6 +547,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return (dataValue, channel);
   }
 
+  /// Calculates the x and y coordinates from the raw data.
   static (double x, double y) _calculateCoordinates(
     int uint12Value,
     int pointsLength,
@@ -550,6 +558,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return (x, y);
   }
 
+  /// Determines if a trigger should occur based on the signal characteristics.
   static bool _shouldTrigger(
       double prevY,
       double currentY,
@@ -604,6 +613,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return slope;
   }
 
+  /// Applies a low-pass filter to the trigger signal.
   static List<double> _applyTriggerFilter(
       List<DataPoint> points, double samplingFrequency,
       {double cutoffFrequency = 50000.0}) {
@@ -635,6 +645,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return filteredPoints.map((p) => p.y).toList();
   }
 
+  /// Processes the data to extract data points and apply triggering logic.
   static (List<DataPoint>, double, double) _processData(
     Queue<int> queue,
     int chunkSize,
@@ -794,6 +805,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _configSendPort?.send('clear_queue');
   }
 
+  /// Updates the metrics (frequency, max value, min value) based on the processed data.
   void _updateMetrics(
       List<DataPoint> points, double maxValue, double minValue) {
     if (points.isEmpty) return;
@@ -806,6 +818,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _maxValueController.add(_currentMaxValue);
   }
 
+  /// Calculates the frequency of the signal based on the trigger points.
   double _calculateFrequency(List<DataPoint> points) {
     final triggerPoints =
         points.where((p) => p.isTrigger).map((p) => p.x).toList();
@@ -822,6 +835,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return averageInterval > 0 ? 1 / averageInterval : 0.0;
   }
 
+  /// Handles connection errors by attempting to reconnect or navigating to the setup screen.
   Future<void> _handleConnectionError() async {
     if (_isReconnecting) return;
     _isReconnecting = true;
@@ -897,6 +911,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     await _setupSocketIsolate(ip, port);
   }
 
+  /// Sets up the processing isolate to receive data and send it to the main isolate.
   Future<void> _setupProcessingIsolate(Stream processingStream) async {
     final completer = Completer<SendPort>();
 
@@ -924,6 +939,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _socketToProcessingSendPort = await completer.future;
   }
 
+  /// Sets up the socket isolate to receive data from the socket and send it to the processing isolate.
   Future<void> _setupSocketIsolate(String ip, int port) async {
     final packetSize = deviceConfig.samplesPerPacket * 2; // 2 bytes per sample
 
@@ -944,7 +960,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerMode: triggerMode,
     ));
   }
-
   @override
   Future<void> stopData() async {
     try {

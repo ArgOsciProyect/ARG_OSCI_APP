@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'show_wifi_network_dialog.dart';
 
+/// [showAPSelectionDialog] displays a dialog to select the Access Point (AP) mode.
 Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
 
-  // Mostrar diálogo de espera
+  // Display a loading dialog while connecting to the ESP32 AP
   Get.dialog(
     AlertDialog(
       title: const Text('Connecting to ESP32 AP'),
@@ -25,7 +26,7 @@ Future<void> showAPSelectionDialog() async {
 
   try {
     await controller.connectToLocalAP();
-    // Cerrar el diálogo de espera después de la conexión
+    // Close the loading dialog after the connection is established
     Get.back();
 
     Get.dialog(
@@ -34,25 +35,25 @@ Future<void> showAPSelectionDialog() async {
         content: const Text('Choose your preferred AP mode.'),
         actions: [
           TextButton(
+            // Handle Local AP selection
             onPressed: () async {
-              // Handle Local AP selection
               Get.back();
               await controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
 
-              // Navegar a la pantalla de selección de modo
+              // Navigate to the mode selection screen
               Get.to(() => const ModeSelectionScreen());
             },
             child: const Text('Local AP'),
           ),
           TextButton(
+            // Handle External AP selection
             onPressed: () async {
-              // Handle External AP selection
               Get.back();
               await controller.handleModeSelection('External AP');
               Get.snackbar('AP Mode', 'External AP selected.');
 
-              // Mostrar diálogo para seleccionar red WiFi externa
+              // Show dialog to select external WiFi network
               await showWiFiNetworkDialog();
             },
             child: const Text('External AP'),
@@ -61,7 +62,7 @@ Future<void> showAPSelectionDialog() async {
       ),
     );
   } catch (e) {
-    // Manejar errores de conexión
+    // Handle connection errors
     Get.back();
     Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
   }

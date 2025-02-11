@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 
 enum FrequencySource { timeDomain, fft }
 
+/// [UserSettingsProvider] manages user preferences and settings related to the graph display.
 class UserSettingsProvider extends GetxController {
   final OscilloscopeChartService oscilloscopeService;
   final FFTChartService fftChartService;
@@ -30,6 +31,7 @@ class UserSettingsProvider extends GetxController {
     _startFrequencyUpdates();
   }
 
+  /// Starts a timer to periodically update the frequency value.
   void _startFrequencyUpdates() {
     _frequencyUpdateTimer?.cancel();
     _frequencyUpdateTimer = Timer.periodic(
@@ -38,12 +40,14 @@ class UserSettingsProvider extends GetxController {
     );
   }
 
+  /// Updates the frequency value based on the selected frequency source.
   void _updateFrequency() {
     frequency.value = frequencySource.value == FrequencySource.timeDomain
         ? Get.find<DataAcquisitionProvider>().frequency.value
         : Get.find<FFTChartProvider>().frequency.value;
   }
 
+  /// Sets the frequency source (Time Domain or FFT).
   void setFrequencySource(FrequencySource source) {
     frequencySource.value = source;
     if (source == FrequencySource.fft) {
@@ -54,12 +58,14 @@ class UserSettingsProvider extends GetxController {
     }
   }
 
+  /// Sets the graph mode (Oscilloscope or FFT).
   void setMode(String newMode) {
     mode.value = newMode;
     _updateServices();
     _updateTitle();
   }
 
+  /// Updates the services based on the selected mode.
   void _updateServices() {
     if (mode.value == 'Oscilloscope') {
       fftChartService.pause();
@@ -70,14 +76,17 @@ class UserSettingsProvider extends GetxController {
     }
   }
 
+  /// Updates the title of the graph screen.
   void _updateTitle() {
     title.value = 'Graph - ${mode.value} Mode';
   }
 
+  /// Returns the current chart widget based on the selected mode.
   Widget getCurrentChart() {
     return mode.value == 'Oscilloscope' ? OsciloscopeChart() : FFTChart();
   }
 
+  /// Navigates to the graph screen with the selected mode.
   void navigateToMode(String selectedMode) {
     Get.to(() => GraphScreen(graphMode: selectedMode));
   }
@@ -88,7 +97,12 @@ class UserSettingsProvider extends GetxController {
     super.onClose();
   }
 
+  /// Returns whether to show trigger controls based on the selected mode.
   bool get showTriggerControls => mode.value == 'Oscilloscope';
+
+  /// Returns whether to show timebase controls based on the selected mode.
   bool get showTimebaseControls => mode.value == 'Oscilloscope';
+
+  /// Returns whether to show FFT controls based on the selected mode.
   bool get showFFTControls => mode.value == 'FFT';
 }

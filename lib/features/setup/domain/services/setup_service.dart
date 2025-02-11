@@ -19,6 +19,7 @@ import 'dart:io';
 import 'dart:math';
 import 'package:wifi_iot/wifi_iot.dart';
 
+/// [NetworkInfoService] provides network-related information and connection functionalities.
 class NetworkInfoService {
   final NetworkInfo _networkInfo = NetworkInfo();
   final HttpService _httpService;
@@ -26,6 +27,7 @@ class NetworkInfoService {
 
   NetworkInfoService() : _httpService = HttpService(HttpConfig(_baseUrl));
 
+  /// Attempts to connect to the ESP32 access point with retries.
   Future<bool> connectWithRetries() async {
     const maxRetries = 5;
     const retryDelay = Duration(seconds: 1);
@@ -53,6 +55,7 @@ class NetworkInfoService {
     return false;
   }
 
+  /// Tests the connection to the ESP32 by making a GET request.
   Future<bool> testConnection() async {
     try {
       await _httpService.get('/testConnect').timeout(
@@ -73,6 +76,7 @@ class NetworkInfoService {
     }
   }
 
+  /// Attempts to connect to the ESP32 access point using WiFiForIoTPlugin and traditional SSID verification.
   Future<bool> connectToESP32() async {
     if (!Platform.isAndroid) return false;
 
@@ -189,15 +193,18 @@ class NetworkInfoService {
     }
   }
 
+  /// Gets the current WiFi network name.
   Future<String?> getWifiName() async {
     return _networkInfo.getWifiName();
   }
 
+  /// Gets the current WiFi IP address.
   Future<String?> getWifiIP() async {
     return _networkInfo.getWifiIP();
   }
 }
 
+/// [SetupService] implements the [SetupRepository] to manage device setup and network configuration.
 class SetupService implements SetupRepository {
   SocketConnection globalSocketConnection;
   HttpConfig globalHttpConfig;
@@ -209,6 +216,7 @@ class SetupService implements SetupRepository {
   late dynamic extPort;
   late dynamic _pubKey;
 
+  /// Generates a random word for testing the connection.
   String _generateRandomWord() {
     const chars = 'abcdefghijklmnopqrstuvwxyz';
     final random = Random();
@@ -430,6 +438,7 @@ class SetupService implements SetupRepository {
   }
 }
 
+/// [SetupException] is a custom exception class for setup-related errors.
 class SetupException implements Exception {
   final String message;
   SetupException(this.message);

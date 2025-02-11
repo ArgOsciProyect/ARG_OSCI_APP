@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
+/// [ModeSelectionScreen] is a Flutter [StatefulWidget] that allows the user to select a graph mode.
 class ModeSelectionScreen extends StatefulWidget {
   const ModeSelectionScreen({super.key});
 

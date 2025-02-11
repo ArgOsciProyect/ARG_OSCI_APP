@@ -6,6 +6,8 @@ import 'package:arg_osci_app/features/graph/widgets/user_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+/// [GraphScreen] is a Flutter [StatelessWidget] that displays the graph based on the selected mode (Oscilloscope or FFT).
+/// It also includes user settings to adjust the graph's behavior.
 class GraphScreen extends StatelessWidget {
   final String graphMode;
   final DataAcquisitionProvider graphProvider;
@@ -22,6 +24,7 @@ class GraphScreen extends StatelessWidget {
     super.key,
   });
 
+  /// Factory constructor that creates an instance of [GraphScreen] with dependencies injected using Get.
   factory GraphScreen({required String graphMode, Key? key}) {
     final graphProvider = Get.find<DataAcquisitionProvider>();
     final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
