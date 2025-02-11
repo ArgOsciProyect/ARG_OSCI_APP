@@ -4,7 +4,7 @@ import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,23 +23,23 @@ const double _sqrOffsetBot = 15;
 /// - Pan navigation
 /// - Scale controls
 /// - Play/pause functionality
-class LineChart extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+class OsciloscopeChart extends StatelessWidget {
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
   final DeviceConfigProvider deviceConfig;
 
-  const LineChart._({
-    required this.lineChartProvider,
+  const OsciloscopeChart._({
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
     required this.deviceConfig,
     super.key,
   });
 
-  /// Factory constructor that creates an instance of LineChart with dependencies injected using Get.
-  factory LineChart({Key? key}) {
-    return LineChart._(
+  /// Factory constructor that creates an instance of oscilloscopeChart with dependencies injected using Get.
+  factory OsciloscopeChart({Key? key}) {
+    return OsciloscopeChart._(
       key: key,
-      lineChartProvider: Get.find<LineChartProvider>(),
+      oscilloscopeChartProvider: Get.find<OscilloscopeChartProvider>(),
       graphProvider: Get.find<DataAcquisitionProvider>(),
       deviceConfig: Get.find<DeviceConfigProvider>(),
     );
@@ -47,19 +47,19 @@ class LineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lineChartProvider = Get.find<LineChartProvider>();
+    final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
     final graphProvider = Get.find<DataAcquisitionProvider>();
 
     return Column(
       children: [
         Expanded(
             child: _ChartArea(
-          lineChartProvider: lineChartProvider,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
           graphProvider: graphProvider,
           deviceConfig: deviceConfig,
         )),
         _ControlPanel(
-          lineChartProvider: lineChartProvider,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
           graphProvider: graphProvider,
         ),
       ],
@@ -70,29 +70,29 @@ class LineChart extends StatelessWidget {
 /// Play/Pause toggle button
 /// A button that toggles between play and pause states for the line chart.
 class _PlayPauseButton extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
 
-  const _PlayPauseButton({required this.lineChartProvider});
+  const _PlayPauseButton({required this.oscilloscopeChartProvider});
 
   @override
   Widget build(BuildContext context) {
     return Obx(() => IconButton(
           icon: Icon(
-            lineChartProvider.isPaused ? Icons.play_arrow : Icons.pause,
+            oscilloscopeChartProvider.isPaused ? Icons.play_arrow : Icons.pause,
           ),
           color: Colors.black,
-          onPressed: () => lineChartProvider.isPaused
-              ? lineChartProvider.resume()
-              : lineChartProvider.pause(),
+          onPressed: () => oscilloscopeChartProvider.isPaused
+              ? oscilloscopeChartProvider.resume()
+              : oscilloscopeChartProvider.pause(),
         ));
   }
 }
 
 /// Scale adjustment buttons for time and voltage scales
 class _ScaleButtons extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
 
-  const _ScaleButtons({required this.lineChartProvider});
+  const _ScaleButtons({required this.oscilloscopeChartProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -100,27 +100,27 @@ class _ScaleButtons extends StatelessWidget {
       children: [
         _ControlButton(
           icon: Icons.remove,
-          onTap: lineChartProvider.decrementTimeScale,
-          onLongPress: lineChartProvider.decrementTimeScale,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.decrementTimeScale,
+          onLongPress: oscilloscopeChartProvider.decrementTimeScale,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.add,
-          onTap: lineChartProvider.incrementTimeScale,
-          onLongPress: lineChartProvider.incrementTimeScale,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.incrementTimeScale,
+          onLongPress: oscilloscopeChartProvider.incrementTimeScale,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_down,
-          onTap: lineChartProvider.decrementValueScale,
-          onLongPress: lineChartProvider.decrementValueScale,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.decrementValueScale,
+          onLongPress: oscilloscopeChartProvider.decrementValueScale,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_up,
-          onTap: lineChartProvider.incrementValueScale,
-          onLongPress: lineChartProvider.incrementValueScale,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.incrementValueScale,
+          onLongPress: oscilloscopeChartProvider.incrementValueScale,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
       ],
     );
@@ -132,11 +132,11 @@ class _ScaleButtons extends StatelessWidget {
 /// This button, when pressed, will automatically adjust the chart scales
 /// to fit the current data within the viewable area.
 class _AutosetButton extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
 
   const _AutosetButton({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
   });
 
@@ -148,7 +148,7 @@ class _AutosetButton extends StatelessWidget {
       onPressed: () {
         final size = MediaQuery.of(context).size;
         graphProvider.autoset(size.height, size.width);
-        lineChartProvider.resetOffsets();
+        oscilloscopeChartProvider.resetOffsets();
       },
     );
   }
@@ -156,12 +156,12 @@ class _AutosetButton extends StatelessWidget {
 
 /// The main chart area that displays the data plot and handles layout constraints.
 class _ChartArea extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
   final DeviceConfigProvider deviceConfig;
 
   const _ChartArea({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
     required this.deviceConfig,
   });
@@ -175,7 +175,7 @@ class _ChartArea extends StatelessWidget {
           child: SizedBox.fromSize(
             size: constraints.biggest,
             child: _ChartGestureHandler(
-              lineChartProvider: lineChartProvider,
+              oscilloscopeChartProvider: oscilloscopeChartProvider,
               graphProvider: graphProvider,
               deviceConfig: deviceConfig,
               constraints: constraints,
@@ -191,13 +191,13 @@ class _ChartArea extends StatelessWidget {
 /// A widget that handles all gesture and pointer interactions for the chart,
 /// including zooming and panning.
 class _ChartGestureHandler extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
   final DeviceConfigProvider deviceConfig;
   final BoxConstraints constraints;
 
   const _ChartGestureHandler({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
     required this.deviceConfig,
     required this.constraints,
@@ -210,44 +210,44 @@ class _ChartGestureHandler extends StatelessWidget {
     final delta = event.scrollDelta.dy;
     if (HardwareKeyboard.instance.isControlPressed) {
       // Horizontal zoom (time)
-      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
-      lineChartProvider.setTimeScale(
-        lineChartProvider.timeScale * (1 - delta / 500),
+      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.setTimeScale(
+        oscilloscopeChartProvider.timeScale * (1 - delta / 500),
       );
     } else if (HardwareKeyboard.instance.isShiftPressed) {
       // Vertical zoom (voltage)
-      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
-      lineChartProvider.setValueScale(
-        lineChartProvider.valueScale * (1 - delta / 500),
+      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.setValueScale(
+        oscilloscopeChartProvider.valueScale * (1 - delta / 500),
       );
     } else {
       // Combined zoom
-      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
       final scale = 1 - delta / 500;
-      lineChartProvider.setTimeScale(lineChartProvider.timeScale * scale);
-      lineChartProvider.setValueScale(lineChartProvider.valueScale * scale);
+      oscilloscopeChartProvider.setTimeScale(oscilloscopeChartProvider.timeScale * scale);
+      oscilloscopeChartProvider.setValueScale(oscilloscopeChartProvider.valueScale * scale);
     }
   }
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
       // Pinch zoom with bounds checking
-      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
-      lineChartProvider.handleZoom(
+      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.handleZoom(
         details,
         constraints.biggest,
         _offsetX,
       );
     } else if (details.pointerCount == 1) {
       // Pan with bounds checking
-      lineChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
-      final newHorizontalOffset = lineChartProvider.horizontalOffset +
+      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      final newHorizontalOffset = oscilloscopeChartProvider.horizontalOffset +
           details.focalPointDelta.dx / constraints.maxWidth;
 
-      lineChartProvider.setHorizontalOffset(newHorizontalOffset);
+      oscilloscopeChartProvider.setHorizontalOffset(newHorizontalOffset);
 
-      lineChartProvider.setVerticalOffset(
-        lineChartProvider.verticalOffset -
+      oscilloscopeChartProvider.setVerticalOffset(
+        oscilloscopeChartProvider.verticalOffset -
             details.focalPointDelta.dy / constraints.maxHeight,
       );
     }
@@ -258,10 +258,10 @@ class _ChartGestureHandler extends StatelessWidget {
     return Listener(
       onPointerSignal: _handlePointerSignal,
       child: GestureDetector(
-        onScaleStart: (_) => lineChartProvider.setInitialScales(),
+        onScaleStart: (_) => oscilloscopeChartProvider.setInitialScales(),
         onScaleUpdate: _handleScaleUpdate,
         child: _ChartPainter(
-          lineChartProvider: lineChartProvider,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
           graphProvider: graphProvider,
           deviceConfig: deviceConfig,
           context: context,
@@ -273,13 +273,13 @@ class _ChartGestureHandler extends StatelessWidget {
 
 /// A widget that handles the painting of the chart using CustomPaint.
 class _ChartPainter extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
   final DeviceConfigProvider deviceConfig;
   final BuildContext context;
 
   const _ChartPainter({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
     required this.deviceConfig,
     required this.context,
@@ -288,22 +288,22 @@ class _ChartPainter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final dataPoints = lineChartProvider.dataPoints;
+      final dataPoints = oscilloscopeChartProvider.dataPoints;
       if (dataPoints.isEmpty) {
         return const Center(child: Text('No data'));
       }
 
       return CustomPaint(
-        painter: LineChartPainter(
+        painter: oscilloscopeChartPainter(
           dataPoints,
-          lineChartProvider.timeScale,
-          lineChartProvider.valueScale,
+          oscilloscopeChartProvider.timeScale,
+          oscilloscopeChartProvider.valueScale,
           graphProvider.getMaxValue(),
           graphProvider.getDistance(),
           graphProvider.getScale(),
           Theme.of(context).scaffoldBackgroundColor,
-          lineChartProvider.horizontalOffset,
-          lineChartProvider.verticalOffset,
+          oscilloscopeChartProvider.horizontalOffset,
+          oscilloscopeChartProvider.verticalOffset,
           deviceConfig,
         ),
       );
@@ -314,11 +314,11 @@ class _ChartPainter extends StatelessWidget {
 /// Bottom control panel with all chart controls
 /// Bottom control panel containing main controls and offset controls for the chart.
 class _ControlPanel extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
 
   const _ControlPanel({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
   });
 
@@ -333,11 +333,11 @@ class _ControlPanel extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _MainControls(
-              lineChartProvider: lineChartProvider,
+              oscilloscopeChartProvider: oscilloscopeChartProvider,
               graphProvider: graphProvider,
             ),
             const SizedBox(width: 20),
-            _OffsetControls(lineChartProvider: lineChartProvider),
+            _OffsetControls(oscilloscopeChartProvider: oscilloscopeChartProvider),
           ],
         ),
       ),
@@ -347,11 +347,11 @@ class _ControlPanel extends StatelessWidget {
 
 /// Main control buttons for the line chart, including play/pause, zoom, and autoset.
 class _MainControls extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
 
   const _MainControls({
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.graphProvider,
   });
 
@@ -359,10 +359,10 @@ class _MainControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _PlayPauseButton(lineChartProvider: lineChartProvider),
-        _ScaleButtons(lineChartProvider: lineChartProvider),
+        _PlayPauseButton(oscilloscopeChartProvider: oscilloscopeChartProvider),
+        _ScaleButtons(oscilloscopeChartProvider: oscilloscopeChartProvider),
         _AutosetButton(
-          lineChartProvider: lineChartProvider,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
           graphProvider: graphProvider,
         ),
       ],
@@ -375,9 +375,9 @@ class _MainControls extends StatelessWidget {
 /// This class provides buttons to adjust the horizontal and vertical offsets
 /// of the chart, allowing the user to pan the chart view.
 class _OffsetControls extends StatelessWidget {
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
 
-  const _OffsetControls({required this.lineChartProvider});
+  const _OffsetControls({required this.oscilloscopeChartProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -385,27 +385,27 @@ class _OffsetControls extends StatelessWidget {
       children: [
         _ControlButton(
           icon: Icons.keyboard_arrow_left,
-          onTap: lineChartProvider.decrementHorizontalOffset,
-          onLongPress: lineChartProvider.decrementHorizontalOffset,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.decrementHorizontalOffset,
+          onLongPress: oscilloscopeChartProvider.decrementHorizontalOffset,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_right,
-          onTap: lineChartProvider.incrementHorizontalOffset,
-          onLongPress: lineChartProvider.incrementHorizontalOffset,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.incrementHorizontalOffset,
+          onLongPress: oscilloscopeChartProvider.incrementHorizontalOffset,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_up,
-          onTap: lineChartProvider.incrementVerticalOffset,
-          onLongPress: lineChartProvider.incrementVerticalOffset,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.incrementVerticalOffset,
+          onLongPress: oscilloscopeChartProvider.incrementVerticalOffset,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_down,
-          onTap: lineChartProvider.decrementVerticalOffset,
-          onLongPress: lineChartProvider.decrementVerticalOffset,
-          lineChartProvider: lineChartProvider,
+          onTap: oscilloscopeChartProvider.decrementVerticalOffset,
+          onLongPress: oscilloscopeChartProvider.decrementVerticalOffset,
+          oscilloscopeChartProvider: oscilloscopeChartProvider,
         ),
       ],
     );
@@ -418,21 +418,21 @@ class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
 
   const _ControlButton({
     required this.icon,
     required this.onTap,
     required this.onLongPress,
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => onTap(),
-      onLongPress: () => lineChartProvider.startIncrementing(onLongPress),
-      onLongPressUp: lineChartProvider.stopIncrementing,
+      onLongPress: () => oscilloscopeChartProvider.startIncrementing(onLongPress),
+      onLongPressUp: oscilloscopeChartProvider.stopIncrementing,
       child: IconButton(
         icon: Icon(icon),
         color: Colors.black,
@@ -452,7 +452,7 @@ class _ControlButton extends StatelessWidget {
 /// grid lines, labels, and the data points. It also manages the scaling and
 /// offsetting of the chart based on user interactions.
 ///
-/// The `LineChartPainter` class takes the following parameters:
+/// The `oscilloscopeChartPainter` class takes the following parameters:
 /// - `dataPoints`: List of data points to be plotted.
 /// - `timeScale`: Scale factor for the time axis.
 /// - `valueScale`: Scale factor for the value axis.
@@ -462,7 +462,7 @@ class _ControlButton extends StatelessWidget {
 /// - `backgroundColor`: Background color of the chart.
 /// - `horizontalOffset`: Horizontal offset for panning.
 /// - `verticalOffset`: Vertical offset for panning.
-class LineChartPainter extends CustomPainter {
+class oscilloscopeChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
   final double valueScale;
@@ -486,7 +486,7 @@ class LineChartPainter extends CustomPainter {
   double _drawingHeight = 0.0;
   double _centerY = 0.0;
 
-  LineChartPainter(
+  oscilloscopeChartPainter(
     this.dataPoints,
     this.timeScale,
     this.valueScale,

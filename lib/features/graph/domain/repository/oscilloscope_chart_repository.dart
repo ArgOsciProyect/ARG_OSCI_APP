@@ -4,7 +4,7 @@ import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 
 /// Repository interface for real-time line chart display functionality
-abstract class LineChartRepository {
+abstract class OscilloscopeChartRepository {
   /// Stream of processed data points for chart display
   /// Returns continuous time-domain signal measurements
   Stream<List<DataPoint>> get dataStream;

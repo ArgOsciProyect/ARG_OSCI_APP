@@ -2,14 +2,14 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class UserSettings extends StatelessWidget {
   final DataAcquisitionProvider graphProvider;
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final TextEditingController triggerLevelController;
   final TextEditingController windowSizeController = TextEditingController();
   final TextEditingController alphaController = TextEditingController();
@@ -22,7 +22,7 @@ class UserSettings extends StatelessWidget {
 
   UserSettings({
     required this.graphProvider,
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.triggerLevelController,
     super.key,
   });

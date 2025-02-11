@@ -1,7 +1,7 @@
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
-import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
+import 'package:arg_osci_app/features/graph/widgets/oscilloscope_chart.dart';
 import 'package:flutter/material.dart';
 
 /// Base class defining display modes for the oscilloscope
@@ -33,7 +33,7 @@ abstract class GraphMode {
 
 /// Time domain oscilloscope display mode
 class OscilloscopeMode extends GraphMode {
-  final LineChartService lineChartService;
+  final OscilloscopeChartService lineChartService;
 
   OscilloscopeMode(this.lineChartService);
 
@@ -44,7 +44,7 @@ class OscilloscopeMode extends GraphMode {
   String get title => 'Graph - Oscilloscope Mode';
 
   @override
-  Widget buildChart() => LineChart();
+  Widget buildChart() => OsciloscopeChart();
 
   @override
   bool get showTriggerControls => true;

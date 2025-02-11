@@ -4,7 +4,7 @@ import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.d
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
@@ -39,15 +39,15 @@ class Initializer {
       Get.put<DataAcquisitionService>(dataAcquisitionService, permanent: true);
 
       // Rest of initialization...
-      final lineChartService = LineChartService(null);
+      final oscilloscopeChartService = OscilloscopeChartService(null);
       final fftChartService = FFTChartService(null);
 
-      Get.put<LineChartService>(lineChartService, permanent: true);
+      Get.put<OscilloscopeChartService>(oscilloscopeChartService, permanent: true);
       Get.put<FFTChartService>(fftChartService, permanent: true);
 
       Get.put(
           UserSettingsProvider(
-            lineChartService: Get.find<LineChartService>(),
+            oscilloscopeService: Get.find<OscilloscopeChartService>(),
             fftChartService: Get.find<FFTChartService>(),
           ),
           permanent: true);
@@ -59,13 +59,13 @@ class Initializer {
       Get.put<DataAcquisitionProvider>(dataAcquisitionProvider,
           permanent: true);
 
-      lineChartService.updateProvider(dataAcquisitionProvider);
+      oscilloscopeChartService.updateProvider(dataAcquisitionProvider);
       fftChartService.updateProvider(dataAcquisitionProvider);
 
-      final lineChartProvider = LineChartProvider(lineChartService);
+      final oscilloscopeChartProvider = OscilloscopeChartProvider(oscilloscopeChartService);
       final fftChartProvider = FFTChartProvider(fftChartService);
 
-      Get.put<LineChartProvider>(lineChartProvider, permanent: true);
+      Get.put<OscilloscopeChartProvider>(oscilloscopeChartProvider, permanent: true);
       Get.put<FFTChartProvider>(fftChartProvider, permanent: true);
 
       final setupService =

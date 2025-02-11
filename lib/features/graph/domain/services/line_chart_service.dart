@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
-import 'package:arg_osci_app/features/graph/domain/repository/line_chart_repository.dart';
+import 'package:arg_osci_app/features/graph/domain/repository/oscilloscope_chart_repository.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:get/get.dart';
 
-class LineChartService implements LineChartRepository {
+class OscilloscopeChartService implements OscilloscopeChartRepository {
   DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final _dataController = StreamController<List<DataPoint>>.broadcast();
@@ -22,7 +22,7 @@ class LineChartService implements LineChartRepository {
   @override
   bool get isPaused => _isPaused;
 
-  LineChartService(DataAcquisitionProvider? provider) {
+  OscilloscopeChartService(DataAcquisitionProvider? provider) {
     _graphProvider = provider;
     if (provider != null) {
       _setupSubscriptions();

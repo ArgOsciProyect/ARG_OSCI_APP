@@ -1,6 +1,6 @@
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
-import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/graph/widgets/user_settings.dart';
 import 'package:flutter/material.dart';
@@ -9,14 +9,14 @@ import 'package:get/get.dart';
 class GraphScreen extends StatelessWidget {
   final String graphMode;
   final DataAcquisitionProvider graphProvider;
-  final LineChartProvider lineChartProvider;
+  final OscilloscopeChartProvider oscilloscopeChartProvider;
   final UserSettingsProvider userSettingsProvider;
   final TextEditingController triggerLevelController;
 
   const GraphScreen._({
     required this.graphMode,
     required this.graphProvider,
-    required this.lineChartProvider,
+    required this.oscilloscopeChartProvider,
     required this.userSettingsProvider,
     required this.triggerLevelController,
     super.key,
@@ -24,7 +24,7 @@ class GraphScreen extends StatelessWidget {
 
   factory GraphScreen({required String graphMode, Key? key}) {
     final graphProvider = Get.find<DataAcquisitionProvider>();
-    final lineChartProvider = Get.find<LineChartProvider>();
+    final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
     final userSettingsProvider = Get.find<UserSettingsProvider>();
     final controller = TextEditingController(
         text: graphProvider.triggerLevel.value.toString());
@@ -39,7 +39,7 @@ class GraphScreen extends StatelessWidget {
       if (graphMode == 'Oscilloscope') {
         final size = Get.size;
         graphProvider.autoset(size.height, size.width);
-        lineChartProvider.resetOffsets();
+        oscilloscopeChartProvider.resetOffsets();
       } else if (graphMode == 'FFT') {
         final size = Get.size;
         final fftProvider = Get.find<FFTChartProvider>();
@@ -53,7 +53,7 @@ class GraphScreen extends StatelessWidget {
     return GraphScreen._(
       graphMode: graphMode,
       graphProvider: graphProvider,
-      lineChartProvider: lineChartProvider,
+      oscilloscopeChartProvider: oscilloscopeChartProvider,
       userSettingsProvider: userSettingsProvider,
       triggerLevelController: controller,
       key: key,
@@ -103,7 +103,7 @@ class GraphScreen extends StatelessWidget {
                 width: 170,
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: UserSettings(
-                  lineChartProvider: lineChartProvider,
+                  oscilloscopeChartProvider: oscilloscopeChartProvider,
                   graphProvider: graphProvider,
                   triggerLevelController: triggerLevelController,
                 ),

@@ -5,14 +5,14 @@ import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/screens/graph_screen.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
-import 'package:arg_osci_app/features/graph/widgets/line_chart.dart';
+import 'package:arg_osci_app/features/graph/widgets/oscilloscope_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 enum FrequencySource { timeDomain, fft }
 
 class UserSettingsProvider extends GetxController {
-  final LineChartService lineChartService;
+  final OscilloscopeChartService oscilloscopeService;
   final FFTChartService fftChartService;
   final mode = RxString('');
   final title = RxString('');
@@ -24,7 +24,7 @@ class UserSettingsProvider extends GetxController {
   final availableModes = <String>['Oscilloscope', 'FFT'];
 
   UserSettingsProvider({
-    required this.lineChartService,
+    required this.oscilloscopeService,
     required this.fftChartService,
   }) {
     _startFrequencyUpdates();
@@ -63,9 +63,9 @@ class UserSettingsProvider extends GetxController {
   void _updateServices() {
     if (mode.value == 'Oscilloscope') {
       fftChartService.pause();
-      lineChartService.resume();
+      oscilloscopeService.resume();
     } else {
-      lineChartService.pause();
+      oscilloscopeService.pause();
       fftChartService.resume();
     }
   }
@@ -75,7 +75,7 @@ class UserSettingsProvider extends GetxController {
   }
 
   Widget getCurrentChart() {
-    return mode.value == 'Oscilloscope' ? LineChart() : FFTChart();
+    return mode.value == 'Oscilloscope' ? OsciloscopeChart() : FFTChart();
   }
 
   void navigateToMode(String selectedMode) {

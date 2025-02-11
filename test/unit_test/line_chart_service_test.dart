@@ -29,7 +29,7 @@ class MockDataAcquisitionProvider extends Mock
 
 void main() {
   late MockDataAcquisitionProvider mockProvider;
-  late LineChartService service;
+  late OscilloscopeChartService service;
   late DeviceConfigProvider deviceConfig;
 
   setUp(() {
@@ -49,7 +49,7 @@ void main() {
 
     Get.put<DeviceConfigProvider>(deviceConfig);
     mockProvider = MockDataAcquisitionProvider();
-    service = LineChartService(mockProvider);
+    service = OscilloscopeChartService(mockProvider);
   });
 
   tearDown(() async {
@@ -60,7 +60,7 @@ void main() {
 
   group('Basic functionality', () {
     test('constructs with null provider', () {
-      final service = LineChartService(null);
+      final service = OscilloscopeChartService(null);
       expect(service.dataStream, isNotNull);
       expect(service.isPaused, false);
     });

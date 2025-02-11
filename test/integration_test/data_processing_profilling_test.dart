@@ -65,7 +65,7 @@ class MockUserSettingsProvider extends GetxController
 
   // Remove dependencies on other services
   @override
-  final LineChartService lineChartService = LineChartService(null);
+  final OscilloscopeChartService oscilloscopeService = OscilloscopeChartService(null);
   @override
   final FFTChartService fftChartService = FFTChartService(null);
 

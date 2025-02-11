@@ -34,11 +34,9 @@ dependencies:
   network_info_plus: ^6.1.1
   socket_io_client: ^3.0.1
   permission_handler: ^11.3.1
-  http: 1.2.2
+  http: ^1.2.2
   encrypt: ^5.0.3
   pointycastle: ^3.9.1
-  scidart: ^0.0.2-dev.12
-  fftea: ^1.5.0+1
   simple_kalman: ^1.0.2
   meta: ^1.15.0
   wifi_iot: ^0.3.19+1

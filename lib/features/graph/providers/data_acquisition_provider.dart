@@ -3,7 +3,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
-import 'package:arg_osci_app/features/graph/providers/line_chart_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:flutter/foundation.dart';
@@ -159,14 +159,14 @@ class DataAcquisitionProvider extends GetxController {
       // Reiniciar el estado del procesamiento en el isolate
       dataAcquisitionService.clearQueues();
 
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.clearForNewTrigger();
+      final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+      oscilloscopeChartProvider.clearForNewTrigger();
       _sendSingleTriggerRequest();
     } else if (mode == TriggerMode.normal) {
       _sendNormalTriggerRequest();
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.clearAndResume(); // Changed from just resume()
-      lineChartProvider.resetOffsets();
+      final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+      oscilloscopeChartProvider.clearAndResume(); // Changed from just resume()
+      oscilloscopeChartProvider.resetOffsets();
     }
   }
 
@@ -192,18 +192,18 @@ class DataAcquisitionProvider extends GetxController {
 
   void setPause(bool paused) {
     if (paused) {
-      final lineChartProvider = Get.find<LineChartProvider>();
-      lineChartProvider.pause();
+      final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+      oscilloscopeChartProvider.pause();
     } else {
       if (triggerMode.value == TriggerMode.single) {
         dataAcquisitionService.clearQueues();
-        final lineChartProvider = Get.find<LineChartProvider>();
-        lineChartProvider.clearForNewTrigger();
+        final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+        oscilloscopeChartProvider.clearForNewTrigger();
         _sendSingleTriggerRequest();
       } else {
         _sendNormalTriggerRequest();
-        final lineChartProvider = Get.find<LineChartProvider>();
-        lineChartProvider.resume();
+        final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+        oscilloscopeChartProvider.resume();
       }
     }
   }
@@ -213,9 +213,9 @@ class DataAcquisitionProvider extends GetxController {
         await dataAcquisitionService.autoset(chartHeight, chartWidth);
 
     // Update scales in line chart provider
-    final lineChartProvider = Get.find<LineChartProvider>();
-    lineChartProvider.setTimeScale(result[0]);
-    lineChartProvider.setValueScale(result[1]);
+    final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
+    oscilloscopeChartProvider.setTimeScale(result[0]);
+    oscilloscopeChartProvider.setValueScale(result[1]);
 
     // Update trigger level
     triggerLevel.value = dataAcquisitionService.triggerLevel;

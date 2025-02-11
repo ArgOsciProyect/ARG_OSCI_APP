@@ -9,8 +9,8 @@ import 'package:get/get.dart';
 
 import 'dart:async';
 
-class LineChartProvider extends GetxController {
-  final LineChartService _lineChartService;
+class OscilloscopeChartProvider extends GetxController {
+  final OscilloscopeChartService _oscilloscopeChartService;
   final graphProvider = Get.find<DataAcquisitionProvider>();
 
   StreamSubscription? _dataSubscription;
@@ -40,8 +40,8 @@ class LineChartProvider extends GetxController {
   double get initialTimeScale => _initialTimeScale;
   double get initialValueScale => _initialValueScale;
 
-  LineChartProvider(this._lineChartService) {
-    _dataSubscription = _lineChartService.dataStream.listen((points) {
+  OscilloscopeChartProvider(this._oscilloscopeChartService) {
+    _dataSubscription = _oscilloscopeChartService.dataStream.listen((points) {
       _dataPoints.value = points;
     });
     _timeScale.value = 1.0;
@@ -101,7 +101,7 @@ class LineChartProvider extends GetxController {
   void clearForNewTrigger() {
     _dataPoints.value = [];
     resume(); // Quitamos la pausa primero
-    _lineChartService.resumeAndWaitForTrigger();
+    _oscilloscopeChartService.resumeAndWaitForTrigger();
   }
 
   double screenToDomainY(double screenY, Size size, double offsetX) {
@@ -196,7 +196,7 @@ class LineChartProvider extends GetxController {
   void clearAndResume() {
     _dataPoints.value = []; // Clear existing data
     _isPaused.value = false; // Unpause
-    _lineChartService.resume();
+    _oscilloscopeChartService.resume();
   }
 
   void incrementTimeScale() {
@@ -249,14 +249,14 @@ class LineChartProvider extends GetxController {
   void pause() {
     if (!_isPaused.value) {
       _isPaused.value = true;
-      _lineChartService.pause();
+      _oscilloscopeChartService.pause();
     }
   }
 
   void resume() {
     if (_isPaused.value) {
       _isPaused.value = false;
-      _lineChartService.resume();
+      _oscilloscopeChartService.resume();
 
       // Si estamos en modo single, enviamos una nueva solicitud de trigger
       if (graphProvider.triggerMode.value == TriggerMode.single) {
@@ -270,7 +270,7 @@ class LineChartProvider extends GetxController {
   void onClose() {
     _incrementTimer?.cancel();
     _dataSubscription?.cancel();
-    _lineChartService.dispose();
+    _oscilloscopeChartService.dispose();
     super.onClose();
   }
 }
