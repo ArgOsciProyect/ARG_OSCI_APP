@@ -4,21 +4,58 @@
 1.  Marco Teórico y Conceptos Fundamentales
 2.  Sistema de Inicialización y Configuración
     *   2.1 Proceso de Inicialización
+        *   2.1.1 Configuración Base del Sistema
+        *   2.1.2 Estructura de Navegación
     *   2.2 Sistema de Inicialización Jerárquica
+        *   2.2.1 Gestión de Dependencias
 3.  Sistema de Configuración y Conexión
     *   3.1 Establecimiento de Conexión
+        *   3.1.1 Modos de Conexión
+        *   3.1.2 Proceso de Conexión al AP Local
     *   3.2 Servicios de Red
+        *   3.2.1 NetworkInfoService
+        *   3.2.2 Dependencias
     *   3.3 Interfaz de Usuario
+        *   3.3.1 Pantalla de Configuración (SetupScreen)
+        *   3.3.2 Diálogos del Sistema
     *   3.4 Flujo de Configuración
+        *   3.4.1 Proceso de Inicialización
+        *   3.4.2 Flujos de Operación
 4.  Servicios de Comunicación
     *   4.1 Sistema de Comunicación HTTP
+        *   4.1.1 Arquitectura y Componentes
+        *   4.1.2 Operaciones del Sistema
     *   4.2 Sistema de Comunicación Socket
+        *   4.2.1 Estructura Principal
+        *   4.2.2 Sistema de Transmisión de Datos
+        *   4.2.3 Gestión de Eventos y Recursos
 5.  Sistema de Visualización y Procesamiento
     *   5.1 Configuración y Adquisición de Datos
+        *   5.1.1 Configuración del Hardware
+        *   5.1.2 Sistema de Escalado
     *   5.2 Preprocesamiento y Gestión de Datos
+        *   5.2.1 Arquitectura de Procesamiento
+        *   5.2.2 Sistema de Trigger
+        *   5.2.3 Sistema de Filtrado
+        *   5.2.4 Sistema de Escalado
+        *   5.2.5 Métricas y Autoajuste
+        *   5.2.6 Sistema de Estado
     *   5.3 Visualización Temporal
+        *   5.3.1 Arquitectura de Visualización
+        *   5.3.2 Gestión de Estado (LineChartProvider)
+        *   5.3.3 Procesamiento de Datos
+        *   5.3.4 Optimización de Rendimiento
     *   5.4 Análisis Espectral
+        *   5.4.1 Procesamiento FFT
+        *   5.4.2 Detección de Frecuencia
+        *   5.4.3 Control de Visualización
+        *   5.4.3 Optimización y Rendimiento
     *   5.5 Sistema de Adquisición y Procesamiento
+        *   5.5.1 Arquitectura de Procesamiento
+        *   5.5.2 Procesamiento de Señales
+        *   5.5.3 Control de Flujo
+        *   5.5.4 Gestión de Recursos
+        *   5.5.5 Métricas y Autoajuste
 6.  Gestión de Estados y Eventos
 
 # 1. Marco Teórico y Conceptos Fundamentales
@@ -111,69 +148,143 @@ El sistema implementa una secuencia específica de inicialización para garantiz
     *   Establecimiento del proveedor de estados
     *   Preparación de interfaces de usuario
 
-## 3.3 Interfaz de Usuario
+## 3. Sistema de Configuración y Conexión
 
-### 3.3.1 Pantalla de Configuración
+### 3.1 Establecimiento de Conexión
+
+#### 3.1.1 Modos de Conexión
+El sistema soporta dos modos de conexión principales, cada uno adaptado a diferentes escenarios de uso:
+
+1.  **Modo AP Local (Internal AP)**
+    *   El dispositivo móvil se conecta directamente al punto de acceso (AP) WiFi generado por el ESP32.
+    *   Se utiliza la dirección IP predeterminada (192.168.4.1) para la configuración y comunicación.
+    *   Este modo es útil para la configuración inicial o cuando no se dispone de una red WiFi externa.
+    *   **Importante:** Este modo se selecciona *después* de la conexión inicial al AP del ESP32 para configuración.
+
+2.  **Modo AP Externo (External AP)**
+    *   El ESP32 se conecta a una red WiFi externa existente.
+    *   El dispositivo móvil se conecta a la misma red WiFi externa.
+    *   Este modo permite el acceso a internet y la operación en redes más amplias.
+    *   **Importante:** Este modo se selecciona *después* de la conexión inicial al AP del ESP32 para configuración.
+
+#### 3.1.2 Proceso de Conexión al AP Local
+El proceso de conexión al AP local se realiza mediante la clase `NetworkInfoService` y sigue los siguientes pasos:
+
+1.  **Conexión al AP:**
+    *   Se intenta la conexión al AP "ESP32\_AP" utilizando la librería `wifi_iot`.
+    *   Se configura la seguridad como WPA y se proporciona la contraseña "password123".
+    *   Se establece un tiempo de espera para la conexión.
+    *   Este paso es **inicial** y necesario para configurar el dispositivo, independientemente del modo de operación final.
+2.  **Verificación de la Conexión:**
+    *   Se verifica la conexión obteniendo el SSID actual y comparándolo con "ESP32\_AP".
+    *   Se realiza una petición HTTP a la dirección base del ESP32 para confirmar la conectividad.
+3.  **Manejo de Errores:**
+    *   Si la conexión falla, se intenta un número limitado de veces.
+    *   Si la conexión no se puede establecer, se notifica al usuario y se le pide que se conecte manualmente.
+
+### 3.2 Servicios de Red
+
+#### 3.2.1 NetworkInfoService
+La clase `NetworkInfoService` proporciona funcionalidades para obtener información sobre la red y conectarse a ella.
+
+1.  **Obtención de Información de Red:**
+    *   `getWifiName()`: Obtiene el nombre (SSID) de la red WiFi actual.
+    *   `getWifiIP()`: Obtiene la dirección IP del dispositivo en la red WiFi actual.
+
+2.  **Conexión a Redes WiFi (Android):**
+    *   `connectToESP32()`: Intenta conectarse a la red WiFi "ESP32\_AP" utilizando la librería `wifi_iot`.
+    *   `connectWithRetries()`: Intenta conectarse a la red WiFi "ESP32\_AP" con un número limitado de reintentos.
+
+#### 3.2.2 Dependencias
+La clase `NetworkInfoService` depende de las siguientes librerías:
+
+*   `network_info_plus`: Para obtener información sobre la red.
+*   `wifi_iot`: Para conectarse a redes WiFi (solo en Android).
+*   `http`: Para realizar peticiones HTTP y verificar la conexión.
+
+### 3.3 Interfaz de Usuario
+
+#### 3.3.1 Pantalla de Configuración (SetupScreen)
 La interfaz principal de configuración implementa:
 
 1.  **Componentes Visuales**
     *   Barra de título personalizada
-    *   Botón principal de configuración
-    *   Indicadores de estado
-    *   Sistema de notificaciones
+    *   Botón principal de configuración: "Select AP Mode"
+    *   Diálogos modales para la selección de AP y configuración de red
+    *   La pantalla `SetupScreen` es el punto de entrada para la configuración del dispositivo, ofreciendo al usuario la posibilidad de seleccionar entre el modo AP Local y el modo AP Externo.
 
 2.  **Gestión de Estados**
-    *   Indicación de progreso
-    *   Estados de conexión
-    *   Mensajes de error
-    *   Retroalimentación visual
+    *   Indicación de progreso mediante diálogos modales
+    *   Estados de conexión representados en los diálogos
+    *   Mensajes de error mostrados en los diálogos
+    *   Retroalimentación visual mediante indicadores de carga
+    *   La gestión de estados se realiza a través del `SetupProvider`, que controla el flujo de la configuración y la conexión.
 
-### 3.3.2 Diálogos del Sistema
+#### 3.3.2 Diálogos del Sistema
 El sistema implementa diálogos especializados:
 
-1.  **Selección de AP**
-    *   Indicador de progreso
-    *   Opciones de modo AP
-    *   Sistema de notificaciones
-    *   Gestión de errores
+1.  **Selección de AP (showAPSelectionDialog)**
+    *   Muestra un indicador de progreso mientras se conecta al AP local.
+    *   Ofrece opciones para seleccionar el modo AP: "Local AP" o "External AP".
+    *   Gestiona errores de conexión y muestra mensajes de error.
+    *   Utiliza el `SetupProvider` para gestionar el estado de la conexión y la selección del modo AP.
+    *   Este diálogo permite al usuario elegir entre conectarse directamente al ESP32 (AP Local) o conectarse a través de una red WiFi externa (AP Externo).
 
-2.  **Configuración de Red**
-    *   Lista de redes disponibles
-    *   Sistema de credenciales
-    *   Indicadores de estado
-    *   Control de proceso
-    
-## 3.4 Flujo de Configuración
+2.  **Configuración de Red (showWiFiNetworkDialog y askForPassword)**
+    *   Muestra una lista de redes WiFi disponibles.
+    *   Solicita las credenciales (contraseña) para la red seleccionada.
+    *   Muestra indicadores de estado durante el proceso de conexión.
+    *   Gestiona errores de conexión y ofrece opciones para reintentar o seleccionar otra red.
+    *   Utiliza el `SetupProvider` para gestionar el escaneo de redes, la solicitud de contraseñas y el proceso de conexión.
+    *   El diálogo `showWiFiNetworkDialog` presenta una lista de redes WiFi disponibles, mientras que `askForPassword` solicita la contraseña para la red seleccionada.
 
-### 3.4.1 Proceso de Inicialización
+### 3.4 Flujo de Configuración
+
+#### 3.4.1 Proceso de Inicialización
 Secuencia de configuración inicial:
 
-1. **Preparación del Sistema**
-   - Carga de componentes
-   - Verificación de permisos
-   - Inicialización de servicios
-   - Establecimiento de estados base
+1.  **Preparación del Sistema**
+    *   Carga de componentes
+    *   Verificación de permisos
+    *   Inicialización de servicios
+    *   Establecimiento de estados base
 
-2. **Configuración de Red**
-   - Activación de interfaces
-   - Escaneo de redes
-   - Establecimiento de conexión
-   - Verificación de estado
+2.  **Configuración de Red**
+    *   Activación de interfaces
+    *   Escaneo de redes
+    *   Establecimiento de conexión
+    *   Verificación de estado
 
-### 3.4.2 Flujos de Operación
-El sistema soporta dos flujos principales:
+#### 3.4.2 Flujos de Operación
 
-1. **Modo AP Local**
-   - Conexión directa
-   - Configuración interna
-   - Verificación de estado
-   - Transición a operación
+1.  **Modo AP Local**
+    *   Conexión directa
+        *   El dispositivo se conecta directamente al punto de acceso (AP) del ESP32.
+        *   Se utiliza la función `connectToLocalAP` del `SetupProvider` para gestionar la conexión.
+    *   Configuración interna
+        *   Se utiliza la dirección IP predeterminada (192.168.4.1) para la configuración.
+        *   El `SetupService` inicializa la configuración HTTP y Socket con la dirección IP local.
+        *   La función `fetchDeviceConfig` del `SetupService` obtiene la configuración del dispositivo desde el endpoint `/config` y actualiza el `DeviceConfigProvider`.
+    *   Verificación de estado
+        *   Se verifica la conexión mediante una solicitud HTTP.
+    *   Transición a operación
+        *   Una vez configurado, el sistema pasa al modo de operación normal.
 
-2. **Modo AP Externo**
-   - Selección de red
-   - Proceso de credenciales
-   - Verificación de conexión
-   - Establecimiento de comunicación
+2.  **Modo AP Externo**
+    *   Selección de red
+        *   El usuario selecciona una red WiFi externa de la lista disponible.
+        *   El diálogo `showWiFiNetworkDialog` muestra las redes disponibles y permite al usuario seleccionar una.
+    *   Proceso de credenciales
+        *   Se solicitan las credenciales (SSID y contraseña) para la red seleccionada.
+        *   El diálogo `askForPassword` solicita la contraseña al usuario.
+        *   Las credenciales se encriptan utilizando la clave pública del dispositivo.
+        *   La función `encriptWithPublicKey` del `SetupService` realiza el cifrado RSA.
+    *   Verificación de conexión
+        *   Se verifica la conexión a la red externa mediante una solicitud HTTP.
+        *   La función `handleNetworkChangeAndConnect` del `SetupProvider` gestiona la conexión y la verificación.
+        *   Se utiliza un sistema de reintentos para asegurar la conexión.
+    *   Establecimiento de comunicación
+        *   Una vez conectado, el sistema establece la comunicación con el dispositivo.
 
 # 4. Servicios de Comunicación
 
@@ -187,18 +298,22 @@ El sistema de comunicación HTTP implementa una arquitectura en capas que garant
    - Gestión del ciclo de vida del cliente HTTP
    - Sistema de serialización para configuración
    - Mecanismos de reinicialización
+   - Uso de la clase `HttpConfig` para encapsular la URL base y el cliente HTTP.
+   - La clase `HttpConfig` permite la configuración de la URL base y la inyección de un cliente HTTP personalizado, facilitando las pruebas y la adaptación a diferentes entornos.
 
 2. **Capa de Abstracción**
    - Definición de operaciones HTTP fundamentales
    - Sistema unificado de gestión de errores
    - Tipado fuerte de respuestas
    - Manejo estandarizado de endpoints
+   - Implementación de la interfaz `HttpRepository` para definir las operaciones HTTP.
 
 3. **Implementación del Servicio**
    - Sistema robusto de manejo de errores
    - Procesamiento automático de JSON
    - Gestión de cabeceras HTTP
    - Control de estado de conexión
+   - Implementación de la clase `HttpService` para realizar las operaciones HTTP.
 
 ### 4.1.2 Operaciones del Sistema
 El servicio HTTP proporciona dos operaciones fundamentales:
@@ -208,16 +323,18 @@ El servicio HTTP proporciona dos operaciones fundamentales:
    - Sistema de validación de respuestas
    - Decodificación automática de JSON
    - Manejo estructurado de errores
+   - Uso del método `get` de la clase `HttpService` para realizar las peticiones GET.
 
 2. **Operaciones POST**
    - Serialización automática de cuerpos
    - Gestión de Content-Type
    - Sistema de reintentos configurable
    - Validación de respuestas del servidor
+   - Uso del método `post` de la clase `HttpService` para realizar las peticiones POST.
 
-## 4.2 Sistema de Comunicación Socket
+### 4.2 Sistema de Comunicación Socket
 
-### 4.2.1 Estructura Principal
+#### 4.2.1 Estructura Principal
 El sistema Socket implementa una arquitectura que garantiza la comunicación bidireccional en tiempo real:
 
 1. **Gestión de Conexión**
@@ -225,18 +342,21 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Sistema observable con GetX
    - Persistencia de configuración
    - Actualización dinámica de parámetros
+   - Utiliza la clase `SocketConnection` para encapsular la IP y el puerto, permitiendo actualizaciones reactivas.
 
 2. **Capa de Abstracción**
    - Operaciones Socket fundamentales
    - Gestión del ciclo de vida
    - Sistema de eventos y suscripciones
    - Control de flujo de datos
+   - Implementa la interfaz `SocketRepository` para definir las operaciones del socket.
 
 3. **Servicio de Implementación**
    - Gestión de conexiones TCP
    - Sistema de transmisión bidireccional
    - Control de múltiples suscriptores
    - Manejo robusto de desconexiones
+   - Implementación de la clase `SocketService` para gestionar la conexión, transmisión y recepción de datos.
 
 ### 4.2.2 Sistema de Transmisión de Datos
 
@@ -245,12 +365,14 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Sistema de terminación de mensajes
    - Gestión de buffer de transmisión
    - Control de errores de escritura
+   - Utiliza la codificación UTF-8 para asegurar la compatibilidad con diferentes tipos de datos.
 
 2. **Recepción de Datos**
    - Stream controller en modo broadcast
    - Decodificación UTF-8 de mensajes
    - Sistema de suscripciones múltiple
    - Gestión de cierre de conexiones
+   - El `StreamController` en modo broadcast permite que múltiples componentes de la aplicación se suscriban a los datos del socket.
 
 3. **Control de Estado**
    - Monitoreo continuo de conexión
@@ -265,18 +387,24 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Cancelación segura de suscripciones
    - Sistema de propagación de errores
    - Notificaciones de cierre de conexión
+   - Permite a los componentes de la aplicación suscribirse a los datos del socket y recibir notificaciones de errores y cierre de conexión.
 
 2. **Gestión de Recursos**
    - Control de buffer de transmisión
    - Sistema de backpressure
    - Gestión eficiente de memoria
    - Limpieza automática de recursos
+   - El `SocketService` gestiona un buffer interno para almacenar los datos recibidos del socket y procesarlos en paquetes del tamaño esperado.
 
-# 5. Sistema de Visualización y Procesamiento
+## 5. Sistema de Visualización y Procesamiento
 
-## 5.1 Configuración y Adquisición de Datos
+### 5.1 Configuración y Adquisición de Datos
 
-### 5.1.1 Configuración del Hardware
+## 5. Sistema de Visualización y Procesamiento
+
+### 5.1 Configuración y Adquisición de Datos
+
+#### 5.1.1 Configuración del Hardware
 1. **Parámetros Base**
    - Obtención mediante endpoint /config durante la inicialización
    - Almacenamiento en DeviceConfigProvider:
@@ -286,14 +414,22 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
      * Máscara de canal: 0xF000
      * Bits efectivos: 9
      * Muestras por paquete: 8192
+     * Factor de división: 1
+   - Estos parámetros se encapsulan en la clase `DeviceConfig` y se gestionan a través del `DeviceConfigProvider`.
+   - La clase `DeviceConfig` define la estructura de los parámetros de configuración del hardware, mientras que `DeviceConfigProvider` actúa como un proveedor de estado para acceder y modificar estos parámetros de forma reactiva.
+   - La función `DeviceConfig.fromJson` se encarga de parsear la respuesta JSON del endpoint `/config` y crear una instancia de `DeviceConfig`.
+   - En caso de error durante el parseo, se lanza una excepción `FormatException` para indicar que la respuesta del servidor no es válida.
+   - El `DeviceConfigProvider` proporciona acceso reactivo a los parámetros de configuración, permitiendo que otros componentes de la aplicación se actualicen automáticamente cuando cambian los parámetros.
 
 2. **Sistema de Escalado**
    - Factores de escala predefinidos (VoltageScale):
      * Rango Alto: ±400V (factor 800/512)
      * Rango Medio: ±2V, ±1V (factores 4.0/512, 2.0/512)
      * Rango Bajo: ±500mV, ±200mV, ±100mV (factores 1/512, 0.4/512, 0.2/512)
-   - Actualización dinámica de configuración en DataAcquisitionService
+   - Ajuste dinámico de trigger
    - Propagación de cambios al sistema de visualización
+   - El sistema de escalado permite adaptar la visualización de la señal a diferentes rangos de voltaje, optimizando la precisión y la legibilidad.
+   - Los factores de escala se definen en la enumeración `VoltageScale` y se aplican en el `DataAcquisitionService` para convertir los valores raw a voltajes.
 
 ## 5.2 Preprocesamiento y Gestión de Datos
 
@@ -403,7 +539,7 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Ajuste según frecuencia de muestreo
    - Sistema de coordenadas adaptativo
 
-### 5.3.2 Gestión de Estado (LineChartProvider)
+### 5.3.2 Gestión de Estado
 1. **Control de Vista**
    - Sistema de escalas independientes:
      * Escala temporal con factor base 1.0
@@ -530,12 +666,35 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Isolate de Procesamiento para análisis en tiempo real
    - Comunicación mediante SendPorts y StreamController
    - Sistema de cleanup y gestión de recursos mediante ReceivePort
+   - El uso de Isolates permite realizar el procesamiento de datos en paralelo, sin bloquear el hilo principal de la aplicación.
+   - La comunicación entre Isolates se realiza mediante `SendPort` y `StreamController`, lo que permite una gestión eficiente de los datos.
 
 2. **Pipeline de Datos**
    - Buffer circular con capacidad 6x el tamaño del chunk
    - Chunks de procesamiento de 8192 muestras
    - Sistema de trigger en tiempo real
    - Métricas continuas: frecuencia, valores máx/mín, promedio
+   - El buffer circular permite almacenar los datos recibidos del socket y procesarlos en chunks del tamaño esperado.
+   - El tamaño del chunk se define en la clase `DeviceConfig` y se gestiona a través del `DeviceConfigProvider`.
+
+3. **Modos de Adquisición**
+   - Modo Normal:
+     * Adquisición continua de datos
+     * Detección múltiple de triggers
+     * Actualización constante de la visualización
+     * Buffer circular con gestión FIFO
+   - Modo Single:
+     * Captura única al detectar trigger
+     * Detención automática post-captura
+     * Buffer extendido (10x chunk size)
+     * Reinicio manual mediante botón
+     * Limpieza de buffer previa a nueva captura
+     * Sistema de espera activa por trigger
+   - Control de modo vía `TriggerMode` enum
+   - Gestión de estados mediante `DataAcquisitionProvider`
+   - Transiciones suaves entre modos
+   - Sistema de notificación de estado
+
 
 ### 5.5.2 Procesamiento de Señales
 1. **Decodificación de Datos**
@@ -543,13 +702,17 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Extracción de datos mediante máscara 0x0FFF
    - Separación de canal mediante shift dinámico
    - Conversión a coordenadas normalizadas
+   - La decodificación de datos se realiza en el Isolate de procesamiento, para evitar bloquear el hilo principal de la aplicación.
+   - La extracción de datos se realiza mediante máscaras definidas en la clase `DeviceConfig`.
 
 2. **Sistema de Trigger**
    - Dos modos de operación:
-     * Histéresis: Control de rebotes con sensibilidad 70.0
+     * Histéresis: Control de rebotes con sensibilidad adaptable en % a los valores maximos y minimos de la señal
      * Filtro Paso Bajo: Pre-filtrado a 50kHz
    - Detección de flancos con buffer circular
    - Ventana temporal configurable post-trigger
+   - El sistema de trigger permite sincronizar la visualización de la señal con un evento específico.
+   - El nivel de trigger, el flanco y el modo de trigger se gestionan a través del `DataAcquisitionProvider` y se envían al Isolate de procesamiento mediante mensajes.
 
 ### 5.5.3 Control de Flujo
 1. **Gestión de Estado**
@@ -560,6 +723,7 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
      * Modo de filtrado
      * Estado de adquisición
    - Sistema de pausa/reanudación
+   - El estado de la adquisición se gestiona de forma reactiva mediante GetX, permitiendo que la interfaz de usuario se actualice automáticamente cuando cambian los parámetros.
 
 2. **Procesamiento de Datos**
    - Pipeline de filtrado configurable:
@@ -567,7 +731,13 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
      * Media móvil con ventana ajustable
      * Filtro exponencial (alpha: 0.2)
      * Paso bajo con frecuencia de corte variable
-   - Actualización en tiempo real de parámetros
+   - Sistema de autoset para escalas
+   - Control de flujo adaptativo según modo
+   - Gestión específica para modo single:
+     * Buffer circular dedicado
+     * Procesamiento post-trigger
+     * Control de finalización
+     * Sistema de reinicio
 
 ### 5.5.4 Gestión de Recursos
 1. **Control de Memoria**
@@ -575,25 +745,30 @@ El sistema Socket implementa una arquitectura que garantiza la comunicación bid
    - Límites dinámicos para cola de datos
    - Cleanup automático de datos antiguos
    - Gestión de suscripciones y streams
+   - El sistema de buffering circular permite almacenar los datos recibidos del socket y procesarlos de forma eficiente.
 
 2. **Manejo de Errores**
    - Sistema de timeouts configurables
    - Reconexión automática con delay de 5 segundos
    - Cleanup seguro de isolates y recursos
    - Propagación estructurada de errores
+   - El sistema de manejo de errores permite detectar y recuperarse de errores de conexión y procesamiento.
 
-### 5.5.5 Métricas y Autoajuste
+#### 5.5.5 Métricas y Autoajuste
 1. **Cálculo de Métricas**
    - Frecuencia mediante intervalos entre triggers
    - Valores máximos y mínimos de señal
    - Promedio móvil de señal
    - Actualización continua mediante streams
+   - El cálculo de métricas permite obtener información sobre la señal en tiempo real.
 
 2. **Sistema de Autoajuste**
-   - Cálculo automático de escalas temporales:
-     * 3 períodos de señal en pantalla
-     * Ajuste de timeScale según ancho
-   - Optimización de escalas de amplitud:
+   - Ajuste temporal:
+     * Visualización de 3 períodos
+     * Adaptación según ancho de pantalla
+   - Ajuste de amplitud:
      * Normalización según valor máximo
-     * Ajuste de trigger al punto medio
+     * Centrado de trigger
      * Limitación según rango de voltaje
+   - El sistema de autoajuste permite optimizar la visualización de la señal de forma automática.
+   - El sistema de autoajuste se basa en las métricas calculadas en tiempo real y permite adaptar la visualización a diferentes tipos de señales.

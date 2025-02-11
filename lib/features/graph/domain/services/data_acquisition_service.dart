@@ -617,30 +617,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   static List<double> _applyTriggerFilter(
       List<DataPoint> points, double samplingFrequency,
       {double cutoffFrequency = 50000.0}) {
-    //print('\n_applyTriggerFilter Debug:');
-    //print('Input points length: ${points.length}');
-    //print('First few Y values: ${points.take(5).map((p) => p.y).toList()}');
-    //print('Sampling frequency: $samplingFrequency');
-    //print('Cutoff frequency: $cutoffFrequency');
-
     if (points.isEmpty) {
-      //print('Empty points list passed to filter');
       return [];
     }
-
-    //print('Filtering ${points.length} points');
-    //print('Sampling frequency: $samplingFrequency');
-    //print('Cutoff frequency: $cutoffFrequency');
 
     final filter = LowPassFilter();
     final filteredPoints = filter.apply(points, {
       'cutoffFrequency': cutoffFrequency,
       'samplingFrequency': samplingFrequency,
     });
-
-    //print('Filtered points length: ${filteredPoints.length}');
-    //print(
-    //    'Filtered first few values: ${filteredPoints.take(5).map((p) => p.y).toList()}');
 
     return filteredPoints.map((p) => p.y).toList();
   }
@@ -960,6 +945,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerMode: triggerMode,
     ));
   }
+
   @override
   Future<void> stopData() async {
     try {

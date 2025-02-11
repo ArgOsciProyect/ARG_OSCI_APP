@@ -118,7 +118,8 @@ class _ChartGestureHandler extends StatelessWidget {
       fftChartProvider.setHorizontalOffset(newOffset);
 
       final dyNorm = details.focalPointDelta.dy / constraints.maxHeight;
-      fftChartProvider.setVerticalOffset(fftChartProvider.verticalOffset - dyNorm);
+      fftChartProvider
+          .setVerticalOffset(fftChartProvider.verticalOffset - dyNorm);
     }
   }
 }
@@ -421,7 +422,9 @@ class FFTChartPainter extends CustomPainter {
       if (freq < 0 || freq > nyquistFreq) continue;
 
       // Calculate the X position based on the visible range
-      final x = offsetX + ((freq - visibleStartFreq) / (nyquistFreq * timeScale)) * chartArea.width;
+      final x = offsetX +
+          ((freq - visibleStartFreq) / (nyquistFreq * timeScale)) *
+              chartArea.width;
 
       if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
         // Draw vertical line

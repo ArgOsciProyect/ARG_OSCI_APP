@@ -42,7 +42,8 @@ class Initializer {
       final oscilloscopeChartService = OscilloscopeChartService(null);
       final fftChartService = FFTChartService(null);
 
-      Get.put<OscilloscopeChartService>(oscilloscopeChartService, permanent: true);
+      Get.put<OscilloscopeChartService>(oscilloscopeChartService,
+          permanent: true);
       Get.put<FFTChartService>(fftChartService, permanent: true);
 
       Get.put(
@@ -62,10 +63,12 @@ class Initializer {
       oscilloscopeChartService.updateProvider(dataAcquisitionProvider);
       fftChartService.updateProvider(dataAcquisitionProvider);
 
-      final oscilloscopeChartProvider = OscilloscopeChartProvider(oscilloscopeChartService);
+      final oscilloscopeChartProvider =
+          OscilloscopeChartProvider(oscilloscopeChartService);
       final fftChartProvider = FFTChartProvider(fftChartService);
 
-      Get.put<OscilloscopeChartProvider>(oscilloscopeChartProvider, permanent: true);
+      Get.put<OscilloscopeChartProvider>(oscilloscopeChartProvider,
+          permanent: true);
       Get.put<FFTChartProvider>(fftChartProvider, permanent: true);
 
       final setupService =

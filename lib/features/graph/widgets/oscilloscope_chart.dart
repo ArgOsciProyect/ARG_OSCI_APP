@@ -198,22 +198,27 @@ class _ChartGestureHandler extends StatelessWidget {
     final delta = event.scrollDelta.dy;
     if (HardwareKeyboard.instance.isControlPressed) {
       // Horizontal zoom (time)
-      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(
+          constraints.biggest, _offsetX);
       oscilloscopeChartProvider.setTimeScale(
         oscilloscopeChartProvider.timeScale * (1 - delta / 500),
       );
     } else if (HardwareKeyboard.instance.isShiftPressed) {
       // Vertical zoom (voltage)
-      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(
+          constraints.biggest, _offsetX);
       oscilloscopeChartProvider.setValueScale(
         oscilloscopeChartProvider.valueScale * (1 - delta / 500),
       );
     } else {
       // Combined zoom
-      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(
+          constraints.biggest, _offsetX);
       final scale = 1 - delta / 500;
-      oscilloscopeChartProvider.setTimeScale(oscilloscopeChartProvider.timeScale * scale);
-      oscilloscopeChartProvider.setValueScale(oscilloscopeChartProvider.valueScale * scale);
+      oscilloscopeChartProvider
+          .setTimeScale(oscilloscopeChartProvider.timeScale * scale);
+      oscilloscopeChartProvider
+          .setValueScale(oscilloscopeChartProvider.valueScale * scale);
     }
   }
 
@@ -221,7 +226,8 @@ class _ChartGestureHandler extends StatelessWidget {
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
       // Pinch zoom with bounds checking
-      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(
+          constraints.biggest, _offsetX);
       oscilloscopeChartProvider.handleZoom(
         details,
         constraints.biggest,
@@ -229,7 +235,8 @@ class _ChartGestureHandler extends StatelessWidget {
       );
     } else if (details.pointerCount == 1) {
       // Pan with bounds checking
-      oscilloscopeChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+      oscilloscopeChartProvider.updateDrawingWidth(
+          constraints.biggest, _offsetX);
       final newHorizontalOffset = oscilloscopeChartProvider.horizontalOffset +
           details.focalPointDelta.dx / constraints.maxWidth;
 
@@ -283,7 +290,7 @@ class _ChartPainter extends StatelessWidget {
       }
 
       return CustomPaint(
-        painter: oscilloscopeChartPainter(
+        painter: OscilloscopeChartPainter(
           dataPoints,
           oscilloscopeChartProvider.timeScale,
           oscilloscopeChartProvider.valueScale,
@@ -325,7 +332,8 @@ class _ControlPanel extends StatelessWidget {
               graphProvider: graphProvider,
             ),
             const SizedBox(width: 20),
-            _OffsetControls(oscilloscopeChartProvider: oscilloscopeChartProvider),
+            _OffsetControls(
+                oscilloscopeChartProvider: oscilloscopeChartProvider),
           ],
         ),
       ),
@@ -415,7 +423,8 @@ class _ControlButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTapDown: (_) => onTap(),
-      onLongPress: () => oscilloscopeChartProvider.startIncrementing(onLongPress),
+      onLongPress: () =>
+          oscilloscopeChartProvider.startIncrementing(onLongPress),
       onLongPressUp: oscilloscopeChartProvider.stopIncrementing,
       child: IconButton(
         icon: Icon(icon),
@@ -426,8 +435,8 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-/// [oscilloscopeChartPainter] is a custom painter for rendering a line chart with grid lines, labels, and data points.
-class oscilloscopeChartPainter extends CustomPainter {
+/// [OscilloscopeChartPainter] is a custom painter for rendering a line chart with grid lines, labels, and data points.
+class OscilloscopeChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
   final double valueScale;
@@ -451,7 +460,7 @@ class oscilloscopeChartPainter extends CustomPainter {
   double _drawingHeight = 0.0;
   double _centerY = 0.0;
 
-  oscilloscopeChartPainter(
+  OscilloscopeChartPainter(
     this.dataPoints,
     this.timeScale,
     this.valueScale,

@@ -39,12 +39,9 @@ class SocketService implements SocketRepository {
   @override
   Future<void> connect(SocketConnection connection) async {
     try {
-      _socket = await Socket.connect(
-        connection.ip.value, 
-        connection.port.value,
-        timeout: Duration(seconds: 5)
-      );
-      
+      _socket = await Socket.connect(connection.ip.value, connection.port.value,
+          timeout: Duration(seconds: 5));
+
       // Use private fields directly
       _ip = connection.ip.value;
       _port = connection.port.value;

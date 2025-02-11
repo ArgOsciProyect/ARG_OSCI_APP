@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
@@ -65,7 +66,7 @@ class FFTChartProvider extends GetxController {
   /// Limitamos "zoom out" a 1.0, permitimos zoom in (< 1.0).
   void setTimeScale(double scale) {
     if (scale > 1.0) {
-      if (timeScale.value == 1.0) return; 
+      if (timeScale.value == 1.0) return;
       scale = 1.0;
     }
     final oldScale = timeScale.value;
@@ -101,12 +102,12 @@ class FFTChartProvider extends GetxController {
   }
 
   void zoomX(double factor) {
-  setTimeScale(timeScale.value * factor);
-}
+    setTimeScale(timeScale.value * factor);
+  }
 
-void zoomY(double factor) {
-  setValueScale(valueScale.value * factor);
-}
+  void zoomY(double factor) {
+    setValueScale(valueScale.value * factor);
+  }
 
   /// Sets the vertical offset of the chart.
   void setVerticalOffset(double offset) {
@@ -115,23 +116,24 @@ void zoomY(double factor) {
 
   /// Clamps the horizontal offset to ensure it stays within the valid range.
   void _clampHorizontalOffset() {
-    final visibleRange = nyquistFreq * timeScale.value; 
+    final visibleRange = nyquistFreq * timeScale.value;
     // Si timeScale < 1 => visibleRange < nyquist => podemos desplazar
-    final maxOffset = nyquistFreq - visibleRange; 
-    print("Max offset: $maxOffset");
-    print("Visible range: $visibleRange");
-    print("Horizontal offset: ${_horizontalOffset.value}");
+    final maxOffset = nyquistFreq - visibleRange;
+    if (kDebugMode) {
+      print("Max offset: $maxOffset");
+      print("Visible range: $visibleRange");
+      print("Horizontal offset: ${_horizontalOffset.value}");
+    }
     final clamped = _horizontalOffset.value.clamp(0.0, maxOffset);
     _horizontalOffset.value = clamped;
   }
 
   /// Sets the horizontal offset of the chart.
   void setHorizontalOffset(double freqOffset) {
-    if(freqOffset == 0){
+    if (freqOffset == 0) {
       _horizontalOffset.value = 1;
-    }
-    else{
-    _horizontalOffset.value = freqOffset;
+    } else {
+      _horizontalOffset.value = freqOffset;
     }
     _clampHorizontalOffset();
   }
@@ -151,9 +153,10 @@ void zoomY(double factor) {
 
   /// Automatically adjusts the time scale based on the frequency and chart size.
   void autoset(Size size, double freq) {
-    final useFreq = freq > 0 ? freq/7 : 1;
+    final useFreq = freq > 0 ? freq / 7 : 1;
     updateDrawingWidth(size, 50);
-    final newScale = (_drawingWidth <= 0) ? 1.0 : max(1e-3, _drawingWidth / useFreq);
+    final newScale =
+        (_drawingWidth <= 0) ? 1.0 : max(1e-3, _drawingWidth / useFreq);
     final clampedScale = min(newScale, 1.0);
     timeScale.value = clampedScale;
     valueScale.value = 1.0;
