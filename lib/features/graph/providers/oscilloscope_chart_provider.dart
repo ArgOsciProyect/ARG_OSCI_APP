@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
-import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter/widgets.dart';

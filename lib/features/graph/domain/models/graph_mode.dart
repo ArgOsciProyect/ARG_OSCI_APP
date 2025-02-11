@@ -1,5 +1,5 @@
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
-import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
 import 'package:arg_osci_app/features/graph/widgets/oscilloscope_chart.dart';
 import 'package:flutter/material.dart';

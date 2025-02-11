@@ -4,7 +4,7 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
-import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';

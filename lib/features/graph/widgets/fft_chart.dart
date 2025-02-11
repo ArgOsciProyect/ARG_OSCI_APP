@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 
 const double _offsetX = 50;
 
+/// [FFTChart] is a Flutter [StatelessWidget] that displays the FFT chart and its controls.
 class FFTChart extends StatelessWidget {
   const FFTChart({super.key});
 
@@ -31,7 +32,7 @@ class FFTChart extends StatelessWidget {
   }
 }
 
-/// The main chart area that displays the FFT plot
+/// [_ChartArea] is a [StatelessWidget] that defines the chart area.
 class _ChartArea extends StatelessWidget {
   late final FFTChartProvider fftChartProvider;
 
@@ -56,7 +57,7 @@ class _ChartArea extends StatelessWidget {
   }
 }
 
-/// Handles zoom gestures for the FFT chart
+/// [_ChartGestureHandler] handles user gestures such as scaling and panning on the chart.
 class _ChartGestureHandler extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final BoxConstraints constraints;
@@ -66,69 +67,65 @@ class _ChartGestureHandler extends StatelessWidget {
     required this.constraints,
   });
 
-  void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if (details.pointerCount == 2) {
-      // Only vertical zoom for pinch gesture
-      final newScale = pow(details.scale, 2.0);
-      fftChartProvider.setValueScale(
-        fftChartProvider.initialValueScale * newScale,
-      );
-    } else if (details.pointerCount == 1) {
-      // Update drawing width before handling pan
-      fftChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
-
-      // Pan with corrected vertical direction
-      final newHorizontalOffset = fftChartProvider.horizontalOffset +
-          details.focalPointDelta.dx / constraints.maxWidth;
-
-      fftChartProvider.setHorizontalOffset(newHorizontalOffset);
-
-      // Corrected vertical direction (negative for upward movement)
-      fftChartProvider.setVerticalOffset(
-        fftChartProvider.verticalOffset -
-            details.focalPointDelta.dy / constraints.maxHeight,
-      );
-    }
-  }
-
-  void _handlePointerSignal(PointerSignalEvent event) {
-    if (event is! PointerScrollEvent) return;
-    if (event.kind != PointerDeviceKind.mouse) return;
-
-    final delta = event.scrollDelta.dy;
-
-    if (HardwareKeyboard.instance.isControlPressed) {
-      fftChartProvider.setTimeScale(
-        fftChartProvider.timeScale.value * (1 - delta / 500),
-      );
-    } else if (HardwareKeyboard.instance.isShiftPressed) {
-      fftChartProvider.setValueScale(
-        fftChartProvider.valueScale.value * (1 - delta / 500),
-      );
-    } else {
-      final scale = 1 - delta / 500;
-      fftChartProvider.setValueScale(
-        fftChartProvider.valueScale.value * scale,
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Listener(
       onPointerSignal: _handlePointerSignal,
       child: GestureDetector(
-        onScaleStart: (_) => fftChartProvider.setInitialScales(),
+        onScaleStart: (_) {
+          fftChartProvider.setInitialScales();
+          fftChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
+        },
         onScaleUpdate: _handleScaleUpdate,
-        child: _ChartPainter(
-          fftChartProvider: fftChartProvider,
+        child: Container(
+          color: Colors.transparent,
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: _ChartPainter(fftChartProvider: fftChartProvider),
         ),
       ),
     );
   }
+
+  /// Handles mouse wheel events for zooming and panning.
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (event.kind != PointerDeviceKind.mouse) return;
+
+    final delta = event.scrollDelta.dy;
+    final noModifier = !HardwareKeyboard.instance.isControlPressed &&
+        !HardwareKeyboard.instance.isShiftPressed;
+    final factor = 1 - (delta / 500);
+
+    if (HardwareKeyboard.instance.isControlPressed) {
+      fftChartProvider.setTimeScale(
+        fftChartProvider.timeScale.value * factor,
+      );
+    } else if (HardwareKeyboard.instance.isShiftPressed) {
+      fftChartProvider.setValueScale(
+        fftChartProvider.valueScale.value * factor,
+      );
+    } else if (noModifier) {
+      fftChartProvider.zoomXY(factor);
+    }
+  }
+
+  /// Handles scale update events for panning.
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    // Pan with one finger: use the horizontal delta to adjust horizontalOffset
+    if (details.pointerCount == 1) {
+      const sensitivity = 50;
+      final dx = details.focalPointDelta.dx;
+      final newOffset = fftChartProvider.horizontalOffset - (dx * sensitivity);
+      fftChartProvider.setHorizontalOffset(newOffset);
+
+      final dyNorm = details.focalPointDelta.dy / constraints.maxHeight;
+      fftChartProvider.setVerticalOffset(fftChartProvider.verticalOffset - dyNorm);
+    }
+  }
 }
 
-/// Handles the actual painting using CustomPaint
+/// [_ChartPainter] is a [StatelessWidget] that uses [CustomPaint] to draw the FFT chart.
 class _ChartPainter extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -156,7 +153,7 @@ class _ChartPainter extends StatelessWidget {
   }
 }
 
-/// Play/Pause toggle button for FFT chart
+/// [_PlayPauseButton] is a [StatelessWidget] that provides a play/pause toggle button for the FFT chart.
 class _PlayPauseButton extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -176,7 +173,7 @@ class _PlayPauseButton extends StatelessWidget {
   }
 }
 
-/// Reusable control button with tap and long press handling
+/// [_ControlButton] is a reusable [StatelessWidget] for creating control buttons with tap and long press handling.
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -205,7 +202,7 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-/// Auto-adjust button to optimize FFT scales based on data
+/// [_AutosetButton] is a [StatelessWidget] that provides a button to auto-adjust FFT scales based on data.
 class _AutosetButton extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -232,6 +229,7 @@ class _AutosetButton extends StatelessWidget {
   }
 }
 
+/// [_OffsetControls] is a [StatelessWidget] that provides control buttons for adjusting the chart offset.
 class _OffsetControls extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -270,6 +268,7 @@ class _OffsetControls extends StatelessWidget {
   }
 }
 
+/// [_ControlPanel] is a [StatelessWidget] that groups all the control buttons for the FFT chart.
 class _ControlPanel extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -304,7 +303,7 @@ class _ControlPanel extends StatelessWidget {
   }
 }
 
-/// Scale adjustment buttons specific to FFT
+/// [_ScaleButtons] is a [StatelessWidget] that provides scale adjustment buttons specific to the FFT chart.
 class _ScaleButtons extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -343,6 +342,7 @@ class _ScaleButtons extends StatelessWidget {
   }
 }
 
+/// [FFTChartPainter] is a [CustomPainter] that draws the FFT chart on the canvas.
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;
@@ -368,6 +368,7 @@ class FFTChartPainter extends CustomPainter {
     const double offsetX = 50;
     const double sqrOffsetBot = 30;
 
+    // Define the chart area
     final chartArea = Rect.fromLTWH(
       offsetX,
       offsetY,
@@ -387,6 +388,7 @@ class FFTChartPainter extends CustomPainter {
 
     canvas.drawRect(chartArea, bgPaint);
 
+    // Determine the minimum and maximum Y values in the FFT data
     double minY = double.infinity;
     double maxY = double.negativeInfinity;
     for (final point in fftPoints) {
@@ -394,8 +396,10 @@ class FFTChartPainter extends CustomPainter {
       if (point.y > maxY) maxY = point.y;
     }
 
+    // Calculate the center and range of Y values for scaling
     final centerY = (maxY + minY) / 2;
     final halfRange = ((maxY - minY) / 2) / valueScale;
+    // Apply vertical offset and scaling to determine the minimum and maximum Y values
     final scaledMinY = centerY - halfRange - verticalOffset * halfRange * 2;
     final scaledMaxY = centerY + halfRange - verticalOffset * halfRange * 2;
 
@@ -405,48 +409,46 @@ class FFTChartPainter extends CustomPainter {
     );
 
     const xDivisions = 12;
+    // Calculate the Nyquist frequency
     final nyquistFreq = fftChartProvider.samplingFrequency / 2;
-    final effectiveHorizontalOffset = horizontalOffset.clamp(-1.0, 0.0);
-    final visibleStartFreq = -effectiveHorizontalOffset * nyquistFreq * timeScale;
+
+    // The horizontalOffset is used directly to calculate the visible range
+    final visibleStartFreq = fftChartProvider.horizontalOffset;
     final visibleEndFreq = visibleStartFreq + (nyquistFreq * timeScale);
     final freqStep = (visibleEndFreq - visibleStartFreq) / xDivisions;
 
+    // Draw vertical lines and labels
+    for (int i = 0; i <= xDivisions; i++) {
+      final freq = visibleStartFreq + (i * freqStep);
+      if (freq < 0 || freq > nyquistFreq) continue;
 
-  // Draw grid lines and labels
-  for (int i = 0; i <= xDivisions; i++) {
-    final freq = visibleStartFreq + (i * freqStep);
-    if (freq < 0 || freq > nyquistFreq) continue;
+      // Calculate the X position based on the visible range
+      final x = offsetX + ((freq - visibleStartFreq) / (nyquistFreq * timeScale)) * chartArea.width;
 
-    final xRatio = (freq / (nyquistFreq * timeScale)) + effectiveHorizontalOffset;
-    final x = offsetX + (xRatio * chartArea.width);
-
-    if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
-      // Draw vertical grid line
-      canvas.drawLine(
-        Offset(x, chartArea.top),
-        Offset(x, chartArea.bottom),
-        gridPaint,
-      );
-
-      // Draw frequency label
-      textPainter.text = TextSpan(
-        text: UnitFormat.formatWithUnit(freq, 'Hz'),
-        style: const TextStyle(color: Colors.black, fontSize: 8.5),
-      );
-      textPainter.layout();
-
-      final textX = x - textPainter.width / 2;
-      if (x >= chartArea.left - textPainter.width && 
-          x <= chartArea.right + textPainter.width) {
-        textPainter.paint(
-          canvas,
-          Offset(textX, chartArea.bottom + 5),
+      if (x >= chartArea.left - 5 && x <= chartArea.right + 5) {
+        // Draw vertical line
+        canvas.drawLine(
+          Offset(x, chartArea.top),
+          Offset(x, chartArea.bottom),
+          gridPaint,
         );
+
+        // Draw frequency label
+        textPainter.text = TextSpan(
+          text: UnitFormat.formatWithUnit(freq, 'Hz'),
+          style: const TextStyle(color: Colors.black, fontSize: 8.5),
+        );
+        textPainter.layout();
+
+        final textX = x - textPainter.width / 2;
+        if (x >= chartArea.left - textPainter.width &&
+            x <= chartArea.right + textPainter.width) {
+          textPainter.paint(canvas, Offset(textX, chartArea.bottom + 2));
+        }
       }
     }
-  }
 
-    // Dibujamos las líneas horizontales y etiquetas
+    // Draw horizontal lines and labels
     const yDivisions = 10;
     final yRange = scaledMaxY - scaledMinY;
     for (int i = 0; i <= yDivisions; i++) {
@@ -471,18 +473,17 @@ class FFTChartPainter extends CustomPainter {
       );
     }
 
-    // Dibujamos los puntos de datos
     final path = Path();
     bool firstPoint = true;
     canvas.save();
     canvas.clipRect(chartArea);
 
+    // Draw the FFT data points
     for (final point in fftPoints) {
       if (point.x > nyquistFreq) break;
 
-      final xRatio =
-          (point.x.clamp(0.0, nyquistFreq) / (nyquistFreq * timeScale)) +
-              effectiveHorizontalOffset;
+      // The same mapping is used for the points
+      final xRatio = (point.x - visibleStartFreq) / (nyquistFreq * timeScale);
       final sx = offsetX + (xRatio * chartArea.width);
 
       final normalizedY = (point.y - scaledMinY) / (scaledMaxY - scaledMinY);
@@ -499,7 +500,7 @@ class FFTChartPainter extends CustomPainter {
     canvas.drawPath(path, paint);
     canvas.restore();
 
-    // Dibujamos el borde
+    // Draw the border
     canvas.drawRect(
       chartArea,
       Paint()

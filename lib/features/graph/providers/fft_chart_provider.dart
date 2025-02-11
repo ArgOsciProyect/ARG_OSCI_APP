@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
@@ -11,26 +10,27 @@ class FFTChartProvider extends GetxController {
   final FFTChartService fftChartService;
   final deviceConfig = Get.find<DeviceConfigProvider>();
 
-  // Reactive state
   final fftPoints = Rx<List<DataPoint>>([]);
   final timeScale = RxDouble(1.0);
   final valueScale = RxDouble(1.0);
   final _isPaused = false.obs;
+  final _horizontalOffset = 0.0.obs;
+  final _verticalOffset = 0.0.obs;
+
   bool get isPaused => _isPaused.value;
-  final _horizontalOffset = RxDouble(0.0);
-  final _verticalOffset = RxDouble(0.0);
+  double get horizontalOffset => _horizontalOffset.value;
+  double get verticalOffset => _verticalOffset.value;
+
   double _initialTimeScale = 1.0;
   double _initialValueScale = 1.0;
   Timer? _incrementTimer;
   final frequency = 0.0.obs;
   double _drawingWidth = 0.0;
 
-  // Add getters
-  double get horizontalOffset => _horizontalOffset.value;
-  double get verticalOffset => _verticalOffset.value;
+  double get samplingFrequency => deviceConfig.samplingFrequency;
   double get initialTimeScale => _initialTimeScale;
   double get initialValueScale => _initialValueScale;
-  double get samplingFrequency => deviceConfig.samplingFrequency;
+  double get nyquistFreq => samplingFrequency / 2;
 
   FFTChartProvider(this.fftChartService) {
     fftChartService.fftStream.listen((points) {
@@ -39,74 +39,90 @@ class FFTChartProvider extends GetxController {
     });
   }
 
+  @override
+  void onClose() {
+    _incrementTimer?.cancel();
+    super.onClose();
+  }
+
   void setInitialScales() {
     _initialTimeScale = timeScale.value;
     _initialValueScale = valueScale.value;
   }
 
   void updateDrawingWidth(Size size, double offsetX) {
-    _drawingWidth = size.width - offsetX;
+    _drawingWidth = (size.width - offsetX).clamp(0, double.maxFinite);
   }
 
-  void handleZoom(ScaleUpdateDetails details, Size constraints) {
-    if (details.pointerCount == 2) {
-      final zoomFactor = pow(details.scale, 2.0);
-      // Calcular nuevo timeScale
-      final newTimeScale = _initialTimeScale * zoomFactor;
-
-      // Comprobar si el nuevo timeScale mostraría frecuencias más allá de Nyquist
-      final nyquistFreq = deviceConfig.samplingFrequency / 2;
-      final visibleFreqAtRightEdge = nyquistFreq / newTimeScale;
-
-      // Solo permitir zoom si no excede la frecuencia de Nyquist
-      if (visibleFreqAtRightEdge >= nyquistFreq) {
-        setTimeScale(newTimeScale);
-      }
-
-      setValueScale(_initialValueScale * zoomFactor);
+  /// Limitamos "zoom out" a 1.0, permitimos zoom in (< 1.0).
+  void setTimeScale(double scale) {
+    if (scale > 1.0) {
+      if (timeScale.value == 1.0) return; 
+      scale = 1.0;
+    }
+    final oldScale = timeScale.value;
+    timeScale.value = scale;
+    if (timeScale.value != oldScale) {
+      _clampHorizontalOffset();
     }
   }
 
-  double _calculateMaxOffset(double width) {
-    if (width <= 0) return 0.0;
-
-    final nyquistFreq = deviceConfig.samplingFrequency / 2;
-    final dataWidth = nyquistFreq * timeScale.value;
-
-    if (dataWidth <= width) return 0.0;
-    return -(dataWidth - width) / width;
+  /// Si X está en 1.0 y se intenta subir Y => no forzar para mantener proporción
+  void setValueScale(double scale) {
+    if (timeScale.value == 1.0 && scale > valueScale.value) {
+      return;
+    }
+    if (scale > 0) {
+      valueScale.value = scale;
+    }
   }
 
-  void setHorizontalOffset(double offset) {
-    final maxOffset = _calculateMaxOffset(_drawingWidth);
-    _horizontalOffset.value = offset.clamp(maxOffset, 0.0);
+  /// Zoom simultáneo. Si factor > 1 => clamp a 1
+  void zoomXY(double factor) {
+    final newTS = timeScale.value * factor;
+    if (newTS > 1.0) {
+      if (timeScale.value == 1.0) return;
+      setTimeScale(1.0);
+      return;
+    }
+    final oldTS = timeScale.value;
+    setTimeScale(newTS);
+    if (timeScale.value != oldTS) {
+      setValueScale(valueScale.value * factor);
+    }
   }
 
-  double toScreenX(double x, double width, double nyquistFreq, double offsetX) {
-    // Clamp x to Nyquist frequency
-    final clampedX = x.clamp(0.0, nyquistFreq);
+  void zoomX(double factor) {
+  setTimeScale(timeScale.value * factor);
+}
 
-    // Calculate screen position with clamped horizontal offset
-    return offsetX +
-        ((clampedX / nyquistFreq) * width) +
-        (_horizontalOffset.value.clamp(-1.0, 0.0) * width);
-  }
-
-  void autoset(Size size, double frequency) {
-    // Calculate time scale to show frequency range from 0 to 7*sampling_frequency/2
-    final maxFreq = frequency / 7;
-    final pointsPerFreq = size.width / maxFreq;
-
-    // Set scales to show full range
-    timeScale.value = pointsPerFreq;
-    valueScale.value = 1.0;
-
-    // Reset offsets
-    resetOffsets();
-  }
+void zoomY(double factor) {
+  setValueScale(valueScale.value * factor);
+}
 
   void setVerticalOffset(double offset) {
     _verticalOffset.value = offset;
+  }
+
+  void _clampHorizontalOffset() {
+    final visibleRange = nyquistFreq * timeScale.value; 
+    // Si timeScale < 1 => visibleRange < nyquist => podemos desplazar
+    final maxOffset = nyquistFreq - visibleRange; 
+    print("Max offset: $maxOffset");
+    print("Visible range: $visibleRange");
+    print("Horizontal offset: ${_horizontalOffset.value}");
+    final clamped = _horizontalOffset.value.clamp(0.0, maxOffset);
+    _horizontalOffset.value = clamped;
+  }
+
+  void setHorizontalOffset(double freqOffset) {
+    if(freqOffset == 0){
+      _horizontalOffset.value = 1;
+    }
+    else{
+    _horizontalOffset.value = freqOffset;
+    }
+    _clampHorizontalOffset();
   }
 
   void resetOffsets() {
@@ -114,19 +130,42 @@ class FFTChartProvider extends GetxController {
     _verticalOffset.value = 0.0;
   }
 
-  // Add increment/decrement methods
-  void incrementTimeScale() => setTimeScale(timeScale.value * 1.02);
-  void decrementTimeScale() => setTimeScale(timeScale.value * 0.98);
-  void incrementValueScale() => setValueScale(valueScale.value * 1.02);
-  void decrementValueScale() => setValueScale(valueScale.value * 0.98);
+  void resetScales() {
+    timeScale.value = 1.0;
+    valueScale.value = 1.0;
+    resetOffsets();
+  }
+
+
+  void autoset(Size size, double freq) {
+    final useFreq = freq > 0 ? freq/7 : 1;
+    updateDrawingWidth(size, 50);
+    final newScale = (_drawingWidth <= 0) ? 1.0 : max(1e-3, _drawingWidth / useFreq);
+    final clampedScale = min(newScale, 1.0);
+    timeScale.value = clampedScale;
+    valueScale.value = 1.0;
+    resetOffsets();
+  }
+
+  /// Invertimos increment/decrement para que "increment" haga zoom-in (scale disminuye)
+  void incrementTimeScale() => setTimeScale(timeScale.value / 1.02);
+  void decrementTimeScale() => setTimeScale(timeScale.value * 1.02);
+
+  /// Igual para Y
+  void incrementValueScale() => setValueScale(valueScale.value / 1.02);
+  void decrementValueScale() => setValueScale(valueScale.value * 1.02);
 
   void incrementHorizontalOffset() =>
-      setHorizontalOffset(horizontalOffset + 0.01);
+      setHorizontalOffset(_horizontalOffset.value + 50);
   void decrementHorizontalOffset() =>
-      setHorizontalOffset(horizontalOffset - 0.01);
-  void incrementVerticalOffset() => setVerticalOffset(verticalOffset + 0.1);
-  void decrementVerticalOffset() => setVerticalOffset(verticalOffset - 0.1);
+      setHorizontalOffset(_horizontalOffset.value - 50);
 
+  void incrementVerticalOffset() =>
+      setVerticalOffset(_verticalOffset.value + 0.1);
+  void decrementVerticalOffset() =>
+      setVerticalOffset(_verticalOffset.value - 0.1);
+
+  /// Mantener presionado un botón para repetir acción
   void startIncrementing(VoidCallback callback) {
     callback();
     _incrementTimer?.cancel();
@@ -138,34 +177,6 @@ class FFTChartProvider extends GetxController {
   void stopIncrementing() {
     _incrementTimer?.cancel();
     _incrementTimer = null;
-  }
-
-  @override
-  void onClose() {
-    _incrementTimer?.cancel();
-    super.onClose();
-  }
-
-  void setTimeScale(double scale) {
-    // Calcular la frecuencia visible en el borde derecho con el nuevo scale
-    final nyquistFreq = deviceConfig.samplingFrequency / 2;
-    final visibleFreqAtRightEdge = nyquistFreq / scale;
-
-    // Solo permitir el cambio si no excede la frecuencia de Nyquist
-    if (visibleFreqAtRightEdge >= nyquistFreq || scale < timeScale.value) {
-      timeScale.value = scale;
-    }
-  }
-
-  void setValueScale(double scale) {
-    if (scale > 0) {
-      valueScale.value = scale;
-    }
-  }
-
-  void resetScales() {
-    timeScale.value = 1.0;
-    valueScale.value = 1.0;
   }
 
   void pause() {

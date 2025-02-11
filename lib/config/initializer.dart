@@ -1,6 +1,6 @@
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
-import 'package:arg_osci_app/features/graph/domain/services/line_chart_service.dart';
+import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
