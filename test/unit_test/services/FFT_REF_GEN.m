@@ -2,7 +2,7 @@
 clear; clc;
 
 % Parámetros
-filename = '/home/jotalora/Tesis/ARG_OSCI_APP/test/test_signal.csv';  % Nombre del archivo de entrada
+filename = 'test/unit_test/services/test_signal.csv';  % Nombre del archivo de entrada
 fs = 1650000;                      % Frecuencia de muestreo (1.65 MHz)
 
 % Leer los datos del archivo CSV
@@ -45,9 +45,9 @@ magnitude = magnitude(1:half_N);
 db_values = db_values(1:half_N);
 
 % Guardar archivos
-csvwrite('/home/jotalora/Tesis/ARG_OSCI_APP/test/Ref_real_img.csv', [real_part, imag_part]);
-csvwrite('/home/jotalora/Tesis/ARG_OSCI_APP/test/Ref_magnitude.csv', [magnitude]);
-csvwrite('/home/jotalora/Tesis/ARG_OSCI_APP/test/Ref_db.csv', [db_values]);
+csvwrite('test/unit_test/models/Ref_real_img.csv', [real_part, imag_part]);
+csvwrite('test/unit_test/models/Ref_magnitude.csv', [magnitude]);
+csvwrite('test/unit_test/models/Ref_db.csv', [db_values]);
 
 % Mostrar mensaje de éxito
 disp('Resultados guardados en:');

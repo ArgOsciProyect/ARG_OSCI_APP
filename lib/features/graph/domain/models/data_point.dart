@@ -23,7 +23,7 @@ class DataPoint {
     return DataPoint(
       json['x'],
       json['y'],
-      isTrigger: json['isTrigger'],
+      isTrigger: json['isTrigger'] ?? false,
     );
   }
 

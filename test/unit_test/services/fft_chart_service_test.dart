@@ -574,11 +574,14 @@ void main() {
   });
 
   test('Compara resultados de FFT con valores de referencia', () async {
-    final referenceValues = _loadReferenceValues('test/Ref_db.csv');
-    final testSignal = _loadTestSignal('test/test_signal.csv');
+    final referenceValues =
+        _loadReferenceValues('test/unit_test/services/Ref_db.csv');
+    final testSignal =
+        _loadTestSignal('test/unit_test/services/test_signal.csv');
 
     final fftResults = await _getFftResults(service, mockProvider, testSignal);
-    _saveFftResults('test/internal_fft_results.csv', fftResults);
+    _saveFftResults(
+        'test/unit_test/services/internal_fft_results.csv', fftResults);
 
     const tolerance = 1.0; // Keep same tolerance for dBV comparison
 

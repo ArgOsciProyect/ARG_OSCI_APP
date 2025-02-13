@@ -11,6 +11,8 @@ class DeviceConfigProvider extends GetxController {
     usefulBits: 9,
     samplesPerPacket: 8192,
     dividingFactor: 1,
+    discardHead: 0,
+    discardTrailer: 0,
   ));
 
   /// Returns the current device configuration.
@@ -29,6 +31,12 @@ class DeviceConfigProvider extends GetxController {
 
   /// Returns the data mask.
   dynamic get dataMask => _config.value?.dataMask ?? 0x0FFF;
+
+  /// Returns the number of samples to discard from the beginning
+  int get discardHead => _config.value?.discardHead ?? 0;
+
+  /// Returns the number of samples to discard from the end
+  int get discardTrailer => _config.value?.discardTrailer ?? 0;
 
   /// Returns the channel mask.
   dynamic get channelMask => _config.value?.channelMask ?? 0xF000;

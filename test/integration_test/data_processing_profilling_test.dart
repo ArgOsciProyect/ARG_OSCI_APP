@@ -258,13 +258,21 @@ void main() {
             stopwatch.reset();
             stopwatch.start();
 
-            // Add default filter settings
-            final filterSettings = {
-              'windowSize': 5.0,
-              'alpha': 0.2,
-              'cutoffFrequency': 100.0,
-              'samplingFrequency': 1650000.0, // Add sampling frequency
-            };
+            // Adjust filter settings with correct types
+            final filterSettings = filter is MovingAverageFilter
+                ? {
+                    'windowSize': 5, // Changed to int
+                    'samplingFrequency': 1650000.0,
+                  }
+                : filter is ExponentialFilter
+                    ? {
+                        'alpha': 0.2,
+                        'samplingFrequency': 1650000.0,
+                      }
+                    : {
+                        'cutoffFrequency': 100.0,
+                        'samplingFrequency': 1650000.0,
+                      };
 
             final filtered = filter.apply(points, filterSettings);
 

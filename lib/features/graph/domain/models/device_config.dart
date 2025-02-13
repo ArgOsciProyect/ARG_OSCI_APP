@@ -21,6 +21,12 @@ class DeviceConfig {
   /// Factor used to divide incoming data stream
   final int dividingFactor;
 
+  /// Number of samples to discard from the beginning
+  final int discardHead;
+
+  /// Number of samples to discard from the end
+  final int discardTrailer;
+
   /// Creates a new device configuration
   const DeviceConfig({
     required this.samplingFrequency,
@@ -30,6 +36,8 @@ class DeviceConfig {
     required this.usefulBits,
     required this.samplesPerPacket,
     required this.dividingFactor,
+    this.discardHead = 0,
+    this.discardTrailer = 0,
   });
 
   /// Creates DeviceConfig from JSON map with error handling
@@ -43,6 +51,8 @@ class DeviceConfig {
         usefulBits: int.parse(json['useful_bits'].toString()),
         samplesPerPacket: int.parse(json['samples_per_packet'].toString()),
         dividingFactor: int.parse(json['dividing_factor'].toString()),
+        discardHead: int.parse(json['discard_head']?.toString() ?? '0'),
+        discardTrailer: int.parse(json['discard_trailer']?.toString() ?? '0'),
       );
     } catch (e) {
       throw FormatException(
@@ -59,5 +69,31 @@ class DeviceConfig {
         'useful_bits': usefulBits,
         'samples_per_packet': samplesPerPacket,
         'dividing_factor': dividingFactor,
+        'discard_head': discardHead,
+        'discard_trailer': discardTrailer,
       };
+
+  copyWith({
+    double? samplingFrequency,
+    int? bitsPerPacket,
+    int? dataMask,
+    int? channelMask,
+    int? usefulBits,
+    int? samplesPerPacket,
+    int? dividingFactor,
+    int? discardHead,
+    int? discardTrailer,
+  }) {
+    return DeviceConfig(
+      samplingFrequency: samplingFrequency ?? this.samplingFrequency,
+      bitsPerPacket: bitsPerPacket ?? this.bitsPerPacket,
+      dataMask: dataMask ?? this.dataMask,
+      channelMask: channelMask ?? this.channelMask,
+      usefulBits: usefulBits ?? this.usefulBits,
+      samplesPerPacket: samplesPerPacket ?? this.samplesPerPacket,
+      dividingFactor: dividingFactor ?? this.dividingFactor,
+      discardHead: discardHead ?? this.discardHead,
+      discardTrailer: discardTrailer ?? this.discardTrailer,
+    );
+  }
 }

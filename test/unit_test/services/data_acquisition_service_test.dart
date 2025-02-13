@@ -76,6 +76,12 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
   int get samplesPerPacket => 4096;
 
   @override
+  int get discardHead => 0;
+
+  @override
+  int get discardTrailer => 0;
+
+  @override
   int get dividingFactor => 1; // Add this getter
 }
 
@@ -106,6 +112,12 @@ class MockDeviceConfigProvider extends GetxController
 
   @override
   int get dividingFactor => 1;
+
+  @override
+  int get discardHead => 0;
+
+  @override
+  int get discardTrailer => 0;
 
   @override
   void updateConfig(DeviceConfig config) {
@@ -341,18 +353,21 @@ void main() {
 
       service.updateMetrics(points, 1, 0);
 
-      print("Trigger Level: ${service.triggerLevel}");
-      print("Max Value: ${service.currentMaxValue}");
-      print("Min Value: ${service.currentMinValue}");
-      print("Voltage Scale: ${service.currentVoltageScale.scale}");
+      if (kDebugMode) {
+        print("Trigger Level: ${service.triggerLevel}");
+        print("Max Value: ${service.currentMaxValue}");
+        print("Min Value: ${service.currentMinValue}");
+        print("Voltage Scale: ${service.currentVoltageScale.scale}");
+      }
 
       final result = await service.autoset(300.0, 400.0); // Usar await aquí
 
-      print("Trigger Level: ${service.triggerLevel}");
-      print("Max Value: ${service.currentMaxValue}");
-      print("Min Value: ${service.currentMinValue}");
-      print("Voltage Scale: ${service.currentVoltageScale.scale}");
-
+      if (kDebugMode) {
+        print("Trigger Level: ${service.triggerLevel}");
+        print("Max Value: ${service.currentMaxValue}");
+        print("Min Value: ${service.currentMinValue}");
+        print("Voltage Scale: ${service.currentVoltageScale.scale}");
+      }
       // Verify time scale (3 periods should fit in chart width)
       expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
 
@@ -414,6 +429,178 @@ void main() {
       expect(result, equals([100000.0, 1.0]));
       expect(service.triggerLevel, equals(0.0),
           reason: 'Trigger level should be 0 for zero signal');
+    });
+  });
+
+  group('Discard Head/Trailer Tests', () {
+    late DeviceConfig deviceConfig;
+    late SendPort mockSendPort;
+
+    setUp(() {
+      deviceConfig = DeviceConfig(
+        samplingFrequency: 1650000.0,
+        bitsPerPacket: 16,
+        dataMask: 0x0FFF,
+        channelMask: 0xF000,
+        usefulBits: 9,
+        samplesPerPacket: 100,
+        dividingFactor: 1,
+        discardHead: 10,
+        discardTrailer: 10,
+      );
+
+      mockSendPort = getMockSendPort();
+    });
+    test('should discard correct number of samples from head and trailer', () {
+      final queue = Queue<int>();
+      for (int i = 0; i < 100; i++) {
+        queue.add(i & 0xFF);
+        queue.add((i >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        100, // chunkSize in samples, not bytes
+        1.0,
+        1.0,
+        0.0,
+        TriggerEdge.positive,
+        256.0,
+        false,
+        false,
+        TriggerMode.normal,
+        deviceConfig,
+        mockSendPort,
+      );
+
+      expect(points.length, equals(80),
+          reason: 'Should have 80 points (100 - 10 head - 10 trailer)');
+    });
+    test('should handle case when discard exceeds data size', () {
+      final deviceConfigLargeDiscard = DeviceConfig(
+        samplingFrequency: 1650000.0,
+        bitsPerPacket: 16,
+        dataMask: 0x0FFF,
+        channelMask: 0xF000,
+        usefulBits: 9,
+        samplesPerPacket: 100,
+        dividingFactor: 1,
+        discardHead: 60,
+        discardTrailer: 50,
+      );
+
+      final queue = Queue<int>();
+      for (int i = 0; i < 100; i++) {
+        queue.add(i & 0xFF);
+        queue.add((i >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        100,
+        1.0,
+        1.0,
+        0.0,
+        TriggerEdge.positive,
+        256.0,
+        false,
+        false,
+        TriggerMode.normal,
+        deviceConfigLargeDiscard,
+        mockSendPort,
+      );
+
+      expect(points, isEmpty,
+          reason: 'Should return empty list when discard exceeds data size');
+    });
+
+    test('should handle case when no discard specified', () {
+      final deviceConfigNoDiscard = deviceConfig.copyWith(
+        discardHead: 0,
+        discardTrailer: 0,
+      );
+
+      final queue = Queue<int>();
+      for (int i = 0; i < 100; i++) {
+        queue.add(i & 0xFF);
+        queue.add((i >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        200, // chunkSize in bytes
+        1.0,
+        1.0,
+        0.0,
+        TriggerEdge.positive,
+        256.0,
+        false,
+        false,
+        TriggerMode.normal,
+        deviceConfigNoDiscard,
+        mockSendPort,
+      );
+
+      expect(points.length, equals(100));
+    });
+
+    test('should handle discard with dividing factor', () {
+      final deviceConfigWithDivider = deviceConfig.copyWith(
+        dividingFactor: 2,
+        discardHead: 10,
+        discardTrailer: 10,
+      );
+
+      final queue = Queue<int>();
+      for (int i = 0; i < 100; i++) {
+        queue.add(i & 0xFF);
+        queue.add((i >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        100, // chunkSize in samples, not bytes
+        1.0,
+        1.0,
+        0.0,
+        TriggerEdge.positive,
+        256.0,
+        false,
+        false,
+        TriggerMode.normal,
+        deviceConfigWithDivider,
+        mockSendPort,
+      );
+
+      expect(points.length, equals(40),
+          reason: 'Should have 40 points ((100 - 10 - 10) / 2)');
+    });
+
+    test('should handle trigger detection after discard', () {
+      final queue = Queue<int>();
+      // Generate step signal that crosses trigger level
+      for (int i = 0; i < 100; i++) {
+        final value = i < 50 ? 0 : 512;
+        queue.add(value & 0xFF);
+        queue.add((value >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        200, // chunkSize in bytes
+        1.0,
+        1.0,
+        256.0, // Set trigger level to midpoint
+        TriggerEdge.positive,
+        256.0,
+        false,
+        false,
+        TriggerMode.normal,
+        deviceConfig,
+        mockSendPort,
+      );
+
+      expect(points.any((p) => p.isTrigger), isTrue);
     });
   });
 

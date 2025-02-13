@@ -645,9 +645,18 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
-    // Read data points
-    for (var i = 0;
-        i < chunkSize;
+    // Calculate indices in terms of samples
+    final startIndex = config.deviceConfig.discardHead * 2; // Convert to bytes
+    final endIndex = (chunkSize - config.deviceConfig.discardTrailer) *
+        2; // Convert to bytes
+
+    // Asegurar que los índices son válidos
+    if (startIndex >= chunkSize * 2 || endIndex <= startIndex) {
+      return ([], 0.0, 0.0);
+    }
+
+    for (var i = startIndex;
+        i < endIndex;
         i += 2 * config.deviceConfig.dividingFactor) {
       if (queue.length < 2 * config.deviceConfig.dividingFactor) break;
 
@@ -668,6 +677,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       return ([], 0.0, 0.0);
     }
 
+    // Apply trigger logic to remaining points
     var triggerSensitivity = (maxValue - minValue) * 0.25;
     if (config.triggerEdge == TriggerEdge.positive) {
       if (config.triggerLevel - triggerSensitivity * 1.25 <= minValue) {
@@ -756,13 +766,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             // Reset only when signal goes below trigger level by sensitivity margin
             if (currentY < (config.triggerLevel - triggerSensitivity)) {
               waitingForNextTrigger = false;
-              //print('Reset waiting for next positive trigger');
             }
           } else {
             // Reset only when signal goes above trigger level by sensitivity margin
             if (currentY > (config.triggerLevel + triggerSensitivity)) {
               waitingForNextTrigger = false;
-              //print('Reset waiting for next negative trigger');
             }
           }
         }
@@ -776,11 +784,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
                 DataPoint(p.x - firstTriggerX, p.y, isTrigger: p.isTrigger))
             .toList()
         : points;
-
-    //print('\nFinal Results:');
-    //print('Total points: ${result.length}');
-    //print('Trigger points: ${result.where((p) => p.isTrigger).length}');
-    //print('Found first trigger: $foundFirstTrigger');
 
     return (adjustedPoints, maxValue, minValue);
   }
