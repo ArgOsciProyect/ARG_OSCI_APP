@@ -153,7 +153,7 @@ class FFTChartProvider extends GetxController {
 
   /// Automatically adjusts the time scale based on the frequency and chart size.
   void autoset(Size size, double freq) {
-    final useFreq = freq > 0 ? freq: 1;
+    final useFreq = freq > 0 ? freq : 1;
     updateDrawingWidth(size, 50);
     final newScale =
         (_drawingWidth <= 0) ? 1.0 : max(1e-3, _drawingWidth / useFreq);
