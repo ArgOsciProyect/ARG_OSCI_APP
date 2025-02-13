@@ -527,6 +527,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   /// Reads data from the queue and extracts the value and channel.
+// In DataAcquisitionService.dart, update _readDataFromQueue:
   static (int value, int channel) _readDataFromQueue(
     Queue<int> queue,
     DeviceConfig deviceConfig,
@@ -535,14 +536,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
         .getUint16(0, Endian.little);
 
-    final dataValue = uint16Value & deviceConfig.dataMask;
+    // Right shift by trailing zeros count
+    final dataValue = (uint16Value & deviceConfig.dataMask) >>
+        deviceConfig.dataMaskTrailingZeros;
 
-    // Find the lowest 1 bit position in channel mask - that's where channel bits start
-    final channelShift = (deviceConfig.channelMask & -deviceConfig.channelMask)
-            .toRadixString(2)
-            .length -
-        1;
-    final channel = (uint16Value & deviceConfig.channelMask) >> channelShift;
+    if (deviceConfig.channelMask == 0) {
+      return (dataValue, 0);
+    }
+
+    final channel = (uint16Value & deviceConfig.channelMask) >>
+        deviceConfig.channelMaskTrailingZeros;
 
     return (dataValue, channel);
   }

@@ -1,4 +1,3 @@
-/// Configuration parameters for the oscilloscope device
 class DeviceConfig {
   /// Sampling frequency in Hz
   final double samplingFrequency;
@@ -27,8 +26,14 @@ class DeviceConfig {
   /// Number of samples to discard from the end
   final int discardTrailer;
 
+  /// Cached number of trailing zeros in data mask
+  final int dataMaskTrailingZeros;
+
+  /// Cached number of trailing zeros in channel mask
+  final int channelMaskTrailingZeros;
+
   /// Creates a new device configuration
-  const DeviceConfig({
+  DeviceConfig({
     required this.samplingFrequency,
     required this.bitsPerPacket,
     required this.dataMask,
@@ -38,7 +43,18 @@ class DeviceConfig {
     required this.dividingFactor,
     this.discardHead = 0,
     this.discardTrailer = 0,
-  });
+  })  : dataMaskTrailingZeros = dataMask
+            .toRadixString(2)
+            .split('')
+            .reversed
+            .takeWhile((c) => c == '0')
+            .length,
+        channelMaskTrailingZeros = channelMask
+            .toRadixString(2)
+            .split('')
+            .reversed
+            .takeWhile((c) => c == '0')
+            .length;
 
   /// Creates DeviceConfig from JSON map with error handling
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {

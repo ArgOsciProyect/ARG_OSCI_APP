@@ -82,7 +82,24 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
   int get discardTrailer => 0;
 
   @override
-  int get dividingFactor => 1; // Add this getter
+  int get dividingFactor => 1;
+
+  // Add trailing zeros getters
+  @override
+  int get dataMaskTrailingZeros => dataMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
+
+  @override
+  int get channelMaskTrailingZeros => channelMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
 }
 
 class MockDeviceConfigProvider extends GetxController
@@ -123,6 +140,23 @@ class MockDeviceConfigProvider extends GetxController
   void updateConfig(DeviceConfig config) {
     _config.value = config;
   }
+
+  // Add the missing implementations:
+  @override
+  int get dataMaskTrailingZeros => dataMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
+
+  @override
+  int get channelMaskTrailingZeros => channelMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
 }
 
 // Mock para HttpClient
@@ -994,7 +1028,15 @@ void main() {
   });
 
   test('should process data with low pass filter', () {
-    final queue = Queue<int>()..addAll([0xFF, 0x01, 0x00, 0x00]);
+    // Create a longer signal with at least 7 samples (minimum required length is > 6)
+    final queue = Queue<int>();
+    // Add 8 samples (16 bytes) of a sine wave
+    for (int i = 0; i < 8; i++) {
+      final value = (256 + 255 * sin(2 * pi * i / 8)).floor();
+      final uint16Value = value & 0xFFF;
+      queue.add(uint16Value & 0xFF);
+      queue.add((uint16Value >> 8) & 0xFF);
+    }
 
     service.triggerMode = TriggerMode.normal;
     service.useLowPassFilter = true;
@@ -1011,7 +1053,9 @@ void main() {
         service.triggerMode,
         mockDeviceConfigProvider.config!,
         getMockSendPort());
+
     expect(points, isNotEmpty);
+    expect(points.length, equals(8));
   });
 
   group('Metrics Calculation', () {

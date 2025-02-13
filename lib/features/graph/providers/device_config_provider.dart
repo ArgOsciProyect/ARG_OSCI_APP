@@ -18,6 +18,22 @@ class DeviceConfigProvider extends GetxController {
   /// Returns the current device configuration.
   DeviceConfig? get config => _config.value;
 
+  /// Get number of trailing zeros in data mask for bit shifting
+  int get dataMaskTrailingZeros => dataMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
+
+  /// Get number of trailing zeros in channel mask for bit shifting
+  int get channelMaskTrailingZeros => channelMask
+      .toRadixString(2)
+      .split('')
+      .reversed
+      .takeWhile((c) => c == '0')
+      .length;
+
   // Reactive getters for commonly used values
   /// Returns the sampling frequency, adjusted by the dividing factor.
   double get samplingFrequency =>

@@ -242,7 +242,7 @@ void main() {
   group('Digital Signal Processing Performance Tests', () {
     test('Filter Performance - Various Data Sizes', () async {
       final dataSizes = [1000, 10000, 100000];
-      final filters = [
+      final filters = <FilterType>[
         MovingAverageFilter(),
         ExponentialFilter(),
         LowPassFilter()
@@ -258,21 +258,24 @@ void main() {
             stopwatch.reset();
             stopwatch.start();
 
-            // Adjust filter settings with correct types
-            final filterSettings = filter is MovingAverageFilter
-                ? {
-                    'windowSize': 5, // Changed to int
-                    'samplingFrequency': 1650000.0,
-                  }
-                : filter is ExponentialFilter
-                    ? {
-                        'alpha': 0.2,
-                        'samplingFrequency': 1650000.0,
-                      }
-                    : {
-                        'cutoffFrequency': 100.0,
-                        'samplingFrequency': 1650000.0,
-                      };
+            // Type-safe filter settings
+            final Map<String, dynamic> filterSettings;
+            if (filter is MovingAverageFilter) {
+              filterSettings = {
+                'windowSize': 5,
+                'samplingFrequency': sampleRate,
+              };
+            } else if (filter is ExponentialFilter) {
+              filterSettings = {
+                'alpha': 0.2,
+                'samplingFrequency': sampleRate,
+              };
+            } else {
+              filterSettings = {
+                'cutoffFrequency': 100.0,
+                'samplingFrequency': sampleRate,
+              };
+            }
 
             final filtered = filter.apply(points, filterSettings);
 
