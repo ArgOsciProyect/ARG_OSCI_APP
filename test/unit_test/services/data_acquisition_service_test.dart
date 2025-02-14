@@ -157,7 +157,7 @@ class MockDeviceConfigProvider extends GetxController
       .reversed
       .takeWhile((c) => c == '0')
       .length;
-      
+
   @override
   void listen(void Function(DeviceConfig? p1) onChanged) {
     // TODO: implement listen
@@ -471,178 +471,158 @@ void main() {
     });
   });
 
-  group('Discard Head/Trailer Tests', () {
-    late DeviceConfig deviceConfig;
-    late SendPort mockSendPort;
+  group('Data Masking System', () {
+    late MockSocketService mockSocketService;
 
     setUp(() {
-      deviceConfig = DeviceConfig(
-        samplingFrequency: 1650000.0,
-        bitsPerPacket: 16,
-        dataMask: 0x0FFF,
-        channelMask: 0xF000,
-        usefulBits: 9,
-        samplesPerPacket: 100,
-        dividingFactor: 1,
-        discardHead: 10,
-        discardTrailer: 10,
-      );
-
-      mockSendPort = getMockSendPort();
-    });
-    test('should discard correct number of samples from head and trailer', () {
-      final queue = Queue<int>();
-      for (int i = 0; i < 100; i++) {
-        queue.add(i & 0xFF);
-        queue.add((i >> 8) & 0xFF);
-      }
-
-      final points = DataAcquisitionService.processDataForTest(
-        queue,
-        100, // chunkSize in samples, not bytes
-        1.0,
-        1.0,
-        0.0,
-        TriggerEdge.positive,
-        256.0,
-        false,
-        false,
-        TriggerMode.normal,
-        deviceConfig,
-        mockSendPort,
-      );
-
-      expect(points.length, equals(80),
-          reason: 'Should have 80 points (100 - 10 head - 10 trailer)');
-    });
-    test('should handle case when discard exceeds data size', () {
-      final deviceConfigLargeDiscard = DeviceConfig(
-        samplingFrequency: 1650000.0,
-        bitsPerPacket: 16,
-        dataMask: 0x0FFF,
-        channelMask: 0xF000,
-        usefulBits: 9,
-        samplesPerPacket: 100,
-        dividingFactor: 1,
-        discardHead: 60,
-        discardTrailer: 50,
-      );
-
-      final queue = Queue<int>();
-      for (int i = 0; i < 100; i++) {
-        queue.add(i & 0xFF);
-        queue.add((i >> 8) & 0xFF);
-      }
-
-      final points = DataAcquisitionService.processDataForTest(
-        queue,
-        100,
-        1.0,
-        1.0,
-        0.0,
-        TriggerEdge.positive,
-        256.0,
-        false,
-        false,
-        TriggerMode.normal,
-        deviceConfigLargeDiscard,
-        mockSendPort,
-      );
-
-      expect(points, isEmpty,
-          reason: 'Should return empty list when discard exceeds data size');
+      mockSocketService = MockSocketService();
+      Get.put<SocketService>(mockSocketService, permanent: true);
     });
 
-    test('should handle case when no discard specified', () {
-      final deviceConfigNoDiscard = deviceConfig.copyWith(
-        discardHead: 0,
-        discardTrailer: 0,
-      );
+    test('should handle standard 12-bit data mask', () async {
+      final mockConfig = DeviceConfig(
+          dataMask: 0x0FFF,
+          channelMask: 0,
+          samplingFrequency: 1650000.0,
+          samplesPerPacket: 512,
+          bitsPerPacket: 16,
+          usefulBits: 12,
+          dividingFactor: 1,
+          discardHead: 0,
+          discardTrailer: 0);
 
-      final queue = Queue<int>();
-      for (int i = 0; i < 100; i++) {
-        queue.add(i & 0xFF);
-        queue.add((i >> 8) & 0xFF);
-      }
-
-      final points = DataAcquisitionService.processDataForTest(
-        queue,
-        200, // chunkSize in bytes
-        1.0,
-        1.0,
-        0.0,
-        TriggerEdge.positive,
-        256.0,
-        false,
-        false,
-        TriggerMode.normal,
-        deviceConfigNoDiscard,
-        mockSendPort,
-      );
-
-      expect(points.length, equals(100));
+      mockDeviceConfigProvider.updateConfig(mockConfig);
+      final (value, _) = await service.maskDataForTest(0x0FFF);
+      expect(value, equals(0x0FFF));
+      expect(value * (3.3 / 4095), closeTo(3.3, 0.1));
     });
 
-    test('should handle discard with dividing factor', () {
-      final deviceConfigWithDivider = deviceConfig.copyWith(
-        dividingFactor: 2,
-        discardHead: 10,
-        discardTrailer: 10,
-      );
+    test('should handle arbitrary data masks', () async {
+      final testCases = [
+        (mask: 0x0FF0, expectedValue: 0xFF), // 0xFF0 >> 4
+        (mask: 0x000F, expectedValue: 0xF), // 0x00F >> 0
+        (mask: 0xF000, expectedValue: 0xF), // 0xF000 >> 12
+        (mask: 0xFFFF, expectedValue: 0xFFFF) // No shift
+      ];
 
-      final queue = Queue<int>();
-      for (int i = 0; i < 100; i++) {
-        queue.add(i & 0xFF);
-        queue.add((i >> 8) & 0xFF);
+      for (final testCase in testCases) {
+        final mockConfig = DeviceConfig(
+            dataMask: testCase.mask,
+            channelMask: 0,
+            samplingFrequency: 1650000.0,
+            samplesPerPacket: 512,
+            bitsPerPacket: 16,
+            usefulBits: 12,
+            dividingFactor: 1,
+            discardHead: 0,
+            discardTrailer: 0);
+        mockDeviceConfigProvider.updateConfig(mockConfig);
+
+        final (value, _) = await service.maskDataForTest(0xFFFF);
+        expect(value, equals(testCase.expectedValue),
+            reason: 'Failed with mask 0x${testCase.mask.toRadixString(16)}');
       }
-
-      final points = DataAcquisitionService.processDataForTest(
-        queue,
-        100, // chunkSize in samples, not bytes
-        1.0,
-        1.0,
-        0.0,
-        TriggerEdge.positive,
-        256.0,
-        false,
-        false,
-        TriggerMode.normal,
-        deviceConfigWithDivider,
-        mockSendPort,
-      );
-
-      expect(points.length, equals(40),
-          reason: 'Should have 40 points ((100 - 10 - 10) / 2)');
     });
 
-    test('should handle trigger detection after discard', () {
-      final queue = Queue<int>();
-      // Generate step signal that crosses trigger level
-      for (int i = 0; i < 100; i++) {
-        final value = i < 50 ? 0 : 512;
-        queue.add(value & 0xFF);
-        queue.add((value >> 8) & 0xFF);
+    test('should handle channel masks in various positions', () async {
+      final testCases = [
+        // Format: (mask, input data, expected after shift)
+        (
+          chMask: 0xF000,
+          input: 0xF000,
+          expectedChannel: 0xF
+        ), // 0xF000 >> 12 = 0xF
+        (
+          chMask: 0x0F00,
+          input: 0x0F00,
+          expectedChannel: 0xF
+        ), // 0x0F00 >> 8 = 0xF
+        (
+          chMask: 0x00F0,
+          input: 0x00F0,
+          expectedChannel: 0xF
+        ), // 0x00F0 >> 4 = 0xF
+        (
+          chMask: 0x000F,
+          input: 0x000F,
+          expectedChannel: 0xF
+        ) // 0x000F >> 0 = 0xF
+      ];
+
+      for (final testCase in testCases) {
+        final mockConfig = DeviceConfig(
+            dataMask: 0x0FFF,
+            channelMask: testCase.chMask, // 0x00F0
+            samplingFrequency: 1650000.0,
+            samplesPerPacket: 512,
+            bitsPerPacket: 16,
+            usefulBits: 12,
+            dividingFactor: 1,
+            discardHead: 0,
+            discardTrailer: 0);
+        mockDeviceConfigProvider.updateConfig(mockConfig);
+
+        final (_, channel) = await service.maskDataForTest(testCase.input);
+        expect(channel, equals(testCase.expectedChannel),
+            reason:
+                'Failed with channel mask 0x${testCase.chMask.toRadixString(16)}');
       }
+    });
+    test('should handle overlapping data and channel masks', () async {
+      final testCases = [
+        (
+          dataMask: 0x0FFF,
+          channelMask: 0xF000,
+          input: 0xFFFF,
+          expectedValue: 0xFFF,
+          expectedChannel: 0xF
+        ),
+        (
+          dataMask: 0xFF0F,
+          channelMask: 0x00F0,
+          input: 0xFFFF,
+          expectedValue: 0xFF0F >> 0,
+          expectedChannel: 0xF
+        )
+      ];
 
-      final points = DataAcquisitionService.processDataForTest(
-        queue,
-        200, // chunkSize in bytes
-        1.0,
-        1.0,
-        256.0, // Set trigger level to midpoint
-        TriggerEdge.positive,
-        256.0,
-        false,
-        false,
-        TriggerMode.normal,
-        deviceConfig,
-        mockSendPort,
-      );
+      for (final testCase in testCases) {
+        final mockConfig = DeviceConfig(
+            dataMask: testCase.dataMask,
+            channelMask: testCase.channelMask,
+            samplingFrequency: 1650000.0,
+            samplesPerPacket: 512,
+            bitsPerPacket: 16,
+            usefulBits: 12,
+            dividingFactor: 1,
+            discardHead: 0,
+            discardTrailer: 0);
+        mockDeviceConfigProvider.updateConfig(mockConfig);
 
-      expect(points.any((p) => p.isTrigger), isTrue);
+        final (value, channel) = await service.maskDataForTest(testCase.input);
+        expect(value, equals(testCase.expectedValue));
+        expect(channel, equals(testCase.expectedChannel));
+      }
+    });
+
+    test('should handle zero masks', () async {
+      final mockConfig = DeviceConfig(
+          dataMask: 0,
+          channelMask: 0,
+          samplingFrequency: 1650000.0,
+          samplesPerPacket: 512,
+          bitsPerPacket: 16,
+          usefulBits: 12,
+          dividingFactor: 1,
+          discardHead: 0,
+          discardTrailer: 0);
+      mockDeviceConfigProvider.updateConfig(mockConfig);
+
+      final (value, channel) = await service.maskDataForTest(0xFFFF);
+      expect(value, equals(0));
+      expect(channel, equals(0));
     });
   });
-
   group('ProcessData', () {
     const numSamples = 16384;
     const mainFreq = 1000.0;

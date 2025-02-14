@@ -45,7 +45,6 @@ class DataAcquisitionProvider extends GetxController {
       SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
 
   DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection) {
-
     // Update sampling frequency from device config
     samplingFrequency.value = deviceConfig.samplingFrequency;
     distance.value = 1 / deviceConfig.samplingFrequency;
@@ -90,8 +89,7 @@ class DataAcquisitionProvider extends GetxController {
     // Initialize filter with Nyquist frequency from device config
     setFilter(LowPassFilter());
     setCutoffFrequency(deviceConfig.config!.samplingFrequency / 2);
-    
- 
+
     // Listen to mode changes to handle FFT switch
     ever(Get.find<UserSettingsProvider>().mode, (mode) {
       if (mode == 'FFT') {
@@ -287,14 +285,15 @@ class DataAcquisitionProvider extends GetxController {
   void setCutoffFrequency(double freq) {
     // Calculate Nyquist limit
     final nyquistLimit = samplingFrequency.value / 2;
-    
+
     // Clamp frequency to valid range (0 to nyquistLimit)
     final clampedFreq = freq.clamp(0.0, nyquistLimit);
-    
+
     if (freq != clampedFreq && kDebugMode) {
-      print('Cutoff frequency clamped from $freq to $clampedFreq Hz (Nyquist limit)');
+      print(
+          'Cutoff frequency clamped from $freq to $clampedFreq Hz (Nyquist limit)');
     }
-    
+
     cutoffFrequency.value = clampedFreq;
   }
 

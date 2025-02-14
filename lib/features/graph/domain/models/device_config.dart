@@ -73,12 +73,14 @@ class DeviceConfig {
         discardTrailer: int.parse(json['discard_trailer']?.toString() ?? '0'),
       );
     } catch (e) {
-      throw FormatException('Failed to parse DeviceConfig: $e\nReceived JSON: $json');
+      throw FormatException(
+          'Failed to parse DeviceConfig: $e\nReceived JSON: $json');
     }
   }
 
   Map<String, dynamic> toJson() => {
-        'sampling_frequency': _baseSamplingFrequency, // Guardamos la frecuencia base
+        'sampling_frequency':
+            _baseSamplingFrequency, // Guardamos la frecuencia base
         'bits_per_packet': bitsPerPacket,
         'data_mask': dataMask,
         'channel_mask': channelMask,
@@ -112,6 +114,4 @@ class DeviceConfig {
       discardTrailer: discardTrailer ?? this.discardTrailer,
     );
   }
-
-  
 }

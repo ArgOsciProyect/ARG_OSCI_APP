@@ -527,7 +527,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   /// Reads data from the queue and extracts the value and channel.
-// In DataAcquisitionService.dart, update _readDataFromQueue:
   static (int value, int channel) _readDataFromQueue(
     Queue<int> queue,
     DeviceConfig deviceConfig,
@@ -536,18 +535,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final uint16Value = ByteData.sublistView(Uint8List.fromList(bytes))
         .getUint16(0, Endian.little);
 
-    // Right shift by trailing zeros count
-    final dataValue = (uint16Value & deviceConfig.dataMask) >>
+    // Apply masks and shift as needed
+    final value = (uint16Value & deviceConfig.dataMask) >>
         deviceConfig.dataMaskTrailingZeros;
 
     if (deviceConfig.channelMask == 0) {
-      return (dataValue, 0);
+      return (value, 0);
     }
 
+    // Apply channel mask and shift by trailing zeros
     final channel = (uint16Value & deviceConfig.channelMask) >>
         deviceConfig.channelMaskTrailingZeros;
 
-    return (dataValue, channel);
+    return (value, channel);
   }
 
   /// Calculates the x and y coordinates from the raw data.
@@ -649,9 +649,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
-
     for (var i = 0;
-        i < chunkSize*config.deviceConfig.dividingFactor;
+        i < chunkSize * config.deviceConfig.dividingFactor;
         i += 2 * config.deviceConfig.dividingFactor) {
       if (queue.length < 2 * config.deviceConfig.dividingFactor) break;
 
@@ -1179,5 +1178,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     final hasTrigger = points.any((p) => p.isTrigger);
     return (points.take(samplesPerPacket).toList(), hasTrigger);
+  }
+
+  @visibleForTesting
+  Future<(int, int)> maskDataForTest(int input) async {
+    final queue = Queue<int>()
+      ..add(input & 0xFF)
+      ..add((input >> 8) & 0xFF);
+    return _readDataFromQueue(queue, deviceConfig.config!);
   }
 }

@@ -61,18 +61,19 @@ class DeviceConfigProvider extends GetxController {
   dynamic get usefulBits => _config.value?.usefulBits ?? 12;
 
   /// Returns the number of samples per packet.
-  dynamic get samplesPerPacket{
+  dynamic get samplesPerPacket {
     var samples = _config.value?.samplesPerPacket ?? 8192;
     return (samples);
-  } 
+  }
 
   void listen(void Function(DeviceConfig?) onChanged) {
     ever(_config, onChanged);
   }
+
   /// Updates the device configuration.
   void updateConfig(DeviceConfig config) {
     _config.value = config;
-    if(kDebugMode){
+    if (kDebugMode) {
       print("Sampling Frequency: $samplingFrequency");
       print("Dividing Factor: $dividingFactor");
       print("Bits per Packet: $bitsPerPacket");
