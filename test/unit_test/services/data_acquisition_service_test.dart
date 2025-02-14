@@ -157,6 +157,11 @@ class MockDeviceConfigProvider extends GetxController
       .reversed
       .takeWhile((c) => c == '0')
       .length;
+      
+  @override
+  void listen(void Function(DeviceConfig? p1) onChanged) {
+    // TODO: implement listen
+  }
 }
 
 // Mock para HttpClient

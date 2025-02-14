@@ -37,7 +37,7 @@ class DeviceConfigProvider extends GetxController {
 
   // Reactive getters for commonly used values
   /// Returns the sampling frequency, adjusted by the dividing factor.
-  double get samplingFrequency => _config.value?.samplingFrequency ?? 1650000.0;
+  double get samplingFrequency => _config.value!.samplingFrequency;
 
   /// Returns the dividing factor for the sampling frequency.
   int get dividingFactor => _config.value?.dividingFactor ?? 1;
@@ -66,6 +66,9 @@ class DeviceConfigProvider extends GetxController {
     return (samples);
   } 
 
+  void listen(void Function(DeviceConfig?) onChanged) {
+    ever(_config, onChanged);
+  }
   /// Updates the device configuration.
   void updateConfig(DeviceConfig config) {
     _config.value = config;

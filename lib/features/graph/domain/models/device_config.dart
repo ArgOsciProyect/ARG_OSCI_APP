@@ -112,4 +112,6 @@ class DeviceConfig {
       discardTrailer: discardTrailer ?? this.discardTrailer,
     );
   }
+
+  
 }

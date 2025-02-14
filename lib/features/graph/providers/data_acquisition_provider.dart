@@ -3,6 +3,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_service.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
@@ -30,19 +31,25 @@ class DataAcquisitionProvider extends GetxController {
   final samplingFrequency = Rx<double>(1650000);
   final distance = RxDouble(1 / 1650000);
   final scale = RxDouble(0);
-  final currentFilter = Rx<FilterType>(NoFilter());
+  final currentFilter = Rx<FilterType>(LowPassFilter());
   final windowSize = RxInt(5);
   final alpha = RxDouble(0.2);
   final cutoffFrequency = RxDouble(100.0);
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
   final useHysteresis = true.obs;
   final useLowPassFilter = true.obs;
+  final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
   // Kalman filter instance
   final SimpleKalman kalman =
       SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
 
   DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection) {
+
+    // Update sampling frequency from device config
+    samplingFrequency.value = deviceConfig.samplingFrequency;
+    distance.value = 1 / deviceConfig.samplingFrequency;
+
     // Subscribe to streams
     dataAcquisitionService.dataStream.listen((points) {
       final filteredPoints = _applyFilter(points);
@@ -61,7 +68,16 @@ class DataAcquisitionProvider extends GetxController {
     // Observe changes in socket connection
     ever(socketConnection.ip, (_) => restartDataAcquisition());
     ever(socketConnection.port, (_) => restartDataAcquisition());
-
+    deviceConfig.listen((config) {
+      if (config != null) {
+        samplingFrequency.value = config.samplingFrequency;
+        distance.value = 1 / config.samplingFrequency;
+        // Update cutoff frequency when sampling frequency changes
+        if (currentFilter.value is LowPassFilter) {
+          setCutoffFrequency(config.samplingFrequency / 2);
+        }
+      }
+    });
     // Sync initial values
     triggerLevel.value = dataAcquisitionService.triggerLevel;
     triggerEdge.value = dataAcquisitionService.triggerEdge;
@@ -71,7 +87,11 @@ class DataAcquisitionProvider extends GetxController {
     dataAcquisitionService.useHysteresis = true;
     dataAcquisitionService.useLowPassFilter = true;
     triggerMode.value = dataAcquisitionService.triggerMode;
-
+    // Initialize filter with Nyquist frequency from device config
+    setFilter(LowPassFilter());
+    setCutoffFrequency(deviceConfig.config!.samplingFrequency / 2);
+    
+ 
     // Listen to mode changes to handle FFT switch
     ever(Get.find<UserSettingsProvider>().mode, (mode) {
       if (mode == 'FFT') {
@@ -263,8 +283,19 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Sets the cutoff frequency for the low pass filter.
+  /// Enforces Nyquist limit (samplingFrequency/2)
   void setCutoffFrequency(double freq) {
-    cutoffFrequency.value = freq;
+    // Calculate Nyquist limit
+    final nyquistLimit = samplingFrequency.value / 2;
+    
+    // Clamp frequency to valid range (0 to nyquistLimit)
+    final clampedFreq = freq.clamp(0.0, nyquistLimit);
+    
+    if (freq != clampedFreq && kDebugMode) {
+      print('Cutoff frequency clamped from $freq to $clampedFreq Hz (Nyquist limit)');
+    }
+    
+    cutoffFrequency.value = clampedFreq;
   }
 
   /// Sets the trigger level.
