@@ -623,7 +623,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (points.isEmpty) {
       return [];
     }
-
+    //print("Point length: ${points.length}");
+    //print("Sampling frequency: $samplingFrequency");
     final filter = LowPassFilter();
     final filteredPoints = filter.apply(points, {
       'cutoffFrequency': cutoffFrequency,
@@ -648,18 +649,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
-    // Calculate indices in terms of samples
-    final startIndex = config.deviceConfig.discardHead * 2; // Convert to bytes
-    final endIndex = (chunkSize - config.deviceConfig.discardTrailer) *
-        2; // Convert to bytes
 
-    // Asegurar que los índices son válidos
-    if (startIndex >= chunkSize * 2 || endIndex <= startIndex) {
-      return ([], 0.0, 0.0);
-    }
-
-    for (var i = startIndex;
-        i < endIndex;
+    for (var i = 0;
+        i < chunkSize*config.deviceConfig.dividingFactor;
         i += 2 * config.deviceConfig.dividingFactor) {
       if (queue.length < 2 * config.deviceConfig.dividingFactor) break;
 

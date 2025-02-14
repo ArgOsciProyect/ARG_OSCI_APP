@@ -1,6 +1,6 @@
 class DeviceConfig {
-  /// Sampling frequency in Hz
-  final double samplingFrequency;
+  /// Private base sampling frequency in Hz
+  final double _baseSamplingFrequency;
 
   /// Number of bits per data packet
   final int bitsPerPacket;
@@ -32,9 +32,11 @@ class DeviceConfig {
   /// Cached number of trailing zeros in channel mask
   final int channelMaskTrailingZeros;
 
-  /// Creates a new device configuration
+  /// Returns effective sampling frequency (base frequency divided by dividing factor)
+  double get samplingFrequency => _baseSamplingFrequency / dividingFactor;
+
   DeviceConfig({
-    required this.samplingFrequency,
+    required double samplingFrequency,
     required this.bitsPerPacket,
     required this.dataMask,
     required this.channelMask,
@@ -43,7 +45,8 @@ class DeviceConfig {
     required this.dividingFactor,
     this.discardHead = 0,
     this.discardTrailer = 0,
-  })  : dataMaskTrailingZeros = dataMask
+  })  : _baseSamplingFrequency = samplingFrequency,
+        dataMaskTrailingZeros = dataMask
             .toRadixString(2)
             .split('')
             .reversed
@@ -56,7 +59,6 @@ class DeviceConfig {
             .takeWhile((c) => c == '0')
             .length;
 
-  /// Creates DeviceConfig from JSON map with error handling
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {
     try {
       return DeviceConfig(
@@ -71,14 +73,12 @@ class DeviceConfig {
         discardTrailer: int.parse(json['discard_trailer']?.toString() ?? '0'),
       );
     } catch (e) {
-      throw FormatException(
-          'Failed to parse DeviceConfig: $e\nReceived JSON: $json');
+      throw FormatException('Failed to parse DeviceConfig: $e\nReceived JSON: $json');
     }
   }
 
-  /// Converts DeviceConfig to JSON map
   Map<String, dynamic> toJson() => {
-        'sampling_frequency': samplingFrequency,
+        'sampling_frequency': _baseSamplingFrequency, // Guardamos la frecuencia base
         'bits_per_packet': bitsPerPacket,
         'data_mask': dataMask,
         'channel_mask': channelMask,
@@ -89,7 +89,7 @@ class DeviceConfig {
         'discard_trailer': discardTrailer,
       };
 
-  copyWith({
+  DeviceConfig copyWith({
     double? samplingFrequency,
     int? bitsPerPacket,
     int? dataMask,
@@ -101,7 +101,7 @@ class DeviceConfig {
     int? discardTrailer,
   }) {
     return DeviceConfig(
-      samplingFrequency: samplingFrequency ?? this.samplingFrequency,
+      samplingFrequency: samplingFrequency ?? _baseSamplingFrequency,
       bitsPerPacket: bitsPerPacket ?? this.bitsPerPacket,
       dataMask: dataMask ?? this.dataMask,
       channelMask: channelMask ?? this.channelMask,

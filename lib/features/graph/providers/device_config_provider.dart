@@ -1,4 +1,5 @@
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 /// [DeviceConfigProvider] manages the device configuration parameters.
@@ -36,8 +37,7 @@ class DeviceConfigProvider extends GetxController {
 
   // Reactive getters for commonly used values
   /// Returns the sampling frequency, adjusted by the dividing factor.
-  double get samplingFrequency =>
-      (_config.value?.samplingFrequency ?? 1650000.0) / dividingFactor;
+  double get samplingFrequency => _config.value?.samplingFrequency ?? 1650000.0;
 
   /// Returns the dividing factor for the sampling frequency.
   int get dividingFactor => _config.value?.dividingFactor ?? 1;
@@ -61,10 +61,24 @@ class DeviceConfigProvider extends GetxController {
   dynamic get usefulBits => _config.value?.usefulBits ?? 12;
 
   /// Returns the number of samples per packet.
-  dynamic get samplesPerPacket => _config.value?.samplesPerPacket ?? 8192 * 2;
+  dynamic get samplesPerPacket{
+    var samples = _config.value?.samplesPerPacket ?? 8192;
+    return (samples);
+  } 
 
   /// Updates the device configuration.
   void updateConfig(DeviceConfig config) {
     _config.value = config;
+    if(kDebugMode){
+      print("Sampling Frequency: $samplingFrequency");
+      print("Dividing Factor: $dividingFactor");
+      print("Bits per Packet: $bitsPerPacket");
+      print("Data Mask: $dataMask");
+      print("Channel Mask: $channelMask");
+      print("Useful Bits: $usefulBits");
+      print("Samples per Packet: $samplesPerPacket");
+      print("Discard Head: $discardHead");
+      print("Discard Trailer: $discardTrailer");
+    }
   }
 }
