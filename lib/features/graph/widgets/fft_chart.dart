@@ -1,5 +1,5 @@
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
-import 'package:arg_osci_app/features/graph/domain/models/unit_formats.dart';
+import 'package:arg_osci_app/features/graph/domain/models/unit_format.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:flutter/gestures.dart';

@@ -466,10 +466,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     var config = setup.config;
     final processingChunkSize = setup.deviceConfig.samplesPerPacket;
-    final maxQueueSize = processingChunkSize * 6;
+    final maxQueueSize = processingChunkSize * 4;
     final queue = Queue<int>();
     final singleModeQueue = Queue<int>();
-    final maxSingleModeQueueSize = processingChunkSize * 10;
+    final maxSingleModeQueueSize = processingChunkSize * 3;
     bool processingEnabled = true;
 
     receivePort.listen((message) {
