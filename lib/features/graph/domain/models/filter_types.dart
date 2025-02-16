@@ -42,34 +42,39 @@ mixin FiltfiltHelper {
       final yn = b[0] * xn + z[0];
       y[i] = yn;
       for (int j = 0; j < m; j++) {
-        final z_next = (j < m - 1) ? z[j + 1] : 0.0;
+        final zNext = (j < m - 1) ? z[j + 1] : 0.0;
         final bj = (j + 1 < b.length) ? b[j + 1] : 0.0;
         final aj = (j + 1 < a.length) ? a[j + 1] : 0.0;
-        z[j] = bj * xn - aj * yn + z_next;
+        z[j] = bj * xn - aj * yn + zNext;
       }
     }
     return y;
   }
 
+  List<double> _singleFilt(List<double> b, List<double> a, List<double> x) {
+    if (x.isEmpty) return [];
+    // Calculate initial conditions
+    final si = _computeFInitialState(b, a);
+    final initFwd = si.map((v) => v * x.first).toList();
+    return _lfilterWithInit(b, a, x, initFwd);
+  }
+
   List<double> _filtfilt(List<double> b, List<double> a, List<double> x) {
     if (x.isEmpty) return [];
     final n = math.max(b.length, a.length);
-    final lrefl = 3 * (n - 1); // Número de muestras de extensión
+    final lrefl = 3 * (n - 1);
     if (x.length <= lrefl) {
       throw Exception("La longitud de la señal debe ser > $lrefl");
     }
-    // Construir la señal extendida mediante reflexión (modo espejo)
+    // Build extended signal using reflection (mirror mode)
     List<double> front = List<double>.generate(lrefl, (i) {
       return 2 * x.first - x[lrefl - i];
     });
     List<double> back = List<double>.generate(lrefl, (i) {
       return 2 * x.last - x[x.length - 2 - i];
     });
-    final ext = <double>[]
-      ..addAll(front)
-      ..addAll(x)
-      ..addAll(back);
-    // Calcular condiciones iniciales (inspirado en Likhterov & Kopeika)
+    final ext = <double>[...front, ...x, ...back];
+
     final si = _computeFInitialState(b, a);
     final initFwd = si.map((v) => v * ext.first).toList();
     var y = _lfilterWithInit(b, a, ext, initFwd);
@@ -77,14 +82,15 @@ mixin FiltfiltHelper {
     final initBwd = si.map((v) => v * y.first).toList();
     y = _lfilterWithInit(b, a, y, initBwd);
     y = y.reversed.toList();
-    // Extraer exactamente L muestras (L = x.length)
+
     return y.sublist(lrefl, lrefl + x.length);
   }
 }
 
 abstract class FilterType {
   String get name;
-  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params);
+  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
+      {bool doubleFilt = true});
 
   @override
   bool operator ==(Object other) {
@@ -105,7 +111,8 @@ class NoFilter extends FilterType {
   String get name => 'None';
 
   @override
-  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
+  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
+      {bool doubleFilt = true}) {
     return points;
   }
 }
@@ -119,15 +126,18 @@ class MovingAverageFilter extends FilterType with FiltfiltHelper {
   String get name => 'Moving Average';
 
   @override
-  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
+  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
+      {bool doubleFilt = true}) {
     final windowSize = params['windowSize'] as int;
-    // Si la señal es más corta que el tamaño de ventana, se devuelve sin filtrar.
     if (points.isEmpty || points.length < windowSize) return points;
-    // Para cualquier windowSize: b = [1/windowSize, ..., 1/windowSize] y a = [1, 0, ..., 0]
+
     final b = List<double>.filled(windowSize, 1 / windowSize);
-    final a = [1.0]..addAll(List.filled(windowSize - 1, 0.0));
+    final a = [1.0, ...List.filled(windowSize - 1, 0.0)];
     final signal = points.map((p) => p.y).toList();
-    final filtered = _filtfilt(b, a, signal);
+
+    final filtered =
+        doubleFilt ? _filtfilt(b, a, signal) : _singleFilt(b, a, signal);
+
     return List.generate(
         points.length, (i) => DataPoint(points[i].x, filtered[i]));
   }
@@ -142,40 +152,45 @@ class ExponentialFilter extends FilterType with FiltfiltHelper {
   String get name => 'Exponential';
 
   @override
-  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
+  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
+      {bool doubleFilt = true}) {
     final alpha = params['alpha'] as double;
     if (points.isEmpty) return [];
-    // Coeficientes para el filtro exponencial
+
     final b = [alpha, 0.0, 0.0];
     final a = [1.0, -(1 - alpha), 0.0];
     final signal = points.map((p) => p.y).toList();
 
-    final n = math.max(b.length, a.length);
-    final lrefl = 3 * (n - 1);
-    if (signal.length <= lrefl) {
-      throw Exception("La longitud de la señal debe ser > $lrefl");
-    }
-    // Extender la señal por reflexión (modo espejo)
-    List<double> front = List<double>.generate(lrefl, (i) {
-      return 2 * signal.first - signal[lrefl - i];
-    });
-    List<double> back = List<double>.generate(lrefl, (i) {
-      return 2 * signal.last - signal[signal.length - 2 - i];
-    });
-    final ext = <double>[...front, ...signal, ...back];
+    if (doubleFilt) {
+      final n = math.max(b.length, a.length);
+      final lrefl = 3 * (n - 1);
+      if (signal.length <= lrefl) {
+        throw Exception("La longitud de la señal debe ser > $lrefl");
+      }
+      // Extended signal with reflection
+      List<double> front = List<double>.generate(lrefl, (i) {
+        return 2 * signal.first - signal[lrefl - i];
+      });
+      List<double> back = List<double>.generate(lrefl, (i) {
+        return 2 * signal.last - signal[signal.length - 2 - i];
+      });
+      final ext = <double>[...front, ...signal, ...back];
 
-    final si = _computeFInitialState(b, a);
-    // Se utiliza 2 * signal.first en las condiciones iniciales para corregir
-    final initFwd = si.map((v) => v * signal.first * 2).toList();
-    var y = _lfilterWithInit(b, a, ext, initFwd);
-    y = y.reversed.toList();
-    // Igualmente, aplicar factor 2 en el filtrado inverso
-    final initBwd = si.map((v) => v * y.first * 2).toList();
-    y = _lfilterWithInit(b, a, y, initBwd);
-    y = y.reversed.toList();
-    final filtered = y.sublist(lrefl, lrefl + signal.length);
-    return List.generate(
-        points.length, (i) => DataPoint(points[i].x, filtered[i]));
+      final si = _computeFInitialState(b, a);
+      final initFwd = si.map((v) => v * signal.first * 2).toList();
+      var y = _lfilterWithInit(b, a, ext, initFwd);
+      y = y.reversed.toList();
+      final initBwd = si.map((v) => v * y.first * 2).toList();
+      y = _lfilterWithInit(b, a, y, initBwd);
+      y = y.reversed.toList();
+      final filtered = y.sublist(lrefl, lrefl + signal.length);
+      return List.generate(
+          points.length, (i) => DataPoint(points[i].x, filtered[i]));
+    } else {
+      final filtered = _singleFilt(b, a, signal);
+      return List.generate(
+          points.length, (i) => DataPoint(points[i].x, filtered[i]));
+    }
   }
 }
 
@@ -187,7 +202,6 @@ class LowPassFilter extends FilterType with FiltfiltHelper {
   List<double> _butterA = [];
 
   void _designButter(double cutoff, double fs) {
-    // Frecuencia de corte normalizada (0..1, donde 1 corresponde a Nyquist)
     final wn = cutoff / (fs / 2);
     final k = math.tan(math.pi * wn / 2);
     final sqrt2 = math.sqrt(2.0);
@@ -201,13 +215,18 @@ class LowPassFilter extends FilterType with FiltfiltHelper {
   }
 
   @override
-  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params) {
+  List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
+      {bool doubleFilt = true}) {
     if (points.isEmpty) return [];
     final cutoff = params['cutoffFrequency'] as double;
     final fs = params['samplingFrequency'] as double;
     _designButter(cutoff, fs);
+
     final signal = points.map((p) => p.y).toList();
-    final filtered = _filtfilt(_butterB, _butterA, signal);
+    final filtered = doubleFilt
+        ? _filtfilt(_butterB, _butterA, signal)
+        : _singleFilt(_butterB, _butterA, signal);
+
     return List.generate(
         points.length, (i) => DataPoint(points[i].x, filtered[i]));
   }

@@ -200,6 +200,26 @@ class UserSettings extends StatelessWidget {
           const Text('Filter Settings',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 24, // Fixed width for checkbox
+                child: Obx(() => Checkbox(
+                      value: graphProvider.useDoubleFilt.value,
+                      onChanged: (value) =>
+                          graphProvider.setUseDoubleFilt(value ?? true),
+                    )),
+              ),
+              const Text('Zero-Phase Filtering'),
+              Tooltip(
+                message: 'Removes phase shift using forward-backward filtering',
+                child: Icon(Icons.info_outline, size: 16),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           const Text('Filter Type:'),
           // Dropdown to select the filter type. Updates the graphProvider's currentFilter.
           Obx(() => DropdownButton<FilterType>(

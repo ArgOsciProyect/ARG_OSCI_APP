@@ -19,8 +19,10 @@ void main() {
     });
 
     test('handles very small/large numbers with scientific notation', () {
-      expect(UnitFormat.formatWithUnit(1e-16, "V"), matches(RegExp(r"1.0e-16 V")));
-      expect(UnitFormat.formatWithUnit(1e16, "V"), matches(RegExp(r"1.0e\+16 V")));
+      expect(
+          UnitFormat.formatWithUnit(1e-16, "V"), matches(RegExp(r"1.0e-16 V")));
+      expect(
+          UnitFormat.formatWithUnit(1e16, "V"), matches(RegExp(r"1.0e\+16 V")));
     });
   });
 }

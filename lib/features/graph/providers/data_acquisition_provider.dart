@@ -38,6 +38,7 @@ class DataAcquisitionProvider extends GetxController {
   final currentVoltageScale = Rx<VoltageScale>(VoltageScales.volt_1);
   final useHysteresis = true.obs;
   final useLowPassFilter = true.obs;
+  final useDoubleFilt = true.obs; // Start with double filtering enabled
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
   // Kalman filter instance
@@ -135,6 +136,10 @@ class DataAcquisitionProvider extends GetxController {
       print("Use low pass filter: $value");
     }
     dataAcquisitionService.updateConfig();
+  }
+
+  void setUseDoubleFilt(bool value) {
+    useDoubleFilt.value = value;
   }
 
   /// Sets the voltage scale and updates related parameters.
@@ -262,7 +267,8 @@ class DataAcquisitionProvider extends GetxController {
       'cutoffFrequency': cutoffFrequency.value,
       'samplingFrequency': samplingFrequency.value
     };
-    return currentFilter.value.apply(points, params);
+    return currentFilter.value
+        .apply(points, params, doubleFilt: useDoubleFilt.value);
   }
 
   /// Sets the current filter type.
@@ -290,8 +296,10 @@ class DataAcquisitionProvider extends GetxController {
     final clampedFreq = freq.clamp(0.0, nyquistLimit);
 
     if (freq != clampedFreq && kDebugMode) {
-      print(
-          'Cutoff frequency clamped from $freq to $clampedFreq Hz (Nyquist limit)');
+      if (kDebugMode) {
+        print(
+            'Cutoff frequency clamped from $freq to $clampedFreq Hz (Nyquist limit)');
+      }
     }
 
     cutoffFrequency.value = clampedFreq;

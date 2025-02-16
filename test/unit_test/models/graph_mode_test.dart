@@ -5,7 +5,9 @@ import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.da
 import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:mockito/mockito.dart';
 
-class MockOscilloscopeChartService extends Mock implements OscilloscopeChartService {}
+class MockOscilloscopeChartService extends Mock
+    implements OscilloscopeChartService {}
+
 class MockFFTChartService extends Mock implements FFTChartService {}
 
 void main() {

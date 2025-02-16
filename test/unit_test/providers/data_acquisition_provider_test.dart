@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
-import 'package:flutter/widgets.dart';  // For Widget, Size
-import 'package:flutter/gestures.dart'; // For ScaleUpdateDetails
+import 'package:flutter/widgets.dart'; // For Widget, Size
+// For ScaleUpdateDetails
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
@@ -42,44 +41,83 @@ class FakeOscilloscopeChartProvider extends GetxController
   bool offsetsReset = false;
   bool scalesReset = false;
 
-  List<DataPoint> get dataPoints => _dataPoints.value;
+  @override
+  List<DataPoint> get dataPoints => _dataPoints;
+  @override
   double get timeScale => _timeScale.value;
+  @override
   double get valueScale => _valueScale.value;
+  @override
   bool get isPaused => _isPaused.value;
+  @override
   double get horizontalOffset => _horizontalOffset.value;
+  @override
   double get verticalOffset => _verticalOffset.value;
+  @override
   double get initialTimeScale => _initialTimeScale;
+  @override
   double get initialValueScale => _initialValueScale;
 
-  DataAcquisitionProvider get graphProvider => Get.find<DataAcquisitionProvider>();
+  @override
+  DataAcquisitionProvider get graphProvider =>
+      Get.find<DataAcquisitionProvider>();
+  @override
   DeviceConfigProvider get deviceConfig => Get.find<DeviceConfigProvider>();
 
+  @override
   void clearForNewTrigger() => clearedForTrigger = true;
+  @override
   void clearAndResume() => clearedAndResumed = true;
+  @override
   void pause() => paused = true;
+  @override
   void resume() => resumed = true;
+  @override
   void resetOffsets() => offsetsReset = true;
+  @override
   void resetScales() => scalesReset = true;
+  @override
   void setTimeScale(double scale) => _timeScale.value = scale;
+  @override
   void setValueScale(double scale) => _valueScale.value = scale;
+  @override
   void setVerticalOffset(double offset) => _verticalOffset.value = offset;
+  @override
   void setHorizontalOffset(double offset) => _horizontalOffset.value = offset;
+  @override
   void setInitialScales() {}
+  @override
   void updateDrawingWidth(Size size, double offsetX) {}
-  void handleZoom(ScaleUpdateDetails details, Size constraints, double offsetX) {}
+  @override
+  void handleZoom(
+      ScaleUpdateDetails details, Size constraints, double offsetX) {}
+  @override
   void incrementTimeScale() {}
+  @override
   void decrementTimeScale() {}
+  @override
   void incrementValueScale() {}
+  @override
   void decrementValueScale() {}
+  @override
   void incrementHorizontalOffset() {}
+  @override
   void decrementHorizontalOffset() {}
+  @override
   void incrementVerticalOffset() {}
+  @override
   void decrementVerticalOffset() {}
+  @override
   void startIncrementing(VoidCallback callback) {}
+  @override
   void stopIncrementing() {}
+  @override
   double screenToDomainX(double screenX, Size size, double offsetX) => 0.0;
+  @override
   double screenToDomainY(double screenY, Size size, double offsetX) => 0.0;
+  @override
   double domainToScreenX(double domainX, Size size, double offsetX) => 0.0;
+  @override
   double domainToScreenY(double domainY, Size size, double offsetX) => 0.0;
 }
 
@@ -102,18 +140,30 @@ class FakeDeviceConfigProvider extends GetxController
   @override
   void updateConfig(DeviceConfig config) => _config.value = config;
   @override
-  void listen(void Function(DeviceConfig? p1) callback) => callback(_config.value);
+  void listen(void Function(DeviceConfig? p1) callback) =>
+      callback(_config.value);
 
+  @override
   double get samplingFrequency => 1650000.0;
+  @override
   int get bitsPerPacket => 16;
+  @override
   int get channelMask => 0xF000;
+  @override
   int get channelMaskTrailingZeros => 12;
+  @override
   int get dataMask => 0x0FFF;
+  @override
   int get dataMaskTrailingZeros => 0;
+  @override
   int get discardHead => 0;
+  @override
   int get discardTrailer => 0;
+  @override
   int get dividingFactor => 1;
+  @override
   int get samplesPerPacket => 512;
+  @override
   int get usefulBits => 12;
 }
 
@@ -221,6 +271,7 @@ class FakeDataAcquisitionService extends DataAcquisitionService {
   Future<List<double>> autoset(double height, double width) async {
     return mockAutosetResponse;
   }
+
   @override
   void clearQueues() {}
   @override
@@ -257,7 +308,8 @@ class FakeUserSettingsProvider extends GetxController
   final frequencySource = FrequencySource.timeDomain.obs;
 
   @override
-  OscilloscopeChartService get oscilloscopeService => throw UnimplementedError();
+  OscilloscopeChartService get oscilloscopeService =>
+      throw UnimplementedError();
   @override
   FFTChartService get fftChartService => throw UnimplementedError();
 
@@ -268,7 +320,6 @@ class FakeUserSettingsProvider extends GetxController
       frequencySource.value = source;
   @override
   Widget getCurrentChart() => const SizedBox();
-  @override
   Stream<String> get modeStream => mode.stream;
   @override
   void navigateToMode(String mode) {}
@@ -325,9 +376,15 @@ void main() {
 
   group('Data Handling', () {
     test('should add points to data stream', () async {
-      final points = [DataPoint(0, 1), DataPoint(1, 2), DataPoint(2, 3),
-                      DataPoint(3, 4), DataPoint(4, 5), DataPoint(5, 6),
-                      DataPoint(6, 7)];
+      final points = [
+        DataPoint(0, 1),
+        DataPoint(1, 2),
+        DataPoint(2, 3),
+        DataPoint(3, 4),
+        DataPoint(4, 5),
+        DataPoint(5, 6),
+        DataPoint(6, 7)
+      ];
       final received = expectLater(
         provider.dataPointsStream,
         emits(points),
@@ -394,7 +451,8 @@ void main() {
 
     // Se agregan más puntos para evitar el error "La longitud de la señal debe ser > 6"
     test('should not fail filter with enough points', () async {
-      final points = List.generate(10, (i) => DataPoint(i.toDouble(), i.toDouble()));
+      final points =
+          List.generate(10, (i) => DataPoint(i.toDouble(), i.toDouble()));
       fakeService.emitData(points);
       // Esperamos que no lance excepción
       expect(() => provider.dataPoints.value, returnsNormally);
@@ -413,7 +471,7 @@ void main() {
 
   group('Scale Management', () {
     test('should set voltage scale', () {
-      final newScale = VoltageScales.volts_2;
+      const newScale = VoltageScales.volts_2;
       provider.setVoltageScale(newScale);
       expect(fakeService.currentVoltageScale, newScale);
       expect(provider.scale.value, newScale.scale);

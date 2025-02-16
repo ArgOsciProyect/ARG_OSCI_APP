@@ -91,6 +91,23 @@ void main() {
       }
     });
 
+    test('matches reference implementation with single filtering', () {
+      final testSignal =
+          _loadTestSignal('test/unit_test/models/test_signal.csv');
+      final referenceValues = _loadReferenceValues(
+          'test/unit_test/models/ma_filtered_single_ref.csv');
+
+      final result =
+          filter.apply(testSignal, {'windowSize': 3}, doubleFilt: false);
+      _saveFilterResults(
+          'test/unit_test/models/ma_filtered_single_test.csv', result);
+
+      for (var i = 0; i < result.length; i++) {
+        expect(result[i].y, closeTo(referenceValues[i], 1e-6),
+            reason: 'Mismatch at index $i');
+      }
+    });
+
     test('handles window size larger than points length', () {
       final result = filter.apply(testPoints, {'windowSize': 20});
       expect(result.length, equals(testPoints.length));
@@ -130,6 +147,23 @@ void main() {
 
       final result = filter.apply(testSignal, {'alpha': 0.5});
       _saveFilterResults('test/unit_test/models/exp_filtered_test.csv', result);
+
+      for (var i = 5; i < result.length; i++) {
+        expect(result[i].y, closeTo(referenceValues[i], 1e-2),
+            reason: 'Mismatch at index $i');
+      }
+    });
+
+    test('matches reference implementation with single filtering', () {
+      final testSignal =
+          _loadTestSignal('test/unit_test/models/test_signal.csv');
+      final referenceValues = _loadReferenceValues(
+          'test/unit_test/models/exp_filtered_single_ref.csv');
+
+      final result =
+          filter.apply(testSignal, {'alpha': 0.5}, doubleFilt: false);
+      _saveFilterResults(
+          'test/unit_test/models/exp_filtered_single_test.csv', result);
 
       for (var i = 5; i < result.length; i++) {
         expect(result[i].y, closeTo(referenceValues[i], 1e-2),
@@ -181,6 +215,49 @@ void main() {
         expect(result[i].y, closeTo(referenceValues[i], 1e-6),
             reason: 'Mismatch at index $i');
       }
+    });
+
+    test('matches reference implementation with single filtering', () {
+      final testSignal =
+          _loadTestSignal('test/unit_test/models/test_signal.csv');
+      final referenceValues = _loadReferenceValues(
+          'test/unit_test/models/lp_filtered_single_ref.csv');
+
+      final result = filter.apply(
+          testSignal,
+          {
+            'cutoffFrequency': 5000.0,
+            'samplingFrequency': 1650000.0,
+          },
+          doubleFilt: false);
+      _saveFilterResults(
+          'test/unit_test/models/lp_filtered_single_test.csv', result);
+
+      for (var i = 0; i < result.length; i++) {
+        expect(result[i].y, closeTo(referenceValues[i], 1e-6),
+            reason: 'Mismatch at index $i');
+      }
+    });
+
+    test('single filter shows phase shift compared to double filter', () {
+      final params = {
+        'cutoffFrequency': 5.0,
+        'samplingFrequency': 1000.0,
+      };
+
+      final resultDouble = filter.apply(testPoints, params, doubleFilt: true);
+      final resultSingle = filter.apply(testPoints, params, doubleFilt: false);
+
+      // Check that signals are different due to phase shift
+      bool hasDifference = false;
+      for (int i = 0; i < resultDouble.length; i++) {
+        if ((resultDouble[i].y - resultSingle[i].y).abs() > 1e-6) {
+          hasDifference = true;
+          break;
+        }
+      }
+      expect(hasDifference, isTrue,
+          reason: 'Single filter should show phase shift');
     });
 
     test('attenuates high frequencies', () {
