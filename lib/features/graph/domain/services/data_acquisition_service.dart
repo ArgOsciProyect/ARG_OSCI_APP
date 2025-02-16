@@ -634,11 +634,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     //print("Point length: ${points.length}");
     //print("Sampling frequency: $samplingFrequency");
     final filter = LowPassFilter();
-    final filteredPoints = filter.apply(points, {
-      'cutoffFrequency': cutoffFrequency,
-      'samplingFrequency': samplingFrequency,
-    }, doubleFilt: true
-    );
+    final filteredPoints = filter.apply(
+        points,
+        {
+          'cutoffFrequency': cutoffFrequency,
+          'samplingFrequency': samplingFrequency,
+        },
+        doubleFilt: true);
 
     return filteredPoints.map((p) => p.y).toList();
   }

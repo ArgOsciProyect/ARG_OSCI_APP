@@ -34,58 +34,58 @@ class FakeOscilloscopeChartService implements OscilloscopeChartService {
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class FakeDeviceConfigProvider extends GetxController implements DeviceConfigProvider {
+class FakeDeviceConfigProvider extends GetxController
+    implements DeviceConfigProvider {
   @override
   double get samplingFrequency => 1650000.0;
-  
+
   @override
   DeviceConfig? get config => null;
-  
+
   @override
   int get bitsPerPacket => 16;
-  
+
   @override
   int get channelMask => 0xF000;
-  
+
   @override
   int get channelMaskTrailingZeros => 12;
-  
+
   @override
   int get dataMask => 0x0FFF;
-  
+
   @override
   int get dataMaskTrailingZeros => 0;
-  
+
   @override
   int get discardHead => 0;
-  
+
   @override
   int get discardTrailer => 0;
-  
+
   @override
   int get dividingFactor => 1;
-  
+
   @override
   int get samplesPerPacket => 512;
-  
+
   @override
   int get usefulBits => 12;
-  
+
   @override
   void listen(void Function(DeviceConfig?) cb) {}
-  
+
   @override
   void updateConfig(DeviceConfig config) {}
 }
 
 class FakeFFTChartProvider extends GetxController implements FFTChartProvider {
-  @override 
+  @override
   final frequency = 0.0.obs;
-  
+
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
-
 
 class FakeFFTChartService implements FFTChartService {
   bool pauseCalled = false;
@@ -110,12 +110,14 @@ class FakeFFTChartService implements FFTChartService {
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class FakeOscilloscopeChartProvider extends GetxController implements OscilloscopeChartProvider {
+class FakeOscilloscopeChartProvider extends GetxController
+    implements OscilloscopeChartProvider {
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class FakeDataAcquisitionProvider extends GetxController implements DataAcquisitionProvider {
+class FakeDataAcquisitionProvider extends GetxController
+    implements DataAcquisitionProvider {
   @override
   final frequency = 1000.0.obs;
 
@@ -134,7 +136,7 @@ void main() {
 
   setUp(() {
     Get.reset();
-    
+
     // Enable test mode to avoid navigation errors
     Get.testMode = true;
 
@@ -154,7 +156,7 @@ void main() {
     // Initialize services
     fakeOscilloscopeService = FakeOscilloscopeChartService();
     fakeFFTService = FakeFFTChartService();
-    
+
     provider = UserSettingsProvider(
       oscilloscopeService: fakeOscilloscopeService,
       fftChartService: fakeFFTService,
@@ -180,7 +182,7 @@ void main() {
   group('Mode Management', () {
     test('should handle mode switch to Oscilloscope', () {
       provider.setMode('Oscilloscope');
-      
+
       expect(provider.mode.value, 'Oscilloscope');
       expect(provider.title.value, 'Graph - Oscilloscope Mode');
       expect(fakeFFTService.pauseCalled, true);
@@ -189,7 +191,7 @@ void main() {
 
     test('should handle mode switch to FFT', () {
       provider.setMode('FFT');
-      
+
       expect(provider.mode.value, 'FFT');
       expect(provider.title.value, 'Graph - FFT Mode');
       expect(fakeOscilloscopeService.pauseCalled, true);
@@ -220,7 +222,7 @@ void main() {
       // Setup FFT mode first
       provider.setMode('Oscilloscope');
       provider.setFrequencySource(FrequencySource.timeDomain);
-      
+
       expect(provider.frequencySource.value, FrequencySource.timeDomain);
       expect(fakeFFTService.pauseCalled, true);
     });
@@ -230,7 +232,7 @@ void main() {
     test('should return correct chart widget based on mode', () {
       provider.setMode('Oscilloscope');
       expect(provider.getCurrentChart(), isA<Widget>());
-      
+
       provider.setMode('FFT');
       expect(provider.getCurrentChart(), isA<Widget>());
     });
@@ -239,7 +241,7 @@ void main() {
     test('should update frequency from time domain source', () async {
       provider.setFrequencySource(FrequencySource.timeDomain);
       fakeDataAcquisitionProvider.frequency.value = 1000.0;
-      
+
       // Wait for timer to trigger update
       await Future.delayed(const Duration(seconds: 3));
       expect(provider.frequency.value, 1000.0);

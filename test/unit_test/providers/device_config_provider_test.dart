@@ -63,7 +63,6 @@ void main() {
       expect(provider.discardTrailer, 10);
     });
 
-
     test('should notify listeners when config changes', () {
       var notified = false;
       final newConfig = DeviceConfig(
@@ -161,7 +160,7 @@ void main() {
       // Update with new dividing factor
       final newConfig = provider.config!.copyWith(dividingFactor: 4);
       provider.updateConfig(newConfig);
-      
+
       // Check new sampling frequency
       expect(provider.samplingFrequency, 412500.0); // 1650000.0 / 4
     });

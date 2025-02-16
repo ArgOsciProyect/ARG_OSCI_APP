@@ -12,23 +12,23 @@ import 'package:arg_osci_app/features/graph/providers/device_config_provider.dar
 import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 
 class FakeOscilloscopeChartService implements OscilloscopeChartService {
-  final StreamController<List<DataPoint>> _dataController = 
+  final StreamController<List<DataPoint>> _dataController =
       StreamController<List<DataPoint>>.broadcast();
-  
+
   bool _isPaused = false;
   bool resumeAndWaitCalled = false;
   bool disposeCalled = false;
-  
+
   // Add deviceConfig implementation
   @override
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
 
   @override
   Stream<List<DataPoint>> get dataStream => _dataController.stream;
-  
+
   @override
   bool get isPaused => _isPaused;
-  
+
   @override
   double get distance => 1 / 1650000;
 
@@ -74,18 +74,17 @@ class FakeDataAcquisitionProvider extends GetxController
   void setTriggerMode(TriggerMode mode) {
     triggerMode.value = mode;
   }
-  
+
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
-
 
 class FakeDeviceConfigProvider extends GetxController
     implements DeviceConfigProvider {
   @override
   int get usefulBits => 12;
 
-  @override 
+  @override
   double get samplingFrequency => 1650000.0;
 
   @override
@@ -119,7 +118,8 @@ void main() {
   group('Provider Initialization', () {
     test('should initialize with default values', () {
       expect(provider.timeScale, 1.0);
-      expect(provider.valueScale, 1.0 / (1 << fakeDeviceConfigProvider.usefulBits));
+      expect(provider.valueScale,
+          1.0 / (1 << fakeDeviceConfigProvider.usefulBits));
       expect(provider.isPaused, false);
       expect(provider.horizontalOffset, 0.0);
       expect(provider.verticalOffset, 0.0);
@@ -150,7 +150,7 @@ void main() {
     test('should handle zoom gestures', () {
       final size = Size(800, 600);
       const offsetX = 50.0;
-      
+
       provider.setInitialScales();
       final initialTimeScale = provider.timeScale;
       final initialValueScale = provider.valueScale;
@@ -182,14 +182,14 @@ void main() {
       const testOffset = 100.0;
       final size = Size(800, 600);
       const offsetX = 50.0;
-      
+
       // Setup drawing width and data points
       provider.updateDrawingWidth(size, offsetX);
       fakeService.emitData([DataPoint(0, 0), DataPoint(200, 0)]);
-      
+
       // Switch to trigger mode to allow free offset
       fakeDataAcquisitionProvider.triggerMode.value = TriggerMode.single;
-      
+
       // Try setting offset
       provider.setHorizontalOffset(testOffset);
       expect(provider.horizontalOffset, testOffset);
@@ -198,33 +198,33 @@ void main() {
     test('should handle offset increments in trigger mode', () {
       final size = Size(800, 600);
       const offsetX = 50.0;
-      
+
       // Setup drawing width and data points
       provider.updateDrawingWidth(size, offsetX);
       fakeService.emitData([DataPoint(0, 0), DataPoint(200, 0)]);
-      
+
       // Switch to trigger mode
       fakeDataAcquisitionProvider.triggerMode.value = TriggerMode.single;
-      
+
       final initialHOffset = provider.horizontalOffset;
       final initialVOffset = provider.verticalOffset;
-      
+
       provider.incrementHorizontalOffset();
       expect(provider.horizontalOffset, greaterThan(initialHOffset));
-      
+
       provider.incrementVerticalOffset();
       expect(provider.verticalOffset, greaterThan(initialVOffset));
     });
     test('should clamp horizontal offset in normal mode', () {
       const testOffset = 100.0;
-      
+
       // Add data points to allow offset
       final points = [DataPoint(0, 0), DataPoint(200, 0)];
       fakeService.emitData(points);
-      
+
       // Set drawing width
       provider.updateDrawingWidth(Size(800, 600), 50);
-      
+
       provider.setHorizontalOffset(testOffset);
       expect(provider.horizontalOffset, lessThanOrEqualTo(testOffset));
       expect(provider.horizontalOffset, greaterThanOrEqualTo(0.0));
@@ -251,13 +251,13 @@ void main() {
     test('should convert between screen and domain coordinates', () {
       const screenX = 400.0;
       const screenY = 300.0;
-      
+
       final domainX = provider.screenToDomainX(screenX, size, offsetX);
       final domainY = provider.screenToDomainY(screenY, size, offsetX);
-      
+
       final backToScreenX = provider.domainToScreenX(domainX, size, offsetX);
       final backToScreenY = provider.domainToScreenY(domainY, size, offsetX);
-      
+
       expect(backToScreenX, closeTo(screenX, 0.001));
       expect(backToScreenY, closeTo(screenY, 0.001));
     });
@@ -282,7 +282,7 @@ void main() {
     test('should clear for new trigger', () {
       final initialPoints = [DataPoint(0, 1), DataPoint(1, 2)];
       fakeService.emitData(initialPoints);
-      
+
       provider.clearForNewTrigger();
       expect(provider.dataPoints, isEmpty);
       expect(fakeService.resumeAndWaitCalled, true);
@@ -291,7 +291,7 @@ void main() {
     test('should clear and resume', () {
       final initialPoints = [DataPoint(0, 1), DataPoint(1, 2)];
       fakeService.emitData(initialPoints);
-      
+
       provider.clearAndResume();
       expect(provider.dataPoints, isEmpty);
       expect(provider.isPaused, false);
@@ -308,10 +308,10 @@ void main() {
   group('Increment/Decrement Controls', () {
     test('should handle time scale increments', () {
       final initialScale = provider.timeScale;
-      
+
       provider.incrementTimeScale();
       expect(provider.timeScale, greaterThan(initialScale));
-      
+
       final afterIncrement = provider.timeScale;
       provider.decrementTimeScale();
       expect(provider.timeScale, lessThan(afterIncrement));
@@ -319,10 +319,10 @@ void main() {
 
     test('should handle value scale increments', () {
       final initialScale = provider.valueScale;
-      
+
       provider.incrementValueScale();
       expect(provider.valueScale, greaterThan(initialScale));
-      
+
       final afterIncrement = provider.valueScale;
       provider.decrementValueScale();
       expect(provider.valueScale, lessThan(afterIncrement));

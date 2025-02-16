@@ -10,7 +10,7 @@ import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.da
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 
 class FakeFFTChartService extends FFTChartService {
-  final StreamController<List<DataPoint>> _fftController = 
+  final StreamController<List<DataPoint>> _fftController =
       StreamController<List<DataPoint>>.broadcast();
   bool pauseCalled = false;
   bool resumeCalled = false;
@@ -45,7 +45,7 @@ class FakeFFTChartService extends FFTChartService {
   }
 }
 
-class FakeDeviceConfigProvider extends GetxController 
+class FakeDeviceConfigProvider extends GetxController
     implements DeviceConfigProvider {
   @override
   double get samplingFrequency => 1650000.0;
@@ -88,7 +88,7 @@ void main() {
     Get.reset();
     fakeDeviceConfig = FakeDeviceConfigProvider();
     Get.put<DeviceConfigProvider>(fakeDeviceConfig);
-    
+
     fakeService = FakeFFTChartService();
     provider = FFTChartProvider(fakeService);
   });
@@ -165,7 +165,7 @@ void main() {
       provider.setTimeScale(0.5); // Show half the frequency range
       final visibleRange = provider.nyquistFreq * 0.5;
       final maxOffset = provider.nyquistFreq - visibleRange;
-      
+
       provider.setHorizontalOffset(maxOffset / 2);
       expect(provider.horizontalOffset, maxOffset / 2);
     });
@@ -174,7 +174,7 @@ void main() {
       provider.setTimeScale(0.5);
       final visibleRange = provider.nyquistFreq * 0.5;
       final maxOffset = provider.nyquistFreq - visibleRange;
-      
+
       provider.setHorizontalOffset(maxOffset * 2); // Try to set beyond max
       expect(provider.horizontalOffset, maxOffset);
     });
@@ -184,7 +184,7 @@ void main() {
       provider.setHorizontalOffset(100);
       expect(provider.horizontalOffset, 0.0);
     });
-    
+
     test('should set vertical offset', () {
       provider.setVerticalOffset(0.5);
       expect(provider.verticalOffset, 0.5);
@@ -210,7 +210,7 @@ void main() {
     test('should adjust scales based on frequency', () {
       const testFreq = 1000.0;
       fakeService.frequency = testFreq;
-      
+
       provider.autoset(Size(800, 600), testFreq);
       expect(provider.timeScale.value, lessThanOrEqualTo(1.0));
       expect(provider.valueScale.value, 1.0);
@@ -245,13 +245,10 @@ void main() {
         DataPoint(0, 1),
         DataPoint(1, 2),
       ];
-      
+
       // Wait for points to be processed
-      final future = expectLater(
-        provider.fftPoints.stream,
-        emits(points)
-      );
-      
+      final future = expectLater(provider.fftPoints.stream, emits(points));
+
       fakeService.emitPoints(points);
       await future;
     });
@@ -281,7 +278,7 @@ void main() {
       provider.setTimeScale(0.5);
       final initialScale = provider.timeScale.value;
       provider.decrementTimeScale();
-      expect(provider.timeScale.value, 
+      expect(provider.timeScale.value,
           allOf(greaterThan(initialScale), lessThanOrEqualTo(1.0)));
     });
 
