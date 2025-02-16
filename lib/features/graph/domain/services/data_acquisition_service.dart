@@ -637,7 +637,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final filteredPoints = filter.apply(points, {
       'cutoffFrequency': cutoffFrequency,
       'samplingFrequency': samplingFrequency,
-    });
+    }, doubleFilt: true
+    );
 
     return filteredPoints.map((p) => p.y).toList();
   }
