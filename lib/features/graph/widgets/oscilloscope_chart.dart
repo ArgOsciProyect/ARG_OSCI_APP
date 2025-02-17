@@ -610,7 +610,7 @@ class OscilloscopeChartPainter extends CustomPainter {
     final xMin = min(xDomainLeft, xDomainRight);
     final xMax = max(xDomainLeft, xDomainRight);
 
-    const linesCountX = 10;
+    const linesCountX = 20;
     final stepX = (xMax - xMin) / linesCountX;
 
     for (int i = 0; i <= linesCountX; i++) {
