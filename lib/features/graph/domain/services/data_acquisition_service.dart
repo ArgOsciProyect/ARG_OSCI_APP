@@ -20,6 +20,7 @@ import 'package:get/get.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 
 // Message classes for isolate communication
+/// [SocketIsolateSetup] configures the socket isolate with necessary parameters.
 class SocketIsolateSetup {
   final SendPort sendPort;
   final String ip;
@@ -29,6 +30,7 @@ class SocketIsolateSetup {
   const SocketIsolateSetup(this.sendPort, this.ip, this.port, this.packetSize);
 }
 
+/// [ProcessingIsolateSetup] configures the processing isolate with data processing parameters.
 class ProcessingIsolateSetup {
   final SendPort sendPort;
   final DataProcessingConfig config;
@@ -37,6 +39,7 @@ class ProcessingIsolateSetup {
   const ProcessingIsolateSetup(this.sendPort, this.config, this.deviceConfig);
 }
 
+/// [DataProcessingConfig] holds the configuration for data processing.
 class DataProcessingConfig {
   final double scale;
   final double distance;
@@ -85,6 +88,7 @@ class DataProcessingConfig {
   }
 }
 
+/// [UpdateConfigMessage] is used to send configuration updates to the processing isolate.
 class UpdateConfigMessage {
   final double scale;
   final double triggerLevel;
@@ -398,19 +402,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   // New helper function to handle single mode processing
+  /// Processes data in single trigger mode.
   static List<DataPoint>? _handleSingleModeProcessing(
     Queue<int> singleModeQueue,
     int processingChunkSize,
     DataProcessingConfig config,
     SendPort sendPort,
   ) {
-    // Si tenemos suficientes datos para procesar
-    if (singleModeQueue.length >= processingChunkSize * 2) {
+    // If we have enough data to process
+    if (singleModeQueue.length >= processingChunkSize) {
       final tempQueue = Queue<int>.from(singleModeQueue);
       final (points, maxValue, minValue) =
           _processData(tempQueue, singleModeQueue.length, config, sendPort);
 
-      // Si encontramos trigger, enviamos y retornamos los puntos
+      // If we find a trigger, send and return the points
       if (points.isNotEmpty && points.any((p) => p.isTrigger)) {
         sendPort.send({
           'type': 'data',
@@ -425,6 +430,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   // New helper function to handle normal mode processing
+  /// Processes data in normal trigger mode.
   static void _handleNormalModeProcessing(
     Queue<int> queue,
     int processingChunkSize,
@@ -445,6 +451,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   // New helper function to manage queue size
+  /// Manages the size of the data queue.
   static void _manageQueueSize(
     Queue<int> queue,
     List<int> newData,
@@ -453,7 +460,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   ) {
     queue.addAll(newData);
     while (queue.length > maxQueueSize) {
-      for (var i = 0; i < processingChunkSize * 2; i++) {
+      for (var i = 0; i < processingChunkSize; i++) {
         if (queue.isNotEmpty) queue.removeFirst();
       }
     }
@@ -466,10 +473,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     var config = setup.config;
     final processingChunkSize = setup.deviceConfig.samplesPerPacket;
-    final maxQueueSize = processingChunkSize * 4;
+    final maxQueueSize = processingChunkSize;
     final queue = Queue<int>();
     final singleModeQueue = Queue<int>();
-    final maxSingleModeQueueSize = processingChunkSize * 3;
+    final maxSingleModeQueueSize = processingChunkSize;
     bool processingEnabled = true;
 
     receivePort.listen((message) {
@@ -495,7 +502,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             processingEnabled = false;
           }
         } else {
-          // Modo normal
+          // Normal mode
           _manageQueueSize(queue, message, maxQueueSize, processingChunkSize);
           _handleNormalModeProcessing(
               queue, processingChunkSize, config, setup.sendPort);
@@ -596,6 +603,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   // Helper method to calculate trend
+  /// Calculates the trend of a list of values.
   static double _calculateTrend(List<double> values) {
     if (values.length < 2) return 0;
 
@@ -743,10 +751,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             if (config.triggerMode == TriggerMode.normal) {
               waitingForNextTrigger = true;
             } else if (config.triggerMode == TriggerMode.single) {
-              // En modo single, si encontramos el primer trigger
-              // procesamos el resto de puntos y terminamos
+              // In single mode, if we find the first trigger
+              // we process the rest of the points and finish
               waitingForNextTrigger = false;
-              // No hacemos continue para procesar el resto de puntos después del trigger
+              // We don't continue to process the rest of the points after the trigger
             }
 
             if (config.triggerMode == TriggerMode.normal) {
@@ -880,7 +888,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       triggerMode: triggerMode,
     );
 
-    // Limpiar cualquier dato anterior al iniciar
+    // Clear any previous data on start
     _dataController.add([]);
 
     _processingIsolate = await Isolate.spawn(

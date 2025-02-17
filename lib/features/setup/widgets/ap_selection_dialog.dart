@@ -25,10 +25,12 @@ Future<void> showAPSelectionDialog() async {
   );
 
   try {
+    // Connect to the local AP
     await controller.connectToLocalAP();
     // Close the loading dialog after the connection is established
     Get.back();
 
+    // Show dialog to select between Local AP and External AP modes
     Get.dialog(
       AlertDialog(
         title: const Text('Select AP Mode'),

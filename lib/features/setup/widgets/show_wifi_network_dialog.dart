@@ -106,6 +106,7 @@ Future<void> askForPassword(String ssid) async {
   final controller = Get.find<SetupProvider>();
 
   try {
+    // Show dialog to input WiFi password
     final password = await Get.dialog<String>(
       PopScope(
         canPop: false,
@@ -138,8 +139,10 @@ Future<void> askForPassword(String ssid) async {
       ),
     );
 
+    // If a password was entered, attempt to connect
     if (password != null && password.isNotEmpty) {
       try {
+        // Show connecting dialog
         final connectingDialog = Get.dialog(
           PopScope(
             canPop: false,
@@ -211,6 +214,7 @@ Future<void> askForPassword(String ssid) async {
           ),
         );
 
+        // Attempt to connect to the external AP
         await controller.connectToExternalAP(ssid, password);
 
         // Handle navigation after connection is complete

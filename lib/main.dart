@@ -18,6 +18,7 @@ void main() async {
     DeviceOrientation.landscapeRight,
   ]);
 
+  // Request permissions on Android devices
   if (Platform.isAndroid) {
     await requestPermissions();
   }

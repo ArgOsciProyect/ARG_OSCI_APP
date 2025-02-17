@@ -62,6 +62,7 @@ class SetupProvider extends GetxController {
     try {
       _updateState((s) => s.copyWith(status: SetupStatus.configuring));
 
+      // Encrypt the SSID and password using the device's public key
       final encryptedPass = setupService.encriptWithPublicKey(password);
       final encryptedSsid = setupService.encriptWithPublicKey(ssid);
       final credentials = WiFiCredentials(encryptedSsid, encryptedPass);
@@ -78,6 +79,7 @@ class SetupProvider extends GetxController {
             _updateState(
                 (s) => s.copyWith(status: SetupStatus.waitingForNetworkChange));
             try {
+              // After connecting to WiFi, handle network change and connect
               await handleNetworkChangeAndConnect(ssid, password);
               _updateState((s) => s.copyWith(status: SetupStatus.completed));
               return;

@@ -5,6 +5,7 @@ import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dar
 import 'package:arg_osci_app/features/socket/domain/repository/socket_repository.dart';
 import 'package:flutter/foundation.dart';
 
+/// [SocketService] implements the [SocketRepository] to manage socket connections and data streaming.
 class SocketService implements SocketRepository {
   Socket? _socket;
   final _controller = StreamController<List<int>>.broadcast();
@@ -79,9 +80,11 @@ class SocketService implements SocketRepository {
     }
   }
 
+  /// Processes incoming data by buffering and emitting complete packets.
   void _processIncomingData(List<int> data) {
     _buffer.addAll(data);
 
+    // Process packets if enough data is available
     while (_buffer.length >= _expectedPacketSize) {
       final packet = _buffer.sublist(0, _expectedPacketSize);
       _buffer.removeRange(0, _expectedPacketSize);

@@ -281,6 +281,7 @@ class SetupService implements SetupRepository {
   @override
   Future<List<String>> scanForWiFiNetworks() async {
     try {
+      // Fetch the public key from the device
       final publicKeyResponse = await localHttpService
           .get('/get_public_key')
           .timeout(Duration(seconds: 5));
@@ -289,6 +290,7 @@ class SetupService implements SetupRepository {
       RSAAsymmetricKey key = RSAKeyParser().parse(_pubKey["PublicKey"]);
       _publicKey = key as RSAPublicKey;
 
+      // Scan for available WiFi networks
       final wifiResponse = await localHttpService
           .get('/scan_wifi')
           .timeout(Duration(seconds: 15));
@@ -342,6 +344,7 @@ class SetupService implements SetupRepository {
 
     final testRequest = {'word': encryptedWord};
 
+    // Retry the connection test multiple times
     for (int i = 0; i < maxTestRetries; i++) {
       try {
         // print("Posting to: ${globalHttpConfig.baseUrl}");
@@ -398,6 +401,7 @@ class SetupService implements SetupRepository {
         print(await _networkInfo.getWifiIP());
       }
     } else {
+      // For non-Android platforms, prompt the user to connect manually
       while (true) {
         String? wifiName = await _networkInfo.getWifiName();
         if (Platform.isAndroid && wifiName != null) {
@@ -425,6 +429,7 @@ class SetupService implements SetupRepository {
       wifiName = wifiName.replaceAll('"', '');
     }
 
+    // Wait until the WiFi name starts with the expected SSID
     while (wifiName?.startsWith(ssid) == false) {
       await Future.delayed(Duration(seconds: 1));
       wifiName = await _networkInfo.getWifiName();

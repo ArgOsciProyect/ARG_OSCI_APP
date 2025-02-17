@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+/// [SocketConnection] manages the IP address and port for socket communication.
 class SocketConnection extends GetxController {
   final RxString ip;
   final RxInt port;
@@ -23,6 +24,7 @@ class SocketConnection extends GetxController {
     };
   }
 
+  /// Updates the IP address and port of the socket connection.
   void updateConnection(String newIp, int newPort) {
     ip.value = newIp;
     port.value = newPort;
