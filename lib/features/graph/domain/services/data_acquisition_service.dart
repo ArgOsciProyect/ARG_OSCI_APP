@@ -636,8 +636,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (points.isEmpty) {
       return [];
     }
-    //print("Point length: ${points.length}");
-    //print("Sampling frequency: $samplingFrequency");
     final filter = LowPassFilter();
     final filteredPoints = filter.apply(
         points,
