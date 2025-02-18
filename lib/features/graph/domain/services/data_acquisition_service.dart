@@ -203,8 +203,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
-  double get mid => (1 << deviceConfig.usefulBits) / 2;
-
+  double get mid {
+    if(kDebugMode) {
+      print('Mid: ${(1<<deviceConfig.usefulBits)/2}');
+    }
+    return (1 << deviceConfig.usefulBits) / 2;
+  }
+  
   @override
   set mid(double value) {
     _mid = value;
@@ -333,7 +338,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     triggerLevel *= ratio;
 
     // Clamp trigger level to new voltage range
-    final voltageRange = voltageScale.scale * 512;
+    final voltageRange = voltageScale.scale * (1 << deviceConfig.usefulBits);
     final halfRange = voltageRange / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
