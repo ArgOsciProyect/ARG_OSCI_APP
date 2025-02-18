@@ -96,6 +96,7 @@ class UpdateConfigMessage {
   final bool useHysteresis;
   final bool useLowPassFilter;
   final TriggerMode triggerMode;
+  final double distance;  
 
   const UpdateConfigMessage({
     required this.scale,
@@ -104,6 +105,7 @@ class UpdateConfigMessage {
     required this.useHysteresis,
     required this.useLowPassFilter,
     required this.triggerMode,
+    required this.distance,
   });
 }
 
@@ -204,12 +206,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   double get mid {
-    if(kDebugMode) {
-      print('Mid: ${(1<<deviceConfig.usefulBits)/2}');
+    if (kDebugMode) {
+      print('Mid: ${(1 << deviceConfig.usefulBits) / 2}');
     }
     return (1 << deviceConfig.usefulBits) / 2;
   }
-  
+
   @override
   set mid(double value) {
     _mid = value;
@@ -343,6 +345,48 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
     updateConfig();
+  }
+
+  Future<void> increaseSamplingFrequency() async {
+    try {
+      final response = await httpService.post('/freq', {'action': 'more'});
+      if (response['sampling_frequency'] != null) {
+        final newFreq = double.parse(response['sampling_frequency'].toString());
+        deviceConfig.updateConfig(deviceConfig.config!.copyWith(
+          samplingFrequency: newFreq,
+        ));
+        if (kDebugMode) {
+          print('New sampling frequency: $newFreq');
+        }
+        updateConfig();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating sampling frequency: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> decreaseSamplingFrequency() async {
+    try {
+      final response = await httpService.post('/freq', {'action': 'less'});
+      if (response['sampling_frequency'] != null) {
+        final newFreq = double.parse(response['sampling_frequency'].toString());
+        deviceConfig.updateConfig(deviceConfig.config!.copyWith(
+          samplingFrequency: newFreq,
+        ));
+        if (kDebugMode) {
+          print('New sampling frequency: $newFreq');
+        }
+        updateConfig();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating sampling frequency: $e');
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -535,6 +579,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       useHysteresis: message.useHysteresis,
       useLowPassFilter: message.useLowPassFilter,
       triggerMode: message.triggerMode,
+      distance: message.distance,
     );
   }
 
@@ -954,6 +999,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       useHysteresis: useHysteresis,
       useLowPassFilter: useLowPassFilter,
       triggerMode: triggerMode,
+      distance: distance,
     ));
   }
 

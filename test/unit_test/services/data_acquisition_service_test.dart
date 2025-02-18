@@ -1529,6 +1529,7 @@ void main() {
         triggerMode: TriggerMode.normal,
         useHysteresis: true,
         useLowPassFilter: true,
+        distance: 1/1650000,
       );
 
       final oldConfig = DataProcessingConfig(

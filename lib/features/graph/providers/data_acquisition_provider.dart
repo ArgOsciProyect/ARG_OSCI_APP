@@ -332,6 +332,14 @@ class DataAcquisitionProvider extends GetxController {
         .updateConfig(); // Send updated config to processing isolate
   }
 
+  Future<void> increaseSamplingFrequency() async {
+    await dataAcquisitionService.increaseSamplingFrequency();
+  }
+
+  Future<void> decreaseSamplingFrequency() async {
+    await dataAcquisitionService.decreaseSamplingFrequency();
+  }
+
   /// Sets the value scale.
   void setValueScale(double scale) {
     valueScale.value = scale;

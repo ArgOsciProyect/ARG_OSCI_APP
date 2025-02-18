@@ -394,6 +394,79 @@ class UserSettings extends StatelessWidget {
     );
   }
 
+  /// Builds the sampling frequency section
+  Widget _buildSamplingFrequencySection() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Sampling Frequency',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          // Wrap buttons in a container with padding
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        await graphProvider.decreaseSamplingFrequency();
+                      } catch (e) {
+                        Get.snackbar('Error', 'Failed to update sampling frequency');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Icon(Icons.remove, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      try {
+                        await graphProvider.increaseSamplingFrequency();
+                      } catch (e) {
+                        Get.snackbar('Error', 'Failed to update sampling frequency');
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                    ),
+                    child: const Icon(Icons.add, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Obx(() => Text(
+                  'Current: ${(graphProvider.deviceConfig.samplingFrequency / 1000).toStringAsFixed(2)} kHz',
+                  style: const TextStyle(fontSize: 16),
+                )),
+          ),
+        ],
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -403,6 +476,7 @@ class UserSettings extends StatelessWidget {
           _buildTriggerSettings(),
           _buildInformationSection(),
           _buildFilterSettings(),
+          _buildSamplingFrequencySection(), // Add the new section
         ],
       ),
     );
