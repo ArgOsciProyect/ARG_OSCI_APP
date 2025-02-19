@@ -54,29 +54,21 @@
 # 1. Marco Teórico y Conceptos Fundamentales
 
 ## Temas para Marco Teórico:
-1. GetX - Framework de gestión de estados y navegación
-2. Sistemas de permisos en Android
-3. Orientación de pantalla en dispositivos móviles
-4. Arquitectura de navegación en aplicaciones Flutter
-5. RSA Encryption y Criptografía Asimétrica
-6. Redes WiFi y Access Points (AP)
-7. Protocolos de comunicación Socket y HTTP
-8. ESP32 como Access Point
-9. Arquitectura de servicios en Flutter/Dart
-10. Patrón Repository
-11. Gestión de estados con GetX - Observables
-12. Transformada Rápida de Fourier (FFT)
-13. Servicio de adquisición de datos en tiempo real
-14. Visualización de datos mediante gráficos LineChart
-15. Dependency Injection en Flutter
-16. Gestión de configuración en aplicaciones móviles
-17. Sistemas de buffering y gestión de memoria en tiempo real
-18. Filtros digitales (Kalman, Moving Average, Low Pass)
-19. Sistemas de interacción táctil y gestión de gestos
-20. WebSockets y comunicación bidireccional
-21. Patrones Observer y Factory en Flutter
-22. Sistemas de procesamiento en tiempo real con Isolates
-23. Pipeline Design Pattern
+1. Gitflow
+2. Metodología Scrum
+3. Dart/Flutter
+4. Dependency Injection en Flutter
+5. Model View Controller
+6. Organización de directorios utilizada
+7. Criptografía Asimétrica
+8. Pipeline Design Pattern
+9. CI/CD en software libre
+10. Patrones Observer y Factory en Flutter
+11. Redes WiFi y Access Points
+12. Protocolos de comunicación Socket y HTTP
+13. API REST
+14. Transformada Rápida de Fourier
+15. Filtros digitales (Butterworth, Moving avg, exponencial, filtfilt para fase, FIR vs IIR, etc)
 
 ## 2. Sistema de Inicialización y Configuración Base
 
