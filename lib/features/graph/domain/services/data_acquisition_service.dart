@@ -1096,7 +1096,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     // Aseguramos que el trigger esté dentro del rango de voltaje
     final voltageRange =
-        _currentVoltageScale.scale * pow(2, deviceConfig.usefulBits);
+        _currentVoltageScale.scale * (1 << deviceConfig.usefulBits);
     final halfRange = voltageRange / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
@@ -1108,7 +1108,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     // Ahora calculamos los valores de timeScale y valueScale basándonos en la frecuencia obtenida
     if (_currentFrequency <= 0) {
       triggerLevel = 0;
-      return [100000, 1];
+      final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
+      final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
+      return [100000, valueScale];
     }
 
     // Cálculo de la escala de tiempo
