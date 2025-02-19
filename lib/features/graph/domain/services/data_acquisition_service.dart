@@ -16,6 +16,7 @@ import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 
@@ -352,6 +353,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final response = await httpService.post('/freq', {'action': 'more'});
       if (response['sampling_frequency'] != null) {
         final newFreq = double.parse(response['sampling_frequency'].toString());
+        if (kDebugMode) {
+          print('New sampling frequency: $newFreq');
+          Get.snackbar(
+              'New sampling frequency', 'New sampling frequency: $newFreq');
+        }
         deviceConfig.updateConfig(deviceConfig.config!.copyWith(
           samplingFrequency: newFreq,
         ));
@@ -363,6 +369,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     } catch (e) {
       if (kDebugMode) {
         print('Error updating sampling frequency: $e');
+        //Snackbar for debug
+        Get.snackbar('Error', 'Error updating sampling frequency: $e');
       }
       rethrow;
     }
@@ -373,6 +381,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final response = await httpService.post('/freq', {'action': 'less'});
       if (response['sampling_frequency'] != null) {
         final newFreq = double.parse(response['sampling_frequency'].toString());
+        if (kDebugMode) {
+          print('New sampling frequency: $newFreq');
+          Get.snackbar(
+              'New sampling frequency', 'New sampling frequency: $newFreq');
+        }
         deviceConfig.updateConfig(deviceConfig.config!.copyWith(
           samplingFrequency: newFreq,
         ));
@@ -384,6 +397,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     } catch (e) {
       if (kDebugMode) {
         print('Error updating sampling frequency: $e');
+        Get.snackbar('Error', 'Error updating sampling frequency: $e');
       }
       rethrow;
     }
