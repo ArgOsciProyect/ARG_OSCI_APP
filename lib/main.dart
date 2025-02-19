@@ -1,7 +1,7 @@
-// lib/main.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'config/app_theme.dart';
 import 'features/setup/screens/setup_screen.dart';
@@ -12,6 +12,13 @@ import 'package:permission_handler/permission_handler.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Force landscape orientation
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+
+  // Request permissions on Android devices
   if (Platform.isAndroid) {
     await requestPermissions();
   }
@@ -21,13 +28,16 @@ void main() async {
   runApp(MyApp());
 }
 
+/// Requests necessary permissions for the app.
 Future<void> requestPermissions() async {
   await [
     Permission.locationAlways,
     Permission.nearbyWifiDevices,
+    Permission.location,
   ].request();
 }
 
+/// [MyApp] is the root [StatelessWidget] of the application.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -40,7 +50,8 @@ class MyApp extends StatelessWidget {
       getPages: [
         GetPage(name: '/', page: () => SetupScreen()),
         GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
-        GetPage(name: '/graph', page: () => GraphScreen(mode: 'Oscilloscope')),
+        GetPage(
+            name: '/graph', page: () => GraphScreen(graphMode: 'Oscilloscope')),
       ],
     );
   }

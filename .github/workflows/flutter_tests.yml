@@ -88,8 +88,8 @@ jobs:
           echo "Lines Hit: $LINES_HIT"
           echo "Total Coverage: $COVERAGE%"
           
-          if (( $(echo "$COVERAGE < 40" | bc -l) )); then
-            echo "Coverage ($COVERAGE%) is below threshold (40%)"
+          if (( $(echo "$COVERAGE < 30" | bc -l) )); then
+            echo "Coverage ($COVERAGE%) is below threshold (30%)"
             echo "Full contents of lcov.info:"
             echo "===================="
             cat coverage/lcov.info

@@ -10,6 +10,7 @@
 .svn/
 main.c
 migrate_working_dir/
+/log
 
 # IntelliJ related
 *.iml
@@ -53,3 +54,4 @@ export_deb.sh
 #coverage
 coverage/
 coverage_local.sh
+android/gradle.properties

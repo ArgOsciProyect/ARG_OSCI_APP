@@ -1,5 +1,17 @@
-// lib/features/graph/domain/models/trigger_mode.dart
-enum TriggerMode { automatic, manual }
+/// Defines trigger edge direction for oscilloscope acquisition
+enum TriggerEdge {
+  /// Trigger on rising edge
+  positive,
 
-// lib/features/graph/domain/models/trigger_edge.dart
-enum TriggerEdge { positive, negative }
+  /// Trigger on falling edge
+  negative
+}
+
+/// Defines trigger mode for oscilloscope acquisition
+enum TriggerMode {
+  /// Continuous triggering
+  normal,
+
+  /// Single shot trigger
+  single
+}
