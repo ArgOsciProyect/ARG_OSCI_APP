@@ -96,7 +96,7 @@ class UpdateConfigMessage {
   final bool useHysteresis;
   final bool useLowPassFilter;
   final TriggerMode triggerMode;
-  final double distance;  
+  final double distance;
 
   const UpdateConfigMessage({
     required this.scale,

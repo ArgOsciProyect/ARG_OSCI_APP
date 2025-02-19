@@ -424,7 +424,8 @@ class UserSettings extends StatelessWidget {
                       try {
                         await graphProvider.decreaseSamplingFrequency();
                       } catch (e) {
-                        Get.snackbar('Error', 'Failed to update sampling frequency');
+                        Get.snackbar(
+                            'Error', 'Failed to update sampling frequency');
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -443,7 +444,8 @@ class UserSettings extends StatelessWidget {
                       try {
                         await graphProvider.increaseSamplingFrequency();
                       } catch (e) {
-                        Get.snackbar('Error', 'Failed to update sampling frequency');
+                        Get.snackbar(
+                            'Error', 'Failed to update sampling frequency');
                       }
                     },
                     style: ElevatedButton.styleFrom(
@@ -467,6 +469,7 @@ class UserSettings extends StatelessWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(

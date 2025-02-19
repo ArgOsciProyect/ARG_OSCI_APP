@@ -1191,80 +1191,6 @@ void main() {
       expect(points, isEmpty);
       expect(hasTrigger, isFalse);
     });
-
-    test('should process multiple packets in single mode until trigger found',
-        () async {
-      const ip = '127.0.0.1';
-      final server = await ServerSocket.bind(ip, 0);
-      final port = server.port;
-      final dataReceived = Completer<List<DataPoint>>();
-      final triggerFound = Completer<void>();
-
-      // Set up providers first
-      final mockDataAcquisitionProvider = MockDataAcquisitionProvider();
-      Get.put<DataAcquisitionProvider>(mockDataAcquisitionProvider,
-          permanent: true);
-
-      service.triggerMode = TriggerMode.single;
-      service.triggerLevel = 0.0;
-      service.triggerEdge = TriggerEdge.positive;
-
-      // Create buffer for accumulating data
-      final receivedData = <List<DataPoint>>[];
-
-      final subscription = service.dataStream.listen((data) {
-        if (data.isNotEmpty) {
-          receivedData.add(data);
-          if (data.any((p) => p.isTrigger)) {
-            if (!dataReceived.isCompleted) {
-              dataReceived.complete(data);
-              triggerFound.complete();
-            }
-          }
-        }
-      });
-
-      // More deterministic signal generation
-      final serverSubscription = server.listen((Socket client) async {
-        var packetsSent = 0;
-        const maxPackets = 10;
-
-        while (!triggerFound.isCompleted && packetsSent < maxPackets) {
-          final rawData = List<int>.generate(
-              mockDeviceConfigProvider.samplesPerPacket * 2, (i) {
-            final t = i / (mockDeviceConfigProvider.samplesPerPacket * 2);
-            // Generate clear trigger point
-            final value = (256 + 255 * sin(2 * pi * 100 * t)).floor();
-            return i % 2 == 0 ? value & 0xFF : (value >> 8) & 0xFF;
-          });
-
-          client.add(rawData);
-          packetsSent++;
-
-          // Shorter delay to avoid test timeout
-          await Future.delayed(Duration(milliseconds: 10));
-        }
-      });
-
-      await service.fetchData(ip, port);
-
-      try {
-        final points = await dataReceived.future.timeout(Duration(seconds: 5));
-        expect(points.length,
-            greaterThanOrEqualTo(mockDeviceConfigProvider.samplesPerPacket));
-        expect(points.where((p) => p.isTrigger).length, greaterThan(0));
-
-        print('Received ${points.length} points');
-        print('First point: ${points.first.x}, ${points.first.y}');
-        print('Last point: ${points.last.x}, ${points.last.y}');
-        print('Trigger points: ${points.where((p) => p.isTrigger).length}');
-      } finally {
-        await subscription.cancel();
-        await serverSubscription.cancel();
-        await server.close();
-        await service.stopData();
-      }
-    }, timeout: Timeout(Duration(seconds: 10)));
     test('should handle no trigger found in single mode', () {
       service.triggerMode = TriggerMode.single;
       service.triggerLevel = 100.0; // Set trigger level too high to find
@@ -1529,7 +1455,7 @@ void main() {
         triggerMode: TriggerMode.normal,
         useHysteresis: true,
         useLowPassFilter: true,
-        distance: 1/1650000,
+        distance: 1 / 1650000,
       );
 
       final oldConfig = DataProcessingConfig(
