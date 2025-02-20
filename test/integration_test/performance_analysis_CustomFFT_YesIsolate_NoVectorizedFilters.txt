@@ -1,0 +1,1279 @@
+Performance Analysis - Iteration 100
+================================================================================
+
+Test: Continuous FFT Stream
+Operation: Multiple Blocks Processing
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 20005568.38
+Std deviation: 3377.08
+Min duration: 20000520.00
+Max duration: 20011482.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+input_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+output_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+output_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: 5.000000
+  Std:  0.000000
+  Min:  5.000000
+  Max:  5.000000
+
+blocks_received:
+  Mean: 3.249703
+  Std:  0.432884
+  Min:  3.000000
+  Max:  4.000000
+
+total_time_ms:
+  Mean: 20005.568384
+  Std:  3.377077
+  Min:  20000.520000
+  Max:  20011.482000
+
+throughput_points_per_second:
+  Mean: 2661.416494
+  Std:  354.526479
+  Min:  2456.203648
+  Max:  3276.704812
+
+average_block_time_ms:
+  Mean: 6252.236803
+  Std:  721.686121
+  Min:  5000.145250
+  Max:  6670.456667
+
+processing_ratio:
+  Mean: 0.649941
+  Std:  0.086577
+  Min:  0.600000
+  Max:  0.800000
+
+min_block_time_ms:
+  Mean: 186.854324
+  Std:  13.005921
+  Min:  140.784000
+  Max:  231.634000
+
+max_block_time_ms:
+  Mean: 306.927955
+  Std:  13.890865
+  Min:  292.258000
+  Max:  376.596000
+
+data_rate_mbps:
+  Mean: 0.085165
+  Std:  0.011345
+  Min:  0.078599
+  Max:  0.104855
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: ExponentialFilter with 1000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 841.39
+Std deviation: 51.50
+Min duration: 776.00
+Max duration: 1595.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.435064
+  Std:  0.000000
+  Min:  0.435064
+  Max:  0.435064
+
+input_std:
+  Mean: 0.496797
+  Std:  0.000000
+  Min:  0.496797
+  Max:  0.496797
+
+output_mean:
+  Mean: 0.437836
+  Std:  0.000000
+  Min:  0.437836
+  Max:  0.437836
+
+output_std:
+  Mean: 0.492234
+  Std:  0.000000
+  Min:  0.492234
+  Max:  0.492234
+
+points_per_second:
+  Mean: 1192008.873131
+  Std:  59358.987641
+  Min:  626959.247649
+  Max:  1288659.793814
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: ExponentialFilter with 10000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 4095.02
+Std deviation: 926.74
+Min duration: 2513.00
+Max duration: 7733.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.025415
+  Std:  0.000000
+  Min:  0.025415
+  Max:  0.025415
+
+input_std:
+  Mean: 0.706615
+  Std:  0.000000
+  Min:  0.706615
+  Max:  0.706615
+
+output_mean:
+  Mean: 0.025015
+  Std:  0.000000
+  Min:  0.025015
+  Max:  0.025015
+
+output_std:
+  Mean: 0.706237
+  Std:  0.000000
+  Min:  0.706237
+  Max:  0.706237
+
+points_per_second:
+  Mean: 2604622.684577
+  Std:  729235.906804
+  Min:  1293159.187896
+  Max:  3979307.600478
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: ExponentialFilter with 100000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 8840.81
+Std deviation: 700.21
+Min duration: 8189.00
+Max duration: 14266.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.005093
+  Std:  0.000000
+  Min:  0.005093
+  Max:  0.005093
+
+input_std:
+  Mean: 0.707088
+  Std:  0.000000
+  Min:  0.707088
+  Max:  0.707088
+
+output_mean:
+  Mean: 0.005092
+  Std:  0.000000
+  Min:  0.005092
+  Max:  0.005092
+
+output_std:
+  Mean: 0.706979
+  Std:  0.000000
+  Min:  0.706979
+  Max:  0.706979
+
+points_per_second:
+  Mean: 11362041.041038
+  Std:  657013.377156
+  Min:  7009673.349222
+  Max:  12211503.236048
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: LowPassFilter with 1000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 614.47
+Std deviation: 112.42
+Min duration: 483.00
+Max duration: 989.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.435064
+  Std:  0.000000
+  Min:  0.435064
+  Max:  0.435064
+
+input_std:
+  Mean: 0.496797
+  Std:  0.000000
+  Min:  0.496797
+  Max:  0.496797
+
+output_mean:
+  Mean: 0.103997
+  Std:  0.000000
+  Min:  0.103997
+  Max:  0.103997
+
+output_std:
+  Mean: 0.061625
+  Std:  0.000000
+  Min:  0.061625
+  Max:  0.061625
+
+points_per_second:
+  Mean: 1675405.306042
+  Std:  265717.317644
+  Min:  1011122.345804
+  Max:  2070393.374741
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: LowPassFilter with 10000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 2214.25
+Std deviation: 267.15
+Min duration: 1932.00
+Max duration: 3472.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.025415
+  Std:  0.000000
+  Min:  0.025415
+  Max:  0.025415
+
+input_std:
+  Mean: 0.706615
+  Std:  0.000000
+  Min:  0.706615
+  Max:  0.706615
+
+output_mean:
+  Mean: 0.022447
+  Std:  0.000000
+  Min:  0.022447
+  Max:  0.022447
+
+output_std:
+  Mean: 0.075215
+  Std:  0.000000
+  Min:  0.075215
+  Max:  0.075215
+
+points_per_second:
+  Mean: 4572548.715111
+  Std:  469654.052135
+  Min:  2880184.331797
+  Max:  5175983.436853
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: LowPassFilter with 100000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 13972.84
+Std deviation: 2384.25
+Min duration: 9542.00
+Max duration: 29112.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.005093
+  Std:  0.000000
+  Min:  0.005093
+  Max:  0.005093
+
+input_std:
+  Mean: 0.707088
+  Std:  0.000000
+  Min:  0.707088
+  Max:  0.707088
+
+output_mean:
+  Mean: 0.002572
+  Std:  0.000000
+  Min:  0.002572
+  Max:  0.002572
+
+output_std:
+  Mean: 0.071181
+  Std:  0.000000
+  Min:  0.071181
+  Max:  0.071181
+
+points_per_second:
+  Mean: 7333215.502882
+  Std:  1135629.716098
+  Min:  3435009.618027
+  Max:  10479983.232027
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: MovingAverageFilter with 1000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 1012.03
+Std deviation: 98.20
+Min duration: 876.00
+Max duration: 1458.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.435064
+  Std:  0.000000
+  Min:  0.435064
+  Max:  0.435064
+
+input_std:
+  Mean: 0.496797
+  Std:  0.000000
+  Min:  0.496797
+  Max:  0.496797
+
+output_mean:
+  Mean: 0.436471
+  Std:  0.000000
+  Min:  0.436471
+  Max:  0.436471
+
+output_std:
+  Mean: 0.494550
+  Std:  0.000000
+  Min:  0.494550
+  Max:  0.494550
+
+points_per_second:
+  Mean: 995863.703050
+  Std:  80853.985591
+  Min:  685871.056241
+  Max:  1141552.511416
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: MovingAverageFilter with 10000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 3802.31
+Std deviation: 425.42
+Min duration: 3008.00
+Max duration: 5661.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.025415
+  Std:  0.000000
+  Min:  0.025415
+  Max:  0.025415
+
+input_std:
+  Mean: 0.706615
+  Std:  0.000000
+  Min:  0.706615
+  Max:  0.706615
+
+output_mean:
+  Mean: 0.025215
+  Std:  0.000000
+  Min:  0.025215
+  Max:  0.025215
+
+output_std:
+  Mean: 0.706469
+  Std:  0.000000
+  Min:  0.706469
+  Max:  0.706469
+
+points_per_second:
+  Mean: 2662960.477158
+  Std:  296949.810205
+  Min:  1766472.354708
+  Max:  3324468.085106
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: MovingAverageFilter with 100000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 6864.28
+Std deviation: 1328.48
+Min duration: 4289.00
+Max duration: 12596.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.005093
+  Std:  0.000000
+  Min:  0.005093
+  Max:  0.005093
+
+input_std:
+  Mean: 0.707088
+  Std:  0.000000
+  Min:  0.707088
+  Max:  0.707088
+
+output_mean:
+  Mean: 0.005093
+  Std:  0.000000
+  Min:  0.005093
+  Max:  0.005093
+
+output_std:
+  Mean: 0.707078
+  Std:  0.000000
+  Min:  0.707078
+  Max:  0.707078
+
+points_per_second:
+  Mean: 15216096.732654
+  Std:  3518592.865980
+  Min:  7939028.262941
+  Max:  23315458.148753
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+
+Test: Single FFT Block
+Operation: FFT Processing
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 80042.90
+Std deviation: 13432.11
+Min duration: 67186.00
+Max duration: 149083.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+input_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+output_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+output_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+fft_mean:
+  Mean: -84.282789
+  Std:  0.000000
+  Min:  -84.282789
+  Max:  -84.282789
+
+fft_std:
+  Mean: 7.900366
+  Std:  0.000000
+  Min:  7.900366
+  Max:  7.900366
+
+processing_time_ms:
+  Mean: 80.042898
+  Std:  13.432110
+  Min:  67.186000
+  Max:  149.083000
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+
+================================================================================
+

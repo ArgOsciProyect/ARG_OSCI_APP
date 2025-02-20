@@ -1,79 +1,119 @@
-// lib/features/data_acquisition/domain/repository/data_acquisition_repository.dart
 import 'dart:async';
-import '../models/data_point.dart';
-import '../models/trigger_data.dart';
 
-/// Interface for data acquisition repository
+import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
+import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
+
+/// Repository interface that defines data acquisition functionality for oscilloscope measurements
 abstract class DataAcquisitionRepository {
-  // Stream getters
-
-  /// Stream of data points
+  /// Stream of processed data points from the oscilloscope
+  /// Returns a continuous stream of [List<DataPoint>] representing voltage measurements
   Stream<List<DataPoint>> get dataStream;
 
-  /// Stream of frequency values
+  /// Stream of calculated signal frequency values
+  /// Returns the real-time frequency of the input signal in Hz
   Stream<double> get frequencyStream;
 
-  /// Stream of maximum values
+  /// Stream of maximum signal values
+  /// Returns the peak voltage values of the signal
   Stream<double> get maxValueStream;
 
-  // Data acquisition methods
+  /// Current voltage scale setting for the oscilloscope display
+  /// Determines the voltage range per division
+  VoltageScale get currentVoltageScale;
 
-  /// Fetches data from the specified IP and port
-  ///
-  /// [ip] The IP address to connect to
-  /// [port] The port to connect to
-  Future<void> fetchData(String ip, int port);
+  /// Whether hysteresis is enabled for trigger detection
+  /// Helps prevent false triggers from noise
+  bool get useHysteresis;
 
-  /// Stops data acquisition
-  Future<void> stopData();
+  /// Whether low pass filtering is enabled for the input signal
+  /// Helps reduce high frequency noise
+  bool get useLowPassFilter;
 
-  /// Disposes the repository, cleaning up resources
-  void dispose();
+  /// Current maximum value of the signal
+  /// Used for display scaling and measurements
+  double get currentMaxValue;
 
-  // Configuration and calculations
+  /// Current minimum value of the signal
+  /// Used for display scaling and measurements
+  double get currentMinValue;
 
-  /// Initializes the repository
-  Future<void> initialize();
-
-  /// Automatically sets the configuration based on chart dimensions
-  ///
-  /// [chartHeight] The height of the chart
-  /// [chartWidth] The width of the chart
-  /// Returns a list of doubles representing the time scale and value scale
-  List<double> autoset(double chartHeight, double chartWidth);
-
-  /// Updates the configuration
-  void updateConfig();
-
-  // Configuration properties
-
-  /// Gets the scale value
+  /// Signal scaling factor for voltage measurements
+  /// Converts raw ADC values to voltage
   double get scale;
-
-  /// Sets the scale value
   set scale(double value);
 
-  /// Gets the distance value
+  /// Time between samples (1/sampling frequency)
+  /// Determines horizontal resolution
   double get distance;
-
-  /// Sets the distance value
   set distance(double value);
 
-  /// Gets the trigger level
+  /// Trigger level threshold in volts
+  /// Signal must cross this level to trigger
   double get triggerLevel;
-
-  /// Sets the trigger level
   set triggerLevel(double value);
 
-  /// Gets the trigger edge
+  /// Trigger edge direction (positive/negative)
+  /// Determines which edge direction triggers acquisition
   TriggerEdge get triggerEdge;
-
-  /// Sets the trigger edge
   set triggerEdge(TriggerEdge value);
 
-  /// Gets the trigger sensitivity
-  double get triggerSensitivity;
+  /// Signal midpoint value calculated from device config
+  /// Used for voltage offset calculations
+  double get mid;
+  set mid(double value);
 
-  /// Sets the trigger sensitivity
-  set triggerSensitivity(double value);
+  /// Current trigger detection mode (Normal/Single)
+  /// Controls how acquisition is triggered
+  TriggerMode get triggerMode;
+  set triggerMode(TriggerMode value);
+
+  /// Initializes the repository with device configuration
+  /// Must be called before using other methods
+  /// Returns a Future that completes when initialization is done
+  Future<void> initialize();
+
+  /// Starts data acquisition from specified network endpoint
+  /// [ip] - Target device IP address
+  /// [port] - Target device port number
+  /// Returns a Future that completes when connection is established
+  Future<void> fetchData(String ip, int port);
+
+  /// Stops ongoing data acquisition and cleans up resources
+  /// Returns a Future that completes when acquisition is stopped
+  Future<void> stopData();
+
+  /// Updates current configuration in processing pipeline
+  /// Should be called after changing any settings
+  void updateConfig();
+
+  /// Clears all data queues and buffers
+  /// Useful when changing modes or restarting acquisition
+  void clearQueues();
+
+  /// Sets voltage scale and updates related configurations
+  /// [voltageScale] - New voltage scale to apply
+  void setVoltageScale(VoltageScale voltageScale);
+
+  /// Automatically adjusts display settings based on signal
+  /// [chartHeight] - Available vertical display space
+  /// [chartWidth] - Available horizontal display space
+  /// Returns [timeScale, valueScale] for optimal display
+  Future<List<double>> autoset(double chartHeight, double chartWidth);
+
+  /// Sends trigger configuration to device
+  /// Returns a Future that completes when settings are applied
+  Future<void> postTriggerStatus();
+
+  /// Requests single trigger mode from device
+  /// Returns a Future that completes when mode is changed
+  Future<void> sendSingleTriggerRequest();
+
+  /// Requests normal trigger mode from device
+  /// Returns a Future that completes when mode is changed
+  Future<void> sendNormalTriggerRequest();
+
+  /// Releases all resources and closes streams
+  /// Should be called when repository is no longer needed
+  void dispose();
 }
