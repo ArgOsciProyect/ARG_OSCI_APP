@@ -164,6 +164,14 @@ class FakeDeviceConfigProvider extends GetxController
   @override
   int get samplesPerPacket => 512;
   @override
+  int get maxBits => 500;
+
+  @override
+  int get midBits => 250;
+
+  @override
+  int get minBits => 0;
+  @override
   int get usefulBits => 12;
 }
 

@@ -57,7 +57,12 @@ class DeviceConfigProvider extends GetxController {
   /// Returns the channel mask.
   dynamic get channelMask => _config.value?.channelMask ?? 0xF000;
 
+  int get maxBits => _config.value?.maxBits ?? 500;
+  int get midBits => _config.value?.midBits ?? 250;
+  int get minBits => _config.value?.minBits ?? 0;
+
   /// Returns the number of useful bits.
+  @deprecated
   dynamic get usefulBits => _config.value?.usefulBits ?? 12;
 
   /// Returns the number of samples per packet.

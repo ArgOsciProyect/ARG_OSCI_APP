@@ -73,6 +73,15 @@ class FakeDeviceConfigProvider extends GetxController
   int get usefulBits => 12;
 
   @override
+  int get maxBits => 500;
+
+  @override
+  int get midBits => 250;
+
+  @override
+  int get minBits => 0;
+
+  @override
   void listen(void Function(DeviceConfig?) cb) {}
 
   @override

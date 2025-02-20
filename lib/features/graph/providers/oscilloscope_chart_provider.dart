@@ -42,13 +42,14 @@ class OscilloscopeChartProvider extends GetxController {
   double get initialValueScale => _initialValueScale;
 
   OscilloscopeChartProvider(this._oscilloscopeChartService) {
-    // Subscribe to the data stream from the service and update the data points
     _dataSubscription = _oscilloscopeChartService.dataStream.listen((points) {
       _dataPoints.value = points;
     });
     _timeScale.value = 1.0;
-    // Set initial value scale based on device configuration
-    _valueScale.value = 1.0 / (1 << deviceConfig.usefulBits);
+
+    // Set initial value scale based on new max/min bits range
+    final range = deviceConfig.maxBits - deviceConfig.minBits;
+    _valueScale.value = 1.0 / range;
   }
 
   /// Handles zoom gestures, updating scales and offsets while maintaining the focal point.

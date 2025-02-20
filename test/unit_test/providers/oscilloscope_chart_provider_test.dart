@@ -88,6 +88,15 @@ class FakeDeviceConfigProvider extends GetxController
   double get samplingFrequency => 1650000.0;
 
   @override
+  int get maxBits => 500;
+
+  @override
+  int get midBits => 250;
+
+  @override
+  int get minBits => 0;
+
+  @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -118,8 +127,7 @@ void main() {
   group('Provider Initialization', () {
     test('should initialize with default values', () {
       expect(provider.timeScale, 1.0);
-      expect(provider.valueScale,
-          1.0 / (1 << fakeDeviceConfigProvider.usefulBits));
+      expect(provider.valueScale, 1.0 / 500);
       expect(provider.isPaused, false);
       expect(provider.horizontalOffset, 0.0);
       expect(provider.verticalOffset, 0.0);

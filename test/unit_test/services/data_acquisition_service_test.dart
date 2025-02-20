@@ -84,7 +84,16 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
   @override
   int get dividingFactor => 1;
 
-  // Add trailing zeros getters
+  @override
+  int get maxBits => 635;
+
+  @override
+  int get midBits => 317;
+
+  @override
+  int get minBits =>
+      (midBits * 2) - maxBits; // Usar la misma fórmula que DeviceConfig
+
   @override
   int get dataMaskTrailingZeros => dataMask
       .toRadixString(2)
@@ -104,41 +113,51 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
 
 class MockDeviceConfigProvider extends GetxController
     implements DeviceConfigProvider {
-  final _config = Rx<DeviceConfig?>(MockDeviceConfig());
+  final _config = Rx<DeviceConfig?>(null);
 
   @override
   DeviceConfig? get config => _config.value;
 
   @override
-  double get samplingFrequency => 1650000.0;
+  double get samplingFrequency => config?.samplingFrequency ?? 1650000.0;
 
   @override
-  int get bitsPerPacket => 16;
+  int get bitsPerPacket => config?.bitsPerPacket ?? 16;
 
   @override
-  int get dataMask => 0x0FFF;
+  int get dataMask => config?.dataMask ?? 0x0FFF;
 
   @override
-  int get channelMask => 0xF000;
+  int get channelMask => config?.channelMask ?? 0xF000;
 
   @override
-  int get usefulBits => 9;
+  int get usefulBits => config?.usefulBits ?? 9;
 
   @override
-  int get samplesPerPacket => 4096;
+  int get samplesPerPacket => config?.samplesPerPacket ?? 4096;
 
   @override
-  int get dividingFactor => 1;
+  int get dividingFactor => config?.dividingFactor ?? 1;
 
   @override
-  int get discardHead => 0;
+  int get discardHead => config?.discardHead ?? 0;
 
   @override
-  int get discardTrailer => 0;
+  int get discardTrailer => config?.discardTrailer ?? 0;
+
+  @override
+  int get maxBits => config?.maxBits ?? 500;
+
+  @override
+  int get midBits => config?.midBits ?? 250;
+
+  @override
+  int get minBits => config?.minBits ?? 0;
 
   @override
   void updateConfig(DeviceConfig config) {
     _config.value = config;
+    _config.refresh(); // Forzar actualización
   }
 
   // Add the missing implementations:
@@ -310,32 +329,45 @@ void main() {
   late DataAcquisitionService service;
   late MockHttpConfig mockHttpConfig;
   late MockDeviceConfigProvider mockDeviceConfigProvider;
-  // ignore: unused_local_variable
   late MockSocketService mockSocketService;
+  late DeviceConfig mockDeviceConfig;
 
   setUp(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     Get.reset();
 
+    // Create mock device config with correct bit values
+    mockDeviceConfig = DeviceConfig(
+        samplingFrequency: 1650000.0,
+        bitsPerPacket: 16,
+        dataMask: 0x0FFF,
+        channelMask: 0xF000,
+        samplesPerPacket: 8192,
+        dividingFactor: 1,
+        maxBits: 635,
+        midBits: 317);
+
     mockHttpConfig = MockHttpConfig();
-    mockSocketService = MockSocketService();
     mockDeviceConfigProvider = MockDeviceConfigProvider();
+    mockSocketService = MockSocketService();
+
+    // Initialize DeviceConfigProvider with the configuration first
+    mockDeviceConfigProvider.updateConfig(mockDeviceConfig);
 
     // Create and register mock services
     final mockHttpService = MockHttpService();
     final mockDataAcquisitionProvider = MockDataAcquisitionProvider();
 
     Get.put<HttpService>(mockHttpService, permanent: true);
-    Get.put<DeviceConfigProvider>(mockDeviceConfigProvider).onInit();
+    Get.put<DeviceConfigProvider>(mockDeviceConfigProvider, permanent: true);
     Get.put<DataAcquisitionProvider>(mockDataAcquisitionProvider,
         permanent: true);
 
+    // Now initialize service after provider is configured
     service = DataAcquisitionService(mockHttpConfig);
     await service.initialize();
-
-    service.scale = 3.3 / 512;
-    service.triggerLevel = 1.65;
   });
+
   tearDown(() async {
     await service.dispose();
     Get.reset();
@@ -369,13 +401,138 @@ void main() {
       // For 1V scale (volts_1):
       // voltageRange = 1.0 * 512 = 512mV
       // maxTriggerLevel = 512/2 = 256mV
-      final maxTriggerLevel = (VoltageScales.volt_1.scale * 512) / 2;
+      final maxTriggerLevel = (VoltageScales.volt_1.scale * 500) / 2;
       service.setVoltageScale(VoltageScales.volt_1);
 
       expect(service.triggerLevel, equals(maxTriggerLevel));
     });
   });
+  group('New Voltage Scaling System', () {
+    late DataAcquisitionService service;
+    late MockHttpConfig mockHttpConfig;
+    late MockDeviceConfigProvider mockDeviceConfigProvider;
+    late MockHttpService mockHttpService;
+    late DeviceConfig mockDeviceConfig;
 
+    setUp(() async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      Get.reset();
+
+      mockHttpConfig = MockHttpConfig();
+      mockDeviceConfigProvider = MockDeviceConfigProvider();
+      mockHttpService = MockHttpService();
+
+      // Create mock device config with correct bit values
+      mockDeviceConfig = DeviceConfig(
+          samplingFrequency: 1650000.0,
+          bitsPerPacket: 16,
+          dataMask: 0x0FFF,
+          channelMask: 0xF000,
+          samplesPerPacket: 8192,
+          dividingFactor: 1,
+          maxBits: 655,
+          midBits: 328);
+
+      // Simply update the config directly instead of using when()
+      mockDeviceConfigProvider.updateConfig(mockDeviceConfig);
+
+      // Register dependencies
+      Get.put<HttpService>(mockHttpService, permanent: true);
+      Get.put<DeviceConfigProvider>(mockDeviceConfigProvider, permanent: true);
+      Get.put<DataAcquisitionProvider>(MockDataAcquisitionProvider(),
+          permanent: true);
+
+      // Initialize service
+      service = DataAcquisitionService(mockHttpConfig);
+      await service.initialize();
+    });
+
+    tearDown(() async {
+      await service.dispose();
+      Get.reset();
+    });
+
+    test('should correctly scale voltage with new maxBits/midBits system', () {
+      // Set voltage scale to ±1V
+      service.setVoltageScale(VoltageScales.volt_1);
+
+      // Create test signal data using the new bit ranges
+      final queue = Queue<int>();
+      final testValues = [1, 328, 655]; // min, mid, max
+      final expectedVoltages = [-1.0, 0.0, 1.0];
+
+      for (final value in testValues) {
+        queue.add(value & 0xFF);
+        queue.add((value >> 8) & 0xFF);
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+        queue,
+        queue.length,
+        service.scale,
+        service.distance,
+        service.triggerLevel,
+        service.triggerEdge,
+        service.mid,
+        false,
+        false,
+        TriggerMode.normal,
+        mockDeviceConfig, // Use mockDeviceConfig directly
+        getMockSendPort(),
+      );
+
+      for (int i = 0; i < points.length; i++) {
+        print("Point $i: ${points[i].y}");
+        expect(points[i].y, closeTo(expectedVoltages[i], 0.01),
+            reason: 'Point at index $i should be ${expectedVoltages[i]}V');
+      }
+    });
+
+    test('should maintain voltage scaling across different ranges', () {
+      final testRanges = [
+        (scale: VoltageScales.volt_1, factor: 1.0),
+        (scale: VoltageScales.volts_2, factor: 2.0),
+        (scale: VoltageScales.millivolts_500, factor: 0.5),
+      ];
+
+      final deviceConfig = DeviceConfig(
+        samplingFrequency: 1650000.0,
+        bitsPerPacket: 16,
+        dataMask: 0x0FFF,
+        channelMask: 0xF000,
+        samplesPerPacket: 8192,
+        dividingFactor: 1,
+        maxBits: 655, // Set explicit maxBits
+        midBits: 328, // Set explicit midBits
+      );
+
+      for (final range in testRanges) {
+        service.setVoltageScale(range.scale);
+
+        final queue = Queue<int>();
+        queue.add(328 & 0xFF); // mid value
+        queue.add((328 >> 8) & 0xFF);
+
+        final points = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          false,
+          false,
+          TriggerMode.normal,
+          deviceConfig,
+          getMockSendPort(),
+        );
+
+        expect(points[0].y, closeTo(0.0, 0.01),
+            reason: 'Mid point should be 0V for ${range.scale.displayName}');
+      }
+    });
+  });
   group('Enhanced Autoset', () {
     test('should calculate new scales based on signal metrics', () async {
       // Set voltage scale to ensure voltageRange >= 1.0

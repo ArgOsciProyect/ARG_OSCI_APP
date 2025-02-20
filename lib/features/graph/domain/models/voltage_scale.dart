@@ -40,15 +40,19 @@ class VoltageScale {
   const VoltageScale(this.baseRange, this.displayName);
 
   double get scale {
-    int div = 1 << Get.find<DeviceConfigProvider>().usefulBits;
-    if (div == 0) div = 1;
-    final result = baseRange / div;
+    final deviceConfig = Get.find<DeviceConfigProvider>();
+    final totalRange = deviceConfig.maxBits - deviceConfig.minBits;
 
+    // The scale factor should map the total range to baseRange
+    // Example: if baseRange is 2.0 (±1V) and range is 614 (635-21),
+    // then scale should be 2.0/614 V/bit
     if (kDebugMode) {
       print(
-          'VoltageScale: $displayName, baseRange: $baseRange, div: $div, scale: $result');
+          "mid and max bits: ${deviceConfig.minBits} ${deviceConfig.maxBits}");
+      print("baseRange: $baseRange");
+      print("totalRange: $totalRange");
     }
-    return result;
+    return baseRange / totalRange;
   }
 
   @override

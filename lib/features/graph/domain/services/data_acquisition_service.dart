@@ -16,7 +16,6 @@ import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 
@@ -208,9 +207,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   double get mid {
     if (kDebugMode) {
-      print('Mid: ${(1 << deviceConfig.usefulBits) / 2}');
+      print('Mid: ${deviceConfig.midBits}');
     }
-    return (1 << deviceConfig.usefulBits) / 2;
+    return deviceConfig.midBits.toDouble();
   }
 
   @override
@@ -241,14 +240,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> postTriggerStatus() async {
     try {
-      // Calculate full range in bits
-      final fullRange = 1 << deviceConfig.usefulBits;
+      // Convert voltage trigger to raw value considering the new scaling
+      final range = deviceConfig.maxBits - deviceConfig.minBits;
+      final rawTrigger = (_triggerLevel / scale) + deviceConfig.midBits;
 
-      // Convert voltage trigger to raw value
-      final rawTrigger = (_triggerLevel / scale) + mid;
-
-      // Calculate percentage (0-100)
-      final percentage = (rawTrigger / fullRange) * 100;
+      // Calculate percentage based on the full range
+      final percentage = ((rawTrigger - deviceConfig.minBits) / range) * 100;
 
       await httpService.post('/trigger', {
         'trigger_percentage': percentage.clamp(0, 100),
@@ -341,8 +338,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     triggerLevel *= ratio;
 
     // Clamp trigger level to new voltage range
-    final voltageRange = voltageScale.scale * (1 << deviceConfig.usefulBits);
-    final halfRange = voltageRange / 2;
+    final range =
+        voltageScale.scale * (deviceConfig.maxBits - deviceConfig.minBits);
+    final halfRange = range / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
     updateConfig();
@@ -1105,21 +1103,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<List<double>> autoset(double chartHeight, double chartWidth) async {
-    // Primero, actualizamos el triggerLevel al valor medio entre el máximo y el mínimo actuales
+    // Update trigger level to middle between max and min
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
 
-    // Aseguramos que el trigger esté dentro del rango de voltaje
-    final voltageRange =
-        _currentVoltageScale.scale * (1 << deviceConfig.usefulBits);
-    final halfRange = voltageRange / 2;
+    // Ensure trigger is within voltage range using new maxBits/midBits system
+    final range = _currentVoltageScale.scale *
+        (deviceConfig.maxBits - deviceConfig.minBits);
+    final halfRange = range / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
     updateConfig();
 
-    // Procesamos la señal durante un breve tiempo para obtener una frecuencia con la que trabajar
+    // Process signal briefly to get working frequency
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // Ahora calculamos los valores de timeScale y valueScale basándonos en la frecuencia obtenida
+    // Calculate timeScale and valueScale based on obtained frequency
     if (_currentFrequency <= 0) {
       triggerLevel = 0;
       final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
@@ -1127,12 +1125,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       return [100000, valueScale];
     }
 
-    // Cálculo de la escala de tiempo
+    // Time scale calculation
     final period = 1 / _currentFrequency;
     final totalTime = 3 * period;
     final timeScale = chartWidth / totalTime;
 
-    // Cálculo de la escala de valor considerando el valor absoluto más grande entre _currentMaxValue y _currentMinValue
+    // Value scale calculation considering max absolute value
     final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
     final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
 
