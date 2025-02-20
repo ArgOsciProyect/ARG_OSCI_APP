@@ -85,10 +85,10 @@ class MockDeviceConfig extends Mock implements DeviceConfig {
   int get dividingFactor => 1;
 
   @override
-  int get maxBits => 635;
+  int get maxBits => 655;
 
   @override
-  int get midBits => 317;
+  int get midBits => 328;
 
   @override
   int get minBits =>
@@ -344,8 +344,8 @@ void main() {
         channelMask: 0xF000,
         samplesPerPacket: 8192,
         dividingFactor: 1,
-        maxBits: 635,
-        midBits: 317);
+        maxBits: 655,
+        midBits: 328);
 
     mockHttpConfig = MockHttpConfig();
     mockDeviceConfigProvider = MockDeviceConfigProvider();
@@ -401,10 +401,13 @@ void main() {
       // For 1V scale (volts_1):
       // voltageRange = 1.0 * 512 = 512mV
       // maxTriggerLevel = 512/2 = 256mV
-      final maxTriggerLevel = (VoltageScales.volt_1.scale * 500) / 2;
+      final maxTriggerLevel = (VoltageScales.volt_1.scale *
+              mockDeviceConfigProvider.config!.maxBits) /
+          2;
       service.setVoltageScale(VoltageScales.volt_1);
 
-      expect(service.triggerLevel, equals(maxTriggerLevel));
+      expect(service.triggerLevel, closeTo(maxTriggerLevel, 0.01),
+          reason: 'Trigger level should be clamped to $maxTriggerLevel');
     });
   });
   group('New Voltage Scaling System', () {

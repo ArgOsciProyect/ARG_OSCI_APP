@@ -265,7 +265,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   set triggerLevel(double value) {
-    _triggerLevel = value;
+    // Calculate voltage range based on current scale and bits
+    final range = _currentVoltageScale.scale *
+        (deviceConfig.maxBits - deviceConfig.minBits);
+    final halfRange = range / 2;
+
+    // Clamp the trigger level to the valid voltage range
+    _triggerLevel = value.clamp(-halfRange, halfRange);
+
     postTriggerStatus();
     updateConfig();
   }
