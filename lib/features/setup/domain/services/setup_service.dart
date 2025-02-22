@@ -357,6 +357,7 @@ class SetupService implements SetupRepository {
             print("Connection verified - correct network");
           }
           await initializeGlobalSocketConnection(extIp, extPort);
+          fetchDeviceConfig();
           return;
         } else {
           if (kDebugMode) {
