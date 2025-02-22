@@ -5,6 +5,74 @@ import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dar
 import 'package:arg_osci_app/features/socket/domain/repository/socket_repository.dart';
 import 'package:flutter/foundation.dart';
 
+import 'dart:math' as math;
+
+/// Class to hold transmission statistics
+class TransmissionStats {
+  final List<double> bytesPerSecond = [];
+  final List<DateTime> timestamps = [];
+
+  void addMeasurement(int bytes, DateTime timestamp) {
+    timestamps.add(timestamp);
+
+    // Calculate bytes/second if we have at least 2 measurements
+    if (timestamps.length > 1) {
+      final duration = timestamp
+              .difference(timestamps[timestamps.length - 2])
+              .inMicroseconds /
+          1000000.0;
+      final bps = bytes / duration;
+      bytesPerSecond.add(bps);
+    }
+  }
+
+  /// Calculate mean bytes per second
+  double get mean {
+    if (bytesPerSecond.isEmpty) return 0;
+    return bytesPerSecond.reduce((a, b) => a + b) / bytesPerSecond.length;
+  }
+
+  /// Calculate median bytes per second
+  double get median {
+    if (bytesPerSecond.isEmpty) return 0;
+    final sorted = List<double>.from(bytesPerSecond)..sort();
+    final middle = sorted.length ~/ 2;
+    if (sorted.length % 2 == 0) {
+      return (sorted[middle - 1] + sorted[middle]) / 2;
+    }
+    return sorted[middle];
+  }
+
+  /// Calculate standard deviation
+  double get standardDeviation {
+    if (bytesPerSecond.length < 2) return 0;
+    final m = mean;
+    final variance =
+        bytesPerSecond.map((x) => math.pow(x - m, 2)).reduce((a, b) => a + b) /
+            (bytesPerSecond.length - 1);
+    return math.sqrt(variance);
+  }
+
+  /// Calculate minimum rate
+  double get min =>
+      bytesPerSecond.isEmpty ? 0 : bytesPerSecond.reduce(math.min);
+
+  /// Calculate maximum rate
+  double get max =>
+      bytesPerSecond.isEmpty ? 0 : bytesPerSecond.reduce(math.max);
+
+  /// Get statistics summary
+  Map<String, double> getSummary() {
+    return {
+      'mean_bps': mean,
+      'median_bps': median,
+      'std_dev_bps': standardDeviation,
+      'min_bps': min,
+      'max_bps': max,
+    };
+  }
+}
+
 /// [SocketService] implements the [SocketRepository] to manage socket connections and data streaming.
 class SocketService implements SocketRepository {
   Socket? _socket;
@@ -16,6 +84,8 @@ class SocketService implements SocketRepository {
   final int _expectedPacketSize;
   String? _ip;
   int? _port;
+  final TransmissionStats _stats = TransmissionStats();
+  Timer? _statsTimer;
 
   SocketService(this._expectedPacketSize);
 
@@ -43,12 +113,27 @@ class SocketService implements SocketRepository {
       _socket = await Socket.connect(connection.ip.value, connection.port.value,
           timeout: Duration(seconds: 5));
 
-      // Use private fields directly
       _ip = connection.ip.value;
       _port = connection.port.value;
 
       if (kDebugMode) {
         print("Connected to $_ip:$_port");
+        // Setup statistics timer once at connection
+        _statsTimer = Timer.periodic(Duration(minutes: 15), (_) {
+          final summary = _stats.getSummary();
+          print('\n=== Transmission Statistics (15min) ===');
+          print(
+              'Mean rate: ${summary['mean_bps']?.toStringAsFixed(2)} bytes/sec');
+          print(
+              'Median rate: ${summary['median_bps']?.toStringAsFixed(2)} bytes/sec');
+          print(
+              'Std Dev: ${summary['std_dev_bps']?.toStringAsFixed(2)} bytes/sec');
+          print(
+              'Min rate: ${summary['min_bps']?.toStringAsFixed(2)} bytes/sec');
+          print(
+              'Max rate: ${summary['max_bps']?.toStringAsFixed(2)} bytes/sec');
+          print('======================================\n');
+        });
       }
 
       _socket!.handleError((error) {
@@ -65,6 +150,9 @@ class SocketService implements SocketRepository {
       _socket!.listen(
         (data) {
           _processIncomingData(data);
+          if (kDebugMode) {
+            _stats.addMeasurement(data.length, DateTime.now());
+          }
         },
         onError: (error) {
           _errorController.add(error);
@@ -83,8 +171,6 @@ class SocketService implements SocketRepository {
   /// Processes incoming data by buffering and emitting complete packets.
   void _processIncomingData(List<int> data) {
     _buffer.addAll(data);
-
-    // Process packets if enough data is available
     while (_buffer.length >= _expectedPacketSize) {
       final packet = _buffer.sublist(0, _expectedPacketSize);
       _buffer.removeRange(0, _expectedPacketSize);

@@ -441,6 +441,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             );
 
         isConnected = true;
+        print("packet size: ${setup.packetSize}");
         _setupSocketListener(socketService, setup.sendPort);
 
         // Add error listener to detect disconnections
@@ -727,22 +728,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
-    for (var i = 0;
-        i < chunkSize * config.deviceConfig.dividingFactor;
-        i += 2 * config.deviceConfig.dividingFactor) {
-      if (queue.length < 2 * config.deviceConfig.dividingFactor) break;
+    for (var i = 0; i < (chunkSize ~/ 2); i++) {
+      if (queue.length < 2) break;
+      if (i % config.deviceConfig.dividingFactor == 0) {
+        final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig);
+        final (x, y) =
+            _calculateCoordinates(uint12Value, points.length, config);
+        points.add(DataPoint(x, y));
 
-      // Skip unwanted samples
-      for (var j = 0; j < (config.deviceConfig.dividingFactor - 1) * 2; j++) {
-        if (queue.isNotEmpty) queue.removeFirst();
+        maxValue = max(maxValue, y);
+        minValue = min(minValue, y);
+      } else {
+        queue.removeFirst();
+        queue.removeFirst();
       }
-
-      final (uint12Value, _) = _readDataFromQueue(queue, config.deviceConfig);
-      final (x, y) = _calculateCoordinates(uint12Value, points.length, config);
-      points.add(DataPoint(x, y));
-
-      maxValue = max(maxValue, y);
-      minValue = min(minValue, y);
     }
 
     if (points.isEmpty) {
@@ -1001,7 +1000,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   /// Sets up the socket isolate to receive data from the socket and send it to the processing isolate.
   Future<void> _setupSocketIsolate(String ip, int port) async {
-    final packetSize = deviceConfig.samplesPerPacket * 2; // 2 bytes per sample
+    final packetSize = deviceConfig.samplesPerPacket; // 2 bytes per sample
 
     _socketIsolate = await Isolate.spawn(
       _socketIsolateFunction,
