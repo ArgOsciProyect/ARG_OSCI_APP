@@ -337,8 +337,10 @@ class SetupService implements SetupRepository {
     }
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
+    await WiFiForIoTPlugin.forceWifiUsage(false)
+        .timeout(const Duration(seconds: 5));
 
-    int maxTestRetries = 10;
+    int maxTestRetries = 50;
     String testWord = _generateRandomWord();
     String encryptedWord = encriptWithPublicKey(testWord);
 
