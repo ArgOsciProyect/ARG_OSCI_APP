@@ -72,13 +72,16 @@ class GraphScreen extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   userSettingsProvider.title.value,
-                  style: TextStyle(fontSize: 15, color: AppTheme.getAppBarTextColor(context)),
+                  style: TextStyle(
+                      fontSize: 15,
+                      color: AppTheme.getAppBarTextColor(context)),
                 ),
               )),
           leading: Transform.translate(
             offset: const Offset(0, -5),
             child: IconButton(
-              icon: Icon(Icons.arrow_back, size: 15, color: AppTheme.getIconColor(context)),
+              icon: Icon(Icons.arrow_back,
+                  size: 15, color: AppTheme.getIconColor(context)),
               onPressed: () => Get.back(),
             ),
           ),

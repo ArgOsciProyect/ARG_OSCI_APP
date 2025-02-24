@@ -66,11 +66,10 @@ class AppTheme {
       ..strokeWidth = 2;
   }
 
-    static Color getAppBarTextColor(BuildContext context) {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
-      return isDark ? Colors.white : Colors.black;
-    }
-
+  static Color getAppBarTextColor(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark ? Colors.white : Colors.black;
+  }
 
   static Paint getZeroPaint(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -95,7 +94,7 @@ class AppTheme {
       ..style = PaintingStyle.fill;
   }
 
-    static Color getChartAreaColor(BuildContext context) {
+  static Color getChartAreaColor(BuildContext context) {
     return Theme.of(context).scaffoldBackgroundColor;
   }
 
@@ -112,6 +111,7 @@ class AppTheme {
   static Color getControlPanelColor(BuildContext context) {
     return Theme.of(context).scaffoldBackgroundColor;
   }
+
   static Paint getFFTDataPaint(BuildContext context) {
     return getDataPaint(context);
   }

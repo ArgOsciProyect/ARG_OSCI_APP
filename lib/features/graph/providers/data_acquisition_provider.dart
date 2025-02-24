@@ -65,6 +65,8 @@ class DataAcquisitionProvider extends GetxController {
       maxValue.value = max;
     });
 
+    _initializeVoltageScale();
+
     // Observe changes in socket connection
     ever(socketConnection.ip, (_) => restartDataAcquisition());
     ever(socketConnection.port, (_) => restartDataAcquisition());
@@ -72,6 +74,10 @@ class DataAcquisitionProvider extends GetxController {
       if (config != null) {
         samplingFrequency.value = config.samplingFrequency;
         distance.value = 1 / config.samplingFrequency;
+
+        // Add this line to update voltage scale when config changes
+        _initializeVoltageScale();
+
         // Update cutoff frequency when sampling frequency changes
         if (currentFilter.value is LowPassFilter) {
           setCutoffFrequency(config.samplingFrequency / 2);
@@ -163,6 +169,20 @@ class DataAcquisitionProvider extends GetxController {
   Future<void> fetchData() async {
     await dataAcquisitionService.fetchData(
         socketConnection.ip.value, socketConnection.port.value);
+  }
+
+  /// Initializes the voltage scale based on device configuration
+  void _initializeVoltageScale() {
+    final maxVoltageRange = deviceConfig.maxBits / deviceConfig.midBits;
+
+    // Find the most appropriate voltage scale
+    VoltageScale appropriateScale = VoltageScales.values.firstWhere(
+      (scale) => (scale.baseRange / 2) >= maxVoltageRange,
+      orElse: () =>
+          VoltageScales.volts_5, // Default to highest range if none fits
+    );
+
+    setVoltageScale(appropriateScale);
   }
 
   /// Stops data acquisition.

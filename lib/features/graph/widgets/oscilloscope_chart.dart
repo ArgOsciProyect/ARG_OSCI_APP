@@ -610,7 +610,7 @@ class OscilloscopeChartPainter extends CustomPainter {
     final xMin = min(xDomainLeft, xDomainRight);
     final xMax = max(xDomainLeft, xDomainRight);
 
-    const linesCountX = 15;
+    const linesCountX = 12;
     final stepX = (xMax - xMin) / linesCountX;
 
     for (int i = 0; i <= linesCountX; i++) {
@@ -627,8 +627,7 @@ class OscilloscopeChartPainter extends CustomPainter {
       _textPainter.text = TextSpan(
         text: UnitFormat.formatWithUnit(timeValue, 's'),
         style: TextStyle(
-            color: Theme.of(context).textTheme.bodyLarge?.color,
-            fontSize: 10),
+            color: Theme.of(context).textTheme.bodyLarge?.color, fontSize: 10),
       );
       _textPainter.layout();
       _textPainter.paint(

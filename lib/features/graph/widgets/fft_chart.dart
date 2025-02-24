@@ -442,8 +442,8 @@ class FFTChartPainter extends CustomPainter {
         // Draw frequency label
         textPainter.text = TextSpan(
           text: UnitFormat.formatWithUnit(freq, 'Hz'),
-          style: TextStyle(
-              color: AppTheme.getTextColor(context), fontSize: 8.5),
+          style:
+              TextStyle(color: AppTheme.getTextColor(context), fontSize: 8.5),
         );
         textPainter.layout();
 
