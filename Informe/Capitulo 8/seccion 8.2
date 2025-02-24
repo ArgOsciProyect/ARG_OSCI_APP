@@ -1,0 +1,35 @@
+8.2 Sistema de triggers y filtrado
+
+Una vez que los datos son transformados a coordenadas físicas por la primera etapa del pipeline dentro del processing isolate, pasan a la etapa de detección de triggers y filtrado. Esta etapa es fundamental ya que procesa la señal para detectar eventos de interés y mejorar la calidad de la señal.
+
+8.2.1 Sistema de detección de triggers
+
+El sistema de triggers analiza pares de muestras consecutivas para detectar cruces por el nivel configurado. Para reducir detecciones erróneas causadas por ruido, se implementó un sistema de histéresis que analiza una ventana de 5 puntos alrededor del posible trigger. Este tamaño de ventana fue determinado experimentalmente como el óptimo entre precisión y tiempo de procesamiento.
+
+El análisis de tendencia utiliza el método de mínimos cuadrados para calcular la pendiente de la señal en la ventana de análisis. Este método resulta más robusto frente al ruido que una simple comparación punto a punto, ya que considera la tendencia general de la señal en lugar de variaciones instantáneas. El método de mínimos cuadrados minimiza el error cuadrático entre la línea de tendencia y los puntos de la señal, proporcionando una estimación precisa de la dirección del cambio.
+
+La sensibilidad del trigger se ajusta dinámicamente como un 25% del rango entre el máximo y mínimo de la señal actual. Este valor fue determinado experimentalmente para proveer un margen de histéresis adecuado que evite disparos falsos por ruido mientras mantiene la capacidad de detección en señales de diferentes amplitudes. Cuando el nivel de trigger se configura cerca de los extremos del rango, el margen de sensibilidad se invierte automáticamente para evitar que supere los límites físicos de la señal.
+
+8.2.2 Modos de operación
+
+El sistema implementa diferentes modos de operación siguiendo el patrón Strategy, lo que permite intercambiar los algoritmos de detección según los requerimientos sin modificar el resto del código. Esta implementación facilita la adición de nuevos modos de operación manteniendo el acoplamiento bajo entre componentes.
+
+En modo normal, después de detectar un trigger el sistema espera que la señal se aleje del nivel configurado por el margen de sensibilidad antes de habilitar el siguiente. Este mecanismo previene múltiples disparos cuando la señal fluctúa cerca del nivel configurado debido a ruido u oscilaciones pequeñas. La señal debe cruzar completamente la banda de histéresis antes de que se pueda producir un nuevo trigger.
+
+En modo single shot, al detectar el primer trigger válido se detiene la adquisición. Este modo resulta útil para capturar eventos transitorios o señales no periódicas, ya que permite observar el evento de interés sin interferencia de eventos posteriores. El sistema mantiene los datos en el buffer hasta que el usuario reinicia la adquisición, permitiendo un análisis detallado del evento capturado.
+
+8.2.3 Filtrado de señales
+
+Para mejorar la calidad de la detección, se implementó un sistema de filtros intercambiables basado en el patrón Strategy. Este diseño permite agregar nuevos algoritmos de filtrado sin modificar el código existente - solo requiere implementar la interfaz común definida por el patrón. Los filtros se aplican de forma independiente a la señal utilizada para detección de triggers y a la señal visualizada, permitiendo optimizar cada caso según sus requerimientos específicos.
+
+El filtro pasa bajos implementa un filtro Butterworth con frecuencia de corte configurable hasta el límite de Nyquist. El orden del filtro es configurable por el usuario para ajustar el balance entre respuesta transitoria y atenuación en la banda de rechazo. Para eliminar el desplazamiento de fase que podría afectar la temporización de los triggers, se implementó filtrado bidireccional con extensión de señal por reflexión en los extremos. Este procesamiento duplica el tiempo de cómputo pero garantiza fase cero en la señal filtrada.
+
+El filtro de media móvil implementa un filtro FIR de fase lineal con coeficientes uniformes. Este filtro resulta computacionalmente eficiente y proporciona una buena reducción de ruido gaussiano. El tamaño de ventana es configurable, permitiendo ajustar el balance entre suavizado y respuesta temporal según los requerimientos de la aplicación.
+
+8.2.4 Integración con el pipeline
+
+Esta etapa del pipeline se ejecuta en el mismo isolate que realiza la conversión inicial de coordenadas, minimizando la latencia y el overhead de comunicación entre etapas. Los resultados del procesamiento se envían al siguiente isolate solo cuando un conjunto completo de datos está listo, manteniendo un flujo eficiente de información a través del sistema.
+
+El cálculo de métricas como frecuencia y valores pico se realiza de forma continua sobre los datos procesados. La frecuencia se determina analizando los intervalos entre triggers consecutivos, promediando todos los intervalos detectados en el conjunto actual de datos para mejorar la estabilidad de la medición. Los valores máximo y mínimo se actualizan constantemente, siendo fundamentales tanto para el cálculo del margen de histéresis como para el ajuste dinámico de escalas.
+
+La implementación mediante isolates permite que el procesamiento se realice en un núcleo dedicado sin afectar la responsividad de la interfaz de usuario. Los datos fluyen a través del pipeline de forma asíncrona, con buffering entre etapas para manejar diferentes velocidades de procesamiento. Este diseño, basado en los principios de Clean Architecture, mantiene las responsabilidades claramente separadas y facilita la evolución independiente de cada componente.
