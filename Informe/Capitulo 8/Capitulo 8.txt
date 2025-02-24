@@ -1,0 +1,70 @@
+
+## Capítulo 8: Decodificación y Pre-procesamiento de datos
+
+Este capítulo describe la etapa inicial del procesamiento de datos, abarcando la decodificación de datos sin procesar desde el socket, la implementación del sistema de triggers y el filtrado inicial de la señal.
+
+### 8.1 Extracción y decodificación de los datos.
+
+El sistema de adquisición de datos se encarga de recibir los datos del dispositivo a través de un socket TCP y prepararlos para su posterior procesamiento y visualización. Este proceso se lleva a cabo en un Isolate, que gestiona la conexión con el dispositivo y la recepción de los datos.
+
+Este Isolate recibe los datos en paquetes binarios, los cuales son decodificados y convertidos a valores de voltaje. Las escalas de voltaje, que determinan el rango de valores que se pueden representar, es configurable por el usuario a través de un selector en la interfaz de usuario. Esta configuración permite adaptar el sistema a diferentes rangos de voltaje de entrada, optimizando la visualización de la señal. El sistema aplica la escala seleccionada a los datos recibidos, convirtiendo los valores binarios a voltajes que se muestran en la gráfica. Las escalas de voltaje se calculan dinámicamente basándose en los parámetros que definen el rango máximo y mínimo de valores que el dispositivo puede medir, permitiendo ajustar la visualización en tiempo real según las preferencias del usuario.
+
+La frecuencia de muestreo, que indica la cantidad de muestras que se toman por segundo, también es un parámetro importante en la adquisición de datos. El usuario puede aumentar o disminuir la frecuencia de muestreo mediante botones en la interfaz de usuario, actualizando la configuración del dispositivo. Al modificar la frecuencia de muestreo, el sistema ajusta automáticamente la escala de tiempo en la gráfica, permitiendo visualizar la señal con mayor o menor detalle.
+
+#### 8.1.1 Sistema de buffering y extracción de datos
+
+El procesamiento comienza con la extracción de los datos que llegan a través del socket TCP dentro del Isolate encargado del procesamiento. La implementación utiliza un sistema de buffering circular cuyo tamaño máximo está relacionado con la cantidad de muestras por paquete en la configuración del dispositivo.
+
+Los datos llegan en paquetes de 16 bits donde cada muestra contiene tanto el valor del conversor analógico-digital (ADC) como información del canal (esta funcionalidad no está implementada actualmente, pero esto permitirá una implementación más sencilla en un futuro). Para optimizar la extracción de estos valores se implementaron máscaras de bits para datos y máscaras de bits para canal precalculadas definidas en la configuración del dispositivo. El número de bits a desplazar para cada máscara se calcula durante la inicialización contando los ceros menos significativos en su representación binaria. Esto permite separar el valor del ADC y el canal en una única operación de enmascaramiento y desplazamiento, evitando múltiples operaciones intermedias.
+
+#### 8.1.2 Factor de división y transformación de coordenadas
+
+El procesamiento de las muestras se realiza según un factor de división configurado desde el dispositivo. La implementación utiliza una operación módulo sobre el índice de cada muestra, procesando solo aquellas cuyo índice módulo el factor de división es cero. Esta técnica de submuestreo resulta más eficiente que procesar todas las muestras y luego descartarlas.
+
+La transformación a coordenadas físicas convierte los valores crudos del ADC a voltajes utilizando los parámetros que definen el punto medio del rango de medición y la escala calculada a partir del rango máximo. El valor medio se usa como referencia para el cero, permitiendo representar señales tanto positivas como negativas simétricamente alrededor del punto medio. Los valores por encima del punto medio representan voltajes positivos, mientras que los valores por debajo representan voltajes negativos. La coordenada temporal se calcula de forma acumulativa basándose en el período de muestreo efectivo, que considera el factor de división aplicado para mantener la correcta relación temporal entre muestras.
+
+#### 8.1.3 Comunicación asíncrona y Buffer Circular
+
+Todo este procesamiento se ejecuta en un Isolate dedicado que opera de forma asíncrona respecto al hilo principal. La implementación permite que cada etapa del procesamiento sea independiente y modificable sin afectar al resto. La comunicación se realiza mediante mecanismos de envío y recepción de mensajes, manteniendo una clara separación de responsabilidades entre la recepción de datos y su procesamiento.
+
+El uso de Isolates permite aprovechar múltiples núcleos del procesador y evita que el procesamiento intensivo de datos afecte la responsividad de la interfaz. Los datos fluyen a través de las etapas del procesamiento sin necesidad de sincronización explícita, maximizando el rendimiento al permitir que cada etapa opere a su propia velocidad.
+
+### 8.2 Sistema de triggers y filtrado
+
+Tras la decodificación inicial, los datos se someten a dos procesos principales: la detección de triggers y el filtrado de la señal (opcional). El sistema de triggers permite aislar eventos de interés en la señal, mientras que el filtrado reduce el ruido y mejora la calidad de la visualización. Esta sección describe la configuración y el funcionamiento de estos sistemas, incluyendo los parámetros ajustables por el usuario, como el nivel y la dirección del trigger, los tipos de filtros disponibles y sus opciones de configuración. Se detallan los mecanismos de histéresis para el análisis de tendencias y los diferentes tipos de filtros implementados, todos configurables independientemente.
+
+#### 8.2.1 Sistema de filtrado y procesamiento de señales
+
+Para el procesamiento de la señal visualizada se implementó un sistema de filtros, independiente del sistema de triggers, que permite mejorar la calidad de la señal y reducir el ruido. Este sistema utiliza el patrón Strategy para facilitar la incorporación de nuevos algoritmos de filtrado sin modificar el código existente. Cada filtro implementa una interfaz común que define los métodos necesarios para el procesamiento. El usuario puede activar o desactivar el uso de filtros desde la interfaz, y seleccionar entre diferentes tipos de filtros.
+
+El sistema de filtros se aplica después de la etapa de decodificación y luego de la detección de triggers. Esta etapa es opcional y configurable por el usuario mediante una interfaz que permite activar o desactivar filtros individuales.
+
+El filtro pasa bajos se implementa mediante un Butterworth de segundo orden con frecuencia de corte configurable por el usuario hasta el límite de Nyquist. Este límite se calcula automáticamente como la mitad de la frecuencia de muestreo actual para evitar aliasing. La frecuencia de corte se ajusta mediante una entrada de texto en la interfaz de usuario, permitiendo al usuario seleccionar la frecuencia deseada dentro del rango válido (0 y la frecuencia de Nyquist). La implementación utiliza estructuras de datos optimizadas para el cálculo eficiente de coeficientes y condiciones iniciales. El orden 2 se fijó por proporcionar un buen balance entre atenuación de ruido y estabilidad numérica ya que órdenes mayores son más propensos a inestabilidad debido a errores de redondeo en cálculos con punto flotante.
+
+El filtro de media móvil implementa un filtro FIR de fase lineal con coeficientes uniformes y tamaño de ventana configurable por el usuario. La implementación utiliza una ventana deslizante optimizada para minimizar el número de operaciones por muestra. Al igual que el Butterworth, puede aplicarse de forma uni o bidireccional según se requiera fase cero en la señal filtrada. El tamaño de la ventana se ajusta mediante una entrada de texto en la interfaz de usuario, permitiendo al usuario seleccionar el tamaño deseado dentro del rango válido.
+
+El filtrado bidireccional es opcional y configurable por el usuario para todos los tipos de filtro. Cuando está activado, el sistema procesa la señal dos veces: primero en dirección directa y luego en dirección inversa. Para minimizar los artefactos en los bordes, se extiende la señal original reflejando una porción de la misma al inicio y al final. Este proceso, aunque duplica el tiempo de cómputo, garantiza que la señal filtrada tenga fase cero. La activación o desactivación del filtrado bidireccional se realiza mediante una casilla de verificación en la interfaz de usuario.
+
+La arquitectura del sistema de filtros prioriza la extensibilidad, agregar un nuevo filtro solo requiere implementar la interfaz correspondiente y definir los parámetros específicos del algoritmo. La implementación mantiene una clara separación entre la lógica de procesamiento y los detalles de implementación de cada filtro, facilitando la incorporación de algoritmos más sofisticados sin afectar al resto del sistema.
+
+#### 8.2.2 Sistema de detección de triggers
+
+El sistema de detección implementa un algoritmo basado en el análisis de pares de muestras consecutivas para identificar cruces por el nivel de trigger configurado por el usuario. El nivel de trigger se ajusta mediante una entrada de texto en la interfaz de usuario, permitiendo al usuario seleccionar el nivel deseado dentro del rango de voltaje disponible. La dirección del trigger (flanco positivo o negativo) también es configurable por el usuario mediante un selector en la interfaz.
+
+Cuando la histéresis está activada, el sistema utiliza una ventana de hasta 5 puntos alrededor del posible trigger para analizar la tendencia de la señal mediante un cálculo de tendencia lineal. Este método calcula la pendiente de la señal en la ventana, proporcionando una estimación de la dirección del cambio. La activación o desactivación de la histéresis se realiza mediante una casilla de verificación en la interfaz de usuario.
+
+La sensibilidad del trigger se ajusta dinámicamente como un 25% del rango entre el máximo y mínimo de la señal actual. Este valor adaptativo permite que el sistema funcione eficientemente con señales de diferentes amplitudes sin requerir ajustes manuales. Cuando el nivel de trigger se configura cerca de los extremos del rango, el sistema invierte automáticamente este margen para evitar que exceda los límites físicos del ADC. Por ejemplo, si el trigger está configurado cerca del valor máximo y el margen normal lo superaría, el sistema invierte la dirección del margen hacia abajo para mantener la capacidad de detección sin perder sensibilidad.
+
+Adicionalmente, se aplica un filtro pasa bajos de 50kHz a la señal utilizada para la detección de triggers. Este filtro puede activarse o desactivarse mediante una casilla de verificación en la interfaz de usuario. Para garantizar fase cero y mantener la correcta temporización de los triggers, el filtrado siempre se realiza de forma bidireccional.
+
+#### 8.2.3 Modos de operación y gestión del buffer
+
+El sistema implementa dos modos de operación que determinan cómo se procesan y transmiten los datos adquiridos. La gestión de los datos se realiza mediante un sistema de buffering que permite retener y procesar las muestras según el modo activo.
+
+En modo normal, el sistema procesa y envía los datos de forma continua, analizando cada muestra para detectar posibles triggers. Después de detectar un trigger válido, el sistema espera que la señal se aleje del nivel configurado por el margen de sensibilidad antes de habilitar el siguiente. Este mecanismo previene múltiples disparos cuando la señal fluctúa cerca del nivel configurado debido a ruido u oscilaciones pequeñas. El sistema verifica que la señal cruce completamente la banda de histéresis en la dirección opuesta antes de permitir un nuevo trigger, garantizando que solo se detecten transiciones válidas.
+
+En modo single shot, el sistema retiene los datos en el buffer circular sin enviarlos para procesamiento. Al detectar un trigger válido, se detiene inmediatamente la adquisición de nuevos datos y se envía el conjunto de datos que contiene el evento detectado, con el punto de trigger alineado en tiempo cero. Esta alineación temporal permite analizar tanto el comportamiento previo como posterior al evento que causó el trigger. El sistema mantiene estos datos en el buffer y detiene el procesamiento hasta que el usuario reinicia manualmente la adquisición, permitiendo un análisis detallado del evento capturado sin interferencia de nuevos datos. Este modo resulta particularmente útil para capturar y analizar eventos transitorios o anomalías que ocurren una única vez.
+
+#### 8.2.4 Cálculo de métricas
+
+El cálculo de métricas como frecuencia y valores pico se realiza de forma continua sobre los datos procesados. La frecuencia se determina analizando los intervalos entre triggers consecutivos dentro del conjunto actual de datos, promediando todos los intervalos detectados para mejorar la estabilidad de la medición frente a jitter y ruido. Los valores máximo y mínimo se actualizan constantemente comparando cada nuevo valor con los valores actuales.

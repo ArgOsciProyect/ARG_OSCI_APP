@@ -3,6 +3,7 @@ import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_format.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -73,7 +74,6 @@ class _ChartGestureHandler extends StatelessWidget {
       child: GestureDetector(
         onScaleStart: (_) {
           fftChartProvider.setInitialScales();
-          fftChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
         },
         onScaleUpdate: _handleScaleUpdate,
         child: Container(
@@ -222,11 +222,18 @@ class _AutosetButton extends StatelessWidget {
       icon: const Icon(Icons.autorenew),
       color: Theme.of(context).iconTheme.color,
       onPressed: () {
+        // Get current size
         final size = MediaQuery.of(context).size;
-        final fftFrequency = fftChartProvider.frequency.value;
-        // Use FFT frequency, fallback to graph provider if 0
-        final freqToUse =
-            fftFrequency > 0 ? fftFrequency : graphProvider.frequency.value;
+        
+        // Get frequency from FFT, fallback to graph provider
+        final freqToUse = fftChartProvider.frequency.value > 0 
+            ? fftChartProvider.frequency.value 
+            : graphProvider.frequency.value;
+            
+        if (kDebugMode) {
+          print("Autoset using frequency: $freqToUse Hz");
+        }
+        
         fftChartProvider.autoset(size, freqToUse);
       },
     );
