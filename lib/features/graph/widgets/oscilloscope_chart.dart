@@ -1,5 +1,7 @@
+// oscilloscope_chart.dart
 import 'dart:math';
 import 'dart:ui';
+import 'package:arg_osci_app/config/app_theme.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_format.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
@@ -72,7 +74,7 @@ class _PlayPauseButton extends StatelessWidget {
           icon: Icon(
             oscilloscopeChartProvider.isPaused ? Icons.play_arrow : Icons.pause,
           ),
-          color: Colors.black,
+          color: Theme.of(context).iconTheme.color,
           onPressed: () => oscilloscopeChartProvider.isPaused
               ? oscilloscopeChartProvider.resume()
               : oscilloscopeChartProvider.pause(),
@@ -133,7 +135,7 @@ class _AutosetButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.autorenew),
-      color: Colors.black,
+      color: Theme.of(context).iconTheme.color,
       onPressed: () {
         final size = MediaQuery.of(context).size;
         graphProvider.autoset(size.height, size.width);
@@ -160,7 +162,7 @@ class _ChartArea extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: AppTheme.getChartAreaColor(context),
           child: SizedBox.fromSize(
             size: constraints.biggest,
             child: _ChartGestureHandler(
@@ -301,6 +303,7 @@ class _ChartPainter extends StatelessWidget {
           oscilloscopeChartProvider.horizontalOffset,
           oscilloscopeChartProvider.verticalOffset,
           deviceConfig,
+          context,
         ),
       );
     });
@@ -320,7 +323,7 @@ class _ControlPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: AppTheme.getControlPanelColor(context),
       constraints: const BoxConstraints(maxHeight: 48.0),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -428,7 +431,7 @@ class _ControlButton extends StatelessWidget {
       onLongPressUp: oscilloscopeChartProvider.stopIncrementing,
       child: IconButton(
         icon: Icon(icon),
-        color: Colors.black,
+        color: Theme.of(context).iconTheme.color,
         onPressed: null,
       ),
     );
@@ -447,6 +450,7 @@ class OscilloscopeChartPainter extends CustomPainter {
   final double horizontalOffset;
   final double verticalOffset;
   final DeviceConfigProvider deviceConfig;
+  final BuildContext context;
 
   late final Paint _dataPaint;
   late final Paint _gridPaint;
@@ -471,41 +475,35 @@ class OscilloscopeChartPainter extends CustomPainter {
     this.horizontalOffset,
     this.verticalOffset,
     this.deviceConfig,
+    this.context,
   ) {
     _initializePaints();
   }
 
   /// Initializes all the paints used in the chart.
   void _initializePaints() {
-    _dataPaint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 2;
-
+    _dataPaint = AppTheme.getDataPaint(context);
     _gridPaint = Paint()
       ..color = Colors.grey
       ..strokeWidth = 0.5;
-
-    _zeroPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    _borderPaint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
+    _zeroPaint = AppTheme.getZeroPaint(context);
+    _borderPaint = AppTheme.getBorderPaint(context);
     _backgroundPaint = Paint()
       ..color = backgroundColor
       ..style = PaintingStyle.fill;
+    _chartBackgroundPaint = AppTheme.getChartBackgroundPaint(context);
 
-    _chartBackgroundPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     _textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
+      text: TextSpan(
+        style: TextStyle(
+          color: isDark ? Colors.white : Colors.black,
+          fontSize: 10,
+        ),
+      ),
     );
   }
 
@@ -588,7 +586,9 @@ class OscilloscopeChartPainter extends CustomPainter {
           final formattedValue = UnitFormat.formatWithUnit(domainVal, 'V');
           _textPainter.text = TextSpan(
             text: formattedValue,
-            style: const TextStyle(color: Colors.black, fontSize: 10),
+            style: TextStyle(
+                color: Theme.of(context).textTheme.bodyLarge?.color,
+                fontSize: 10),
           );
           _textPainter.layout();
           _textPainter.paint(
@@ -626,7 +626,9 @@ class OscilloscopeChartPainter extends CustomPainter {
       final timeValue = domainVal;
       _textPainter.text = TextSpan(
         text: UnitFormat.formatWithUnit(timeValue, 's'),
-        style: const TextStyle(color: Colors.black, fontSize: 10),
+        style: TextStyle(
+            color: Theme.of(context).textTheme.bodyLarge?.color,
+            fontSize: 10),
       );
       _textPainter.layout();
       _textPainter.paint(

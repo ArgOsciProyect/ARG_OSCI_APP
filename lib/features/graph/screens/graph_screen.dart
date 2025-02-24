@@ -1,3 +1,4 @@
+import 'package:arg_osci_app/config/app_theme.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
@@ -71,13 +72,13 @@ class GraphScreen extends StatelessWidget {
                 fit: BoxFit.scaleDown,
                 child: Text(
                   userSettingsProvider.title.value,
-                  style: const TextStyle(fontSize: 15, color: Colors.black),
+                  style: TextStyle(fontSize: 15, color: AppTheme.getAppBarTextColor(context)),
                 ),
               )),
           leading: Transform.translate(
             offset: const Offset(0, -5),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 15, color: Colors.black),
+              icon: Icon(Icons.arrow_back, size: 15, color: AppTheme.getIconColor(context)),
               onPressed: () => Get.back(),
             ),
           ),
@@ -89,7 +90,8 @@ class GraphScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Container(
-                  color: Colors.white,
+                  // Change this line to use the scaffold background color
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   child: Center(
                     child: Obx(() {
                       final points = graphProvider.dataPoints.value;
