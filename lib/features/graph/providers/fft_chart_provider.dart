@@ -156,17 +156,17 @@ class FFTChartProvider extends GetxController {
 
     // Skip updating drawing width since it's not used
     // updateDrawingWidth(size, _offsetX);
-    
+
     // Calculate optimal scale to show roughly 7 periods
     final targetFreq = freq * 10; // Show 7x the fundamental frequency
     final nyquistFreq = samplingFrequency / 2;
-    
+
     // Calculate what portion of nyquist frequency we want to show
     final desiredScale = targetFreq / nyquistFreq;
-    
+
     // Clamp the scale between 0.001 and 1.0
     final clampedScale = desiredScale.clamp(0.001, 1.0);
-    
+
     if (kDebugMode) {
       print("Auto-set calculation:");
       print("Target frequency: $targetFreq Hz");
@@ -174,14 +174,15 @@ class FFTChartProvider extends GetxController {
       print("Desired scale: $desiredScale");
       print("Clamped scale: $clampedScale");
     }
-  
+
     // Apply the new scales
     timeScale.value = clampedScale;
     valueScale.value = 1.0;
-    
+
     // Center the view on the frequency of interest
     final centerOffset = freq - ((nyquistFreq * clampedScale) / 2);
-    setHorizontalOffset(centerOffset.clamp(0.0, nyquistFreq - (nyquistFreq * clampedScale)));
+    setHorizontalOffset(
+        centerOffset.clamp(0.0, nyquistFreq - (nyquistFreq * clampedScale)));
   }
 
   /// Invertimos increment/decrement para que "increment" haga zoom-in (scale disminuye)

@@ -224,16 +224,16 @@ class _AutosetButton extends StatelessWidget {
       onPressed: () {
         // Get current size
         final size = MediaQuery.of(context).size;
-        
+
         // Get frequency from FFT, fallback to graph provider
-        final freqToUse = fftChartProvider.frequency.value > 0 
-            ? fftChartProvider.frequency.value 
+        final freqToUse = fftChartProvider.frequency.value > 0
+            ? fftChartProvider.frequency.value
             : graphProvider.frequency.value;
-            
+
         if (kDebugMode) {
           print("Autoset using frequency: $freqToUse Hz");
         }
-        
+
         fftChartProvider.autoset(size, freqToUse);
       },
     );
