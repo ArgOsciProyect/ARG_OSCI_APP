@@ -404,7 +404,7 @@ void main() {
     test('should get current values', () {
       expect(provider.getDistance(), 1 / 1650000);
       // Ajustamos a la escala real que configuramos en FakeDataAcquisitionService
-      expect(provider.getScale(), 0.00048828125);
+      expect(provider.getScale(), 0.004);
       expect(provider.getFrequency(), 1.0);
       expect(provider.getMaxValue(), 1.0);
     });

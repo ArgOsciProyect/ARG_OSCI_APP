@@ -1,0 +1,407 @@
+Performance Analysis Report
+================================================================================
+
+Test: Continuous FFT Stream
+Operation: Multiple Blocks Processing
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 296670.58
+Std deviation: 9114.64
+Min duration: 287896.00
+Max duration: 331753.00
+95th percentile: 314045.00
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+input_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+output_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+output_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+blocks_sent:
+  Mean: 5.000000
+  Std:  0.000000
+  Min:  5.000000
+  Max:  5.000000
+  95th: 5.000000
+
+blocks_received:
+  Mean: 5.000000
+  Std:  0.000000
+  Min:  5.000000
+  Max:  5.000000
+  95th: 5.000000
+
+total_time_ms:
+  Mean: 296.670580
+  Std:  9.114639
+  Min:  287.896000
+  Max:  331.753000
+  95th: 314.045000
+
+throughput_points_per_second:
+  Mean: 276376.313534
+  Std:  8067.234708
+  Min:  246930.698441
+  Max:  284547.197599
+  95th: 284184.929971
+
+average_block_time_ms:
+  Mean: 59.334116
+  Std:  1.822928
+  Min:  57.579200
+  Max:  66.350600
+  95th: 62.809000
+
+processing_ratio:
+  Mean: 1.000000
+  Std:  0.000000
+  Min:  1.000000
+  Max:  1.000000
+  95th: 1.000000
+
+min_block_time_ms:
+  Mean: 60.444280
+  Std:  9.314725
+  Min:  49.239000
+  Max:  100.974000
+  95th: 77.466500
+
+max_block_time_ms:
+  Mean: 251.564390
+  Std:  9.208795
+  Min:  242.154000
+  Max:  286.831000
+  95th: 269.732100
+
+data_rate_mbps:
+  Mean: 8.844042
+  Std:  0.258151
+  Min:  7.901782
+  Max:  9.105510
+  95th: 9.093918
+
+================================================================================
+
+Test: Filter Benchmark
+Operation: LowPassFilter with 100000 points
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 30878.53
+Std deviation: 4656.88
+Min duration: 26455.00
+Max duration: 51359.00
+95th percentile: 39782.90
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: 0.004693
+  Std:  0.000000
+  Min:  0.004693
+  Max:  0.004693
+  95th: 0.004693
+
+input_std:
+  Mean: 0.706639
+  Std:  0.000000
+  Min:  0.706639
+  Max:  0.706639
+  95th: 0.706639
+
+output_mean:
+  Mean: 0.001357
+  Std:  0.000000
+  Min:  0.001357
+  Max:  0.001357
+  95th: 0.001357
+
+output_std:
+  Mean: 0.004623
+  Std:  0.000000
+  Min:  0.004623
+  Max:  0.004623
+  95th: 0.004623
+
+points_per_second:
+  Mean: 3294666.116199
+  Std:  383136.332119
+  Min:  1947078.408848
+  Max:  3780003.780004
+  95th: 3659557.315385
+
+fft_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+fft_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+processing_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+================================================================================
+
+Test: Single FFT Block
+Operation: FFT Processing
+----------------------------------------
+
+Timing Statistics (microseconds):
+Mean duration: 41813.92
+Std deviation: 8991.33
+Min duration: 33058.00
+Max duration: 76418.00
+95th percentile: 59561.40
+
+Performance Metrics Statistics:
+
+input_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+input_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+output_mean:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+output_std:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+fft_mean:
+  Mean: -82.595795
+  Std:  0.000000
+  Min:  -82.595795
+  Max:  -82.595795
+  95th: -82.595795
+
+fft_std:
+  Mean: 7.900366
+  Std:  0.000000
+  Min:  7.900366
+  Max:  7.900366
+  95th: 7.900366
+
+processing_time_ms:
+  Mean: 41.813920
+  Std:  8.991326
+  Min:  33.058000
+  Max:  76.418000
+  95th: 59.561400
+
+blocks_sent:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+blocks_received:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+total_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+throughput_points_per_second:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+average_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+processing_ratio:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+min_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+max_block_time_ms:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+data_rate_mbps:
+  Mean: nan
+  Std:  nan
+  Min:  nan
+  Max:  nan
+  95th: nan
+
+================================================================================
+
+
+Raw data saved to: /home/jotalora/Tesis/ARG_OSCI_APP/test/integration_test/results/raw_results_20250225_130610.csv

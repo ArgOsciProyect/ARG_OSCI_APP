@@ -21,6 +21,9 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 
+const String LOG_FILE_PATH =
+    '/home/jotalora/Tesis/ARG_OSCI_APP/test/integration_test/logs/osci_test_performance_99.log';
+
 // First add mock HTTP service
 class MockHttpService extends Mock implements HttpService {
   @override
@@ -138,36 +141,59 @@ void main() {
   void logPerformance(
       String testCase, String operation, int dataSize, int durationMicros,
       {String? error, Map<String, dynamic>? extraData}) {
-    final timestamp = DateTime.now();
-    final logEntry = StringBuffer()
-      ..writeln('\n=== Test Case: $testCase ===')
-      ..writeln('Operation: $operation')
-      ..writeln('Timestamp: $timestamp')
-      ..writeln('Data Size: $dataSize points')
-      ..writeln(
-          'Block Info: ${dataSize ~/ 8192 * 2} blocks of ${8192 * 2} points')
-      ..writeln(
-          'Duration: $durationMicrosµs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
-
-    if (extraData != null) {
-      logEntry.writeln('\nPerformance Metrics:');
-      extraData.forEach((key, value) {
-        logEntry.writeln('  $key: ${value.toStringAsFixed(6)}');
-      });
-    }
-
-    if (error != null) {
-      logEntry.writeln('\nError:');
-      logEntry.writeln('  $error');
-    }
-
-    logEntry.writeln('\n${'=' * 80}\n');
-
     try {
-      logFile.writeAsStringSync(logEntry.toString(), mode: FileMode.append);
+      final logFile = File(LOG_FILE_PATH);
+
+      // Ensure directory exists
+      if (!logFile.parent.existsSync()) {
+        logFile.parent.createSync(recursive: true);
+      }
+
+      // Create file if doesn't exist
+      if (!logFile.existsSync()) {
+        logFile.createSync();
+      }
+
+      final timestamp = DateTime.now();
+      final logEntry = StringBuffer()
+        ..writeln('\n=== Test Case: $testCase ===')
+        ..writeln('Operation: $operation')
+        ..writeln('Timestamp: $timestamp')
+        ..writeln('Data Size: $dataSize points')
+        ..writeln(
+            'Block Info: ${dataSize ~/ 8192 * 2} blocks of ${8192 * 2} points')
+        ..writeln(
+            'Duration: $durationMicrosµs (${(durationMicros / 1000).toStringAsFixed(2)}ms)');
+
+      if (extraData != null) {
+        logEntry.writeln('\nPerformance Metrics:');
+        extraData.forEach((key, value) {
+          logEntry.writeln('  $key: ${value.toStringAsFixed(6)}');
+        });
+      }
+
+      if (error != null) {
+        logEntry.writeln('\nError:');
+        logEntry.writeln('  $error');
+      }
+
+      logEntry.writeln('\n${'=' * 80}\n');
+
+      // Use IOSink for buffered writing
+      final sink = logFile.openWrite(mode: FileMode.append);
+      sink.write(logEntry.toString());
+      // Ensure data is written
+      sink.flush();
+      sink.close();
+
+      if (kDebugMode) {
+        print('Logged entry to file: $LOG_FILE_PATH');
+        print(logEntry.toString());
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error writing to log: $e');
+        print('Attempted to write to: $LOG_FILE_PATH');
       }
     }
   }
@@ -178,17 +204,25 @@ void main() {
 
     // Initialize log file first
     try {
-      logFile = File('test_performance.log');
-      if (!await logFile.exists()) {
-        await logFile.create();
+      final logFile = File(LOG_FILE_PATH);
+      if (!logFile.existsSync()) {
+        if (!logFile.parent.existsSync()) {
+          logFile.parent.createSync(recursive: true);
+        }
+        logFile.createSync();
+        // Write header only once
+        logFile.writeAsStringSync(
+            '=== Performance Test Results ===\n' +
+                'Started at: ${DateTime.now()}\n\n',
+            mode: FileMode.append);
+      }
+      if (kDebugMode) {
+        print('Using log file at $LOG_FILE_PATH');
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error initializing log file: $e');
       }
-      // Create temp file as fallback
-      logFile = File('${Directory.systemTemp.path}/test_performance.log');
-      await logFile.create();
     }
 
     // Rest of setup...
@@ -227,14 +261,18 @@ void main() {
     await fftService.dispose();
     Get.reset();
 
-    // Cleanup log file if needed
-    if (await logFile.exists()) {
-      try {
-        await logFile.delete();
-      } catch (e) {
+    try {
+      final logFile = File(LOG_FILE_PATH);
+      if (logFile.existsSync()) {
+        final content = logFile.readAsStringSync();
         if (kDebugMode) {
-          print('Error cleaning up log file: $e');
+          print('Log file content:');
+          print(content);
         }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error reading log file: $e');
       }
     }
   });

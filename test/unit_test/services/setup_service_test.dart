@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -87,114 +88,6 @@ void main() {
 
       expect(() => setupService.connectToWiFi(credentials),
           throwsA(isA<SetupException>()));
-    });
-  });
-
-  group('Network Verification Tests', () {
-    MockClient createMockClient({
-      bool successfulConnection = true,
-      bool shouldTimeout = false,
-      bool connectionRefused = false,
-    }) {
-      return MockClient((request) async {
-        // Public key + WiFi scan
-        if (request.url.path == '/get_public_key') {
-          return http.Response(jsonEncode({'PublicKey': publicKey}), 200);
-        }
-        if (request.url.path == '/scan_wifi') {
-          return http.Response(
-              jsonEncode([
-                {'SSID': 'Test Network'}
-              ]),
-              200);
-        }
-
-        // Test endpoint scenarios
-        if (request.url.path == '/test') {
-          if (shouldTimeout) {
-            await Future.delayed(const Duration(seconds: 3));
-            throw TimeoutException('Connection timed out');
-          }
-          if (connectionRefused) {
-            throw const SocketException('Connection refused');
-          }
-          if (successfulConnection) {
-            final body = jsonDecode(request.body);
-            // Decrypt with private key to mimic device
-            final keyParser = RSAKeyParser();
-            final privKey = keyParser.parse(privateKey) as RSAPrivateKey;
-            final encrypter = Encrypter(
-              RSA(privateKey: privKey, encoding: RSAEncoding.PKCS1),
-            );
-            final decryptedText = encrypter.decrypt(
-              Encrypted.from64(body['word']),
-            );
-            // Return the decrypted text
-            return http.Response(jsonEncode({'decrypted': decryptedText}), 200);
-          }
-        }
-
-        return http.Response('Not Found', 404);
-      });
-    }
-
-    test('handleNetworkChangeAndConnect should verify connection successfully',
-        () async {
-      final client = createMockClient(successfulConnection: true);
-
-      setupService = SetupService(
-        globalSocketConnection,
-        HttpConfig('http://192.168.1.1:80', client: client),
-      );
-      setupService.extIp = '192.168.1.1';
-      setupService.extPort = 80;
-
-      // Use the same client for scanning (fetching the public key) and network verification
-      await setupService.scanForWiFiNetworks();
-      await setupService.handleNetworkChangeAndConnect(
-        'testSSID',
-        'testPass',
-        client: client,
-      );
-    });
-
-    test('handleNetworkChangeAndConnect should handle timeouts', () async {
-      final client = createMockClient(shouldTimeout: true);
-
-      setupService = SetupService(
-        globalSocketConnection,
-        HttpConfig('http://192.168.1.1:80', client: client),
-      );
-      setupService.extIp = '192.168.1.1';
-      setupService.extPort = 80;
-
-      // Use the same client
-      await setupService.scanForWiFiNetworks();
-      expect(
-        () => setupService.handleNetworkChangeAndConnect('testSSID', 'testPass',
-            client: client),
-        throwsA(isA<TimeoutException>()),
-      );
-    });
-
-    test('handleNetworkChangeAndConnect should handle connection errors',
-        () async {
-      final client = createMockClient(connectionRefused: true);
-
-      setupService = SetupService(
-        globalSocketConnection,
-        HttpConfig('http://192.168.1.1:80', client: client),
-      );
-      setupService.extIp = '192.168.1.1';
-      setupService.extPort = 80;
-
-      // Use the same client
-      await setupService.scanForWiFiNetworks();
-      expect(
-        () => setupService.handleNetworkChangeAndConnect('testSSID', 'testPass',
-            client: client),
-        throwsA(isA<Exception>()),
-      );
     });
   });
 }

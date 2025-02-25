@@ -1,7 +1,9 @@
+import 'package:arg_osci_app/config/app_theme.dart';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/models/unit_format.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/fft_chart_provider.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -41,7 +43,7 @@ class _ChartArea extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Container(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: AppTheme.getChartAreaColor(context),
           child: SizedBox.fromSize(
             size: constraints.biggest,
             child: _ChartGestureHandler(
@@ -72,7 +74,6 @@ class _ChartGestureHandler extends StatelessWidget {
       child: GestureDetector(
         onScaleStart: (_) {
           fftChartProvider.setInitialScales();
-          fftChartProvider.updateDrawingWidth(constraints.biggest, _offsetX);
         },
         onScaleUpdate: _handleScaleUpdate,
         child: Container(
@@ -135,7 +136,10 @@ class _ChartPainter extends StatelessWidget {
     return Obx(() {
       final fftPoints = fftChartProvider.fftPoints.value;
       if (fftPoints.isEmpty) {
-        return const Center(child: Text('No data'));
+        return Center(
+            child: CircularProgressIndicator(
+          color: AppTheme.getLoadingIndicatorColor(context),
+        ));
       }
 
       return CustomPaint(
@@ -146,6 +150,7 @@ class _ChartPainter extends StatelessWidget {
           horizontalOffset: fftChartProvider.horizontalOffset,
           verticalOffset: fftChartProvider.verticalOffset,
           fftChartProvider: fftChartProvider,
+          context: context,
         ),
       );
     });
@@ -164,7 +169,7 @@ class _PlayPauseButton extends StatelessWidget {
           icon: Icon(
             fftChartProvider.isPaused ? Icons.play_arrow : Icons.pause,
           ),
-          color: Colors.black,
+          color: Theme.of(context).iconTheme.color,
           onPressed: () => fftChartProvider.isPaused
               ? fftChartProvider.resume()
               : fftChartProvider.pause(),
@@ -194,7 +199,7 @@ class _ControlButton extends StatelessWidget {
       onLongPressUp: provider.stopIncrementing,
       child: IconButton(
         icon: Icon(icon),
-        color: Colors.black,
+        color: Theme.of(context).iconTheme.color,
         onPressed: null,
       ),
     );
@@ -215,13 +220,20 @@ class _AutosetButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.autorenew),
-      color: Colors.black,
+      color: Theme.of(context).iconTheme.color,
       onPressed: () {
+        // Get current size
         final size = MediaQuery.of(context).size;
-        final fftFrequency = fftChartProvider.frequency.value;
-        // Use FFT frequency, fallback to graph provider if 0
-        final freqToUse =
-            fftFrequency > 0 ? fftFrequency : graphProvider.frequency.value;
+
+        // Get frequency from FFT, fallback to graph provider
+        final freqToUse = fftChartProvider.frequency.value > 0
+            ? fftChartProvider.frequency.value
+            : graphProvider.frequency.value;
+
+        if (kDebugMode) {
+          print("Autoset using frequency: $freqToUse Hz");
+        }
+
         fftChartProvider.autoset(size, freqToUse);
       },
     );
@@ -280,7 +292,7 @@ class _ControlPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: AppTheme.getControlPanelColor(context),
       constraints: const BoxConstraints(maxHeight: 48.0),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -349,6 +361,7 @@ class FFTChartPainter extends CustomPainter {
   final double horizontalOffset;
   final double verticalOffset;
   final FFTChartProvider fftChartProvider;
+  final BuildContext context; // Add this line
 
   FFTChartPainter({
     required this.fftPoints,
@@ -357,6 +370,7 @@ class FFTChartPainter extends CustomPainter {
     required this.horizontalOffset,
     required this.verticalOffset,
     required this.fftChartProvider,
+    required this.context, // Add this line
   });
 
   @override
@@ -375,15 +389,13 @@ class FFTChartPainter extends CustomPainter {
       size.height - offsetY - sqrOffsetBot,
     );
 
-    final bgPaint = Paint()..color = Colors.white;
-    final paint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 2
+    final bgPaint = Paint()..color = AppTheme.getFFTBackgroundColor(context);
+    final paint = AppTheme.getFFTDataPaint(context)
       ..style = PaintingStyle.stroke;
 
-    final gridPaint = Paint()
-      ..color = Colors.grey
-      ..strokeWidth = 0.5;
+    final gridPaint = AppTheme.getFFTGridPaint(context);
+
+    final borderPaint = AppTheme.getFFTBorderPaint(context);
 
     canvas.drawRect(chartArea, bgPaint);
 
@@ -437,7 +449,8 @@ class FFTChartPainter extends CustomPainter {
         // Draw frequency label
         textPainter.text = TextSpan(
           text: UnitFormat.formatWithUnit(freq, 'Hz'),
-          style: const TextStyle(color: Colors.black, fontSize: 8.5),
+          style:
+              TextStyle(color: AppTheme.getTextColor(context), fontSize: 8.5),
         );
         textPainter.layout();
 
@@ -465,7 +478,7 @@ class FFTChartPainter extends CustomPainter {
 
       textPainter.text = TextSpan(
         text: "${yValue.toStringAsFixed(1)} dBV",
-        style: const TextStyle(color: Colors.black, fontSize: 9),
+        style: TextStyle(color: AppTheme.getTextColor(context), fontSize: 9),
       );
       textPainter.layout();
       textPainter.paint(
@@ -504,10 +517,7 @@ class FFTChartPainter extends CustomPainter {
     // Draw the border
     canvas.drawRect(
       chartArea,
-      Paint()
-        ..color = Colors.black
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke,
+      borderPaint,
     );
   }
 

@@ -41,6 +41,7 @@ dependencies:
   meta: ^1.15.0
   wifi_iot: ^0.3.19+1
   vector_math: ^2.1.4
+  scidart: ^0.0.2-dev.12
 
 
 

@@ -65,19 +65,17 @@ class DataAcquisitionProvider extends GetxController {
       maxValue.value = max;
     });
 
+    deviceConfig.listen((config) {
+      if (config != null) {
+        // Re-apply current voltage scale when config changes
+        setVoltageScale(currentVoltageScale.value);
+      }
+    });
+
     // Observe changes in socket connection
     ever(socketConnection.ip, (_) => restartDataAcquisition());
     ever(socketConnection.port, (_) => restartDataAcquisition());
-    deviceConfig.listen((config) {
-      if (config != null) {
-        samplingFrequency.value = config.samplingFrequency;
-        distance.value = 1 / config.samplingFrequency;
-        // Update cutoff frequency when sampling frequency changes
-        if (currentFilter.value is LowPassFilter) {
-          setCutoffFrequency(config.samplingFrequency / 2);
-        }
-      }
-    });
+
     // Sync initial values
     triggerLevel.value = dataAcquisitionService.triggerLevel;
     triggerEdge.value = dataAcquisitionService.triggerEdge;

@@ -58,11 +58,6 @@ class FFTChartProvider extends GetxController {
     _initialValueScale = valueScale.value;
   }
 
-  /// Updates the drawing width of the chart area.
-  void updateDrawingWidth(Size size, double offsetX) {
-    _drawingWidth = (size.width - offsetX).clamp(0, double.maxFinite);
-  }
-
   /// Limitamos "zoom out" a 1.0, permitimos zoom in (< 1.0).
   void setTimeScale(double scale) {
     if (scale > 1.0) {
@@ -153,14 +148,41 @@ class FFTChartProvider extends GetxController {
 
   /// Automatically adjusts the time scale based on the frequency and chart size.
   void autoset(Size size, double freq) {
-    final useFreq = freq > 0 ? freq / 7 : 1;
-    updateDrawingWidth(size, 50);
-    final newScale =
-        (_drawingWidth <= 0) ? 1.0 : max(1e-3, _drawingWidth / useFreq);
-    final clampedScale = min(newScale, 1.0);
+    // Guard against invalid frequency or size
+    if (freq <= 0 || size.width <= 0) {
+      resetScales();
+      return;
+    }
+
+    // Skip updating drawing width since it's not used
+    // updateDrawingWidth(size, _offsetX);
+
+    // Calculate optimal scale to show roughly 7 periods
+    final targetFreq = freq * 10; // Show 7x the fundamental frequency
+    final nyquistFreq = samplingFrequency / 2;
+
+    // Calculate what portion of nyquist frequency we want to show
+    final desiredScale = targetFreq / nyquistFreq;
+
+    // Clamp the scale between 0.001 and 1.0
+    final clampedScale = desiredScale.clamp(0.001, 1.0);
+
+    if (kDebugMode) {
+      print("Auto-set calculation:");
+      print("Target frequency: $targetFreq Hz");
+      print("Nyquist frequency: $nyquistFreq Hz");
+      print("Desired scale: $desiredScale");
+      print("Clamped scale: $clampedScale");
+    }
+
+    // Apply the new scales
     timeScale.value = clampedScale;
     valueScale.value = 1.0;
-    resetOffsets();
+
+    // Center the view on the frequency of interest
+    final centerOffset = freq - ((nyquistFreq * clampedScale) / 2);
+    setHorizontalOffset(
+        centerOffset.clamp(0.0, nyquistFreq - (nyquistFreq * clampedScale)));
   }
 
   /// Invertimos increment/decrement para que "increment" haga zoom-in (scale disminuye)

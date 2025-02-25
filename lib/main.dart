@@ -45,7 +45,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'ARG_OSCI',
-      theme: appTheme,
+      theme: AppTheme.lightTheme, // Set the default theme here
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light, // Use system theme by default
       home: SetupScreen(),
       getPages: [
         GetPage(name: '/', page: () => SetupScreen()),

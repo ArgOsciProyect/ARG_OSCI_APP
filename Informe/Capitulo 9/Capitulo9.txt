@@ -1,0 +1,93 @@
+## Capítulo 9: Visualización y Control del Osciloscopio
+
+Este capítulo continúa el análisis del procesamiento de datos, enfocándose en la visualización de la señal en el osciloscopio. Tras la decodificación, el sistema de triggers y el filtrado, los datos se preparan para su representación gráfica. Este capítulo se centra en cómo los datos procesados se adaptan para su visualización en la pantalla del osciloscopio y cómo el usuario interactúa con la visualización a través de los controles.
+
+### 9.1 Recepción y Transformación de Datos para la Visualización
+
+Esta sección describe cómo el osciloscopio recibe los datos procesados y las transformaciones que aplica para su visualización, asegurando que la señal se presente de manera clara y precisa.
+
+#### 9.1.1 Recepción de Datos
+
+El osciloscopio recibe los datos procesados desde el sistema de adquisición a través de un servicio especializado en la gestión de la visualización del gráfico. El sistema de adquisición es responsable de adquirir los datos sin procesar, aplicar los filtros configurados por el usuario y detectar los triggers. El servicio de visualización se suscribe al flujo de datos proporcionado por el sistema de adquisición. Este patrón, basado en la idea de observar un flujo de datos, permite desacoplar la adquisición de datos de su visualización, permitiendo que cada componente evolucione independientemente. El servicio de visualización recibe los datos a través de un flujo continuo y los emite a su propio flujo, que es consumido por el componente encargado de proveer los datos al gráfico. Es importante destacar que el servicio de visualización también controla el flujo de datos, pausando y reanudando el flujo según el estado de pausa del osciloscopio. Esto permite detener la visualización sin interrumpir la adquisición de datos.
+
+El componente encargado de proveer los datos al gráfico gestiona el estado de la visualización, incluyendo la escala de tiempo, la escala de voltaje y los offsets horizontal y vertical. Al recibir nuevos datos, este componente actualiza su lista interna de puntos de datos, lo que dispara una actualización automática en la interfaz de usuario. Esta actualización reactiva asegura que la visualización siempre refleje el estado actual de los datos y los controles.
+
+#### 9.1.2 Transformaciones para la Visualización
+
+Antes de ser graficados, los datos se transforman para adaptarse a la escala visual del osciloscopio. Esto implica convertir las coordenadas del dominio de los datos (tiempo y voltaje) a coordenadas de pantalla, que se utilizan para dibujar la señal en el canvas.
+
+Las funciones encargadas de realizar estas conversiones tienen en cuenta la escala de tiempo, la escala de voltaje, los offsets horizontal y vertical, y las dimensiones del área de dibujo.
+
+La escala de tiempo y la escala de voltaje determinan la cantidad de tiempo y voltaje que se representan por unidad de píxel en la pantalla. Los offsets horizontal y vertical permiten desplazar la señal en la pantalla, lo que resulta útil para examinar diferentes partes de la señal.
+
+El método que gestiona el zoom permite al usuario modificar las escalas y los offsets mediante gestos táctiles (pinch-to-zoom) o con la rueda del mouse. Al usar la rueda del mouse, se puede hacer zoom horizontal (escala de tiempo) manteniendo presionada la tecla Control, o zoom vertical (escala de voltaje) manteniendo presionada la tecla Shift. El sistema detecta el estado de estas teclas. Este método calcula nuevos valores para la escala de tiempo, la escala de voltaje, el offset horizontal y el offset vertical, manteniendo el punto focal del gesto en la misma posición en la pantalla. Para lograr esto, se calcula la coordenada en el dominio de los datos del punto donde el usuario está haciendo zoom, y luego se recalcula la posición de la señal para que ese punto se mantenga en la misma posición en la pantalla. Además, se aplican restricciones para evitar que el usuario haga zoom out excesivamente, asegurando que la señal siempre ocupe al menos el 100% del ancho visible. Esta restricción se implementa verificando que el ancho de la señal escalada sea mayor o igual que el ancho del área de dibujo.
+
+El uso de un sistema de gestión de estado facilita la actualización de la interfaz de usuario cuando cambian los datos o la configuración del osciloscopio. Las variables reactivas permiten que los widgets se reconstruyan automáticamente cuando cambian los valores que están observando. La estructura de carpetas, siguiendo un patrón "por característica", agrupa los archivos relacionados con la visualización del osciloscopio en un mismo directorio, facilitando la navegación y el mantenimiento del código. Este enfoque modular promueve la cohesión y reduce el acoplamiento entre los diferentes componentes del sistema.
+
+### 9.2 Implementación del Graficador
+
+Esta sección describe la implementación del graficador del osciloscopio, detallando cómo se utilizan los datos transformados para generar la representación visual de la señal.
+
+#### 9.2.1 Arquitectura del Graficador
+
+El graficador se implementa como un widget personalizado que utiliza el sistema de dibujo Canvas para representar la señal. La arquitectura se basa en una clara separación de responsabilidades, donde un widget maneja la gestión del estado y la reconstrucción cuando los datos cambian, mientras que una clase se encarga exclusivamente del dibujo en el canvas. Esta separación permite modificar la lógica de visualización sin afectar la gestión del estado.
+
+La implementación incluye soporte completo para tema claro y oscuro mediante una clase que gestiona la apariencia visual adaptando automáticamente los colores de todos los elementos gráficos - incluyendo la señal, la grilla, los ejes y las etiquetas - según el tema activo del sistema. En el modo claro, la señal se dibuja en azul sobre fondo blanco con una grilla gris clara, mientras que en modo oscuro se utiliza amarillo sobre fondo negro con una grilla gris oscura. La línea de referencia cero cambia de rojo a verde azulado según el tema. Esta clase centraliza la definición de estilos, lo que facilita la consistencia visual y el mantenimiento del tema. Los colores se actualizan dinámicamente utilizando el brillo del tema actual para determinar el tema actual y seleccionar los colores correspondientes.
+
+#### 9.2.2 Sistema de Dibujo y Renderizado
+
+El método que implementa la lógica central de renderizado comienza obteniendo las dimensiones del área de dibujo y calculando el punto central del gráfico. Se inicializan los objetos que definen los estilos visuales, incluyendo colores, grosores de línea y estilos de trazo para cada elemento gráfico.
+
+El dibujo del fondo establece el espacio de trabajo visual. Se crean tres áreas diferenciadas: el área de etiquetas del eje Y a la izquierda, el área de etiquetas del eje X en la parte inferior, y el área principal de graficación. Esta última se delimita con un borde que proporciona una clara separación visual.
+
+La grilla se dibuja utilizando un sistema de coordenadas adaptativo que ajusta dinámicamente el espaciado y las etiquetas según los niveles de zoom. Para el eje Y, se calculan las divisiones basándose en el rango visible de voltaje, mientras que para el eje X se utiliza el rango temporal visible. Las etiquetas se formatean utilizando una clase que aplica los prefijos métricos apropiados (mV, μs, etc).
+
+La línea de referencia cero representa un elemento crucial para la interpretación de la señal. Se dibuja como una línea horizontal que atraviesa el punto donde el voltaje es cero, proporcionando una referencia visual inmediata para determinar la polaridad de la señal. Esta línea mantiene su posición relativa durante las operaciones de zoom y desplazamiento vertical, sirviendo como punto de referencia constante.
+
+El trazado de la señal implementa un algoritmo de optimización que minimiza la cantidad de operaciones de dibujo. Para cada par de puntos consecutivos, se calculan sus coordenadas en el espacio de pantalla utilizando las transformaciones definidas por las funciones que convierten entre el dominio de los datos (tiempo/voltaje) y las coordenadas de píxeles, aplicando las transformaciones de escala y desplazamiento correspondientes.
+
+El sistema implementa un algoritmo de clipping que determina qué segmentos de la señal son visibles en el área de visualización. Una función verifica si una línea está completamente fuera del área visible para evitar dibujarla por completo. Cuando una línea intersecta los límites del área visible, una función calcula el punto exacto de intersección y ajusta las coordenadas para evitar dibujar fuera del área permitida. Esta optimización reduce significativamente la carga de renderizado al evitar operaciones de dibujo innecesarias. La función calcula el punto de intersección entre la línea y los bordes del área visible utilizando la ecuación de la recta. Se calcula la pendiente de la línea y se utiliza para determinar el nuevo punto de intersección en el borde del área visible.
+
+#### 9.2.3 Sistema de Coordenadas y Transformaciones
+
+El sistema de coordenadas implementa una serie de transformaciones bidireccionales entre el espacio de los datos y el espacio de la pantalla. Las funciones que convierten entre coordenadas de pantalla y coordenadas del dominio de los datos gestionan estas transformaciones, manteniendo la coherencia visual durante las operaciones de zoom y desplazamiento.
+
+La transformación de coordenadas X considera la escala temporal, el offset horizontal y el ancho disponible para dibujo. La escala temporal determina cuántas unidades de tiempo corresponden a cada píxel en pantalla, mientras que el offset horizontal permite desplazar la señal lateralmente. El sistema implementa restricciones que impiden el zoom out excesivo en modo normal, asegurando que la señal siempre ocupe al menos el ancho completo del área visible. El offset horizontal se limita mediante una función para evitar que la señal se desplace completamente fuera del área visible. Esta función calcula los límites del offset horizontal basándose en el ancho de la señal escalada y el ancho del área de dibujo. Si el ancho de la señal escalada es menor que el ancho del área de dibujo, el offset se limita a cero, centrando la señal en el área de dibujo. Si el ancho de la señal escalada es mayor que el ancho del área de dibujo, el offset se limita para que la señal no se desplace completamente fuera del área visible.
+
+Para las coordenadas Y, la transformación considera la escala de voltaje, el offset vertical y la altura del área de dibujo. El origen Y se ubica en el centro vertical del área, con voltajes positivos hacia arriba y negativos hacia abajo. La escala de voltaje determina cuántos voltios corresponden a cada píxel en pantalla, mientras que el offset vertical permite desplazar la señal verticalmente.
+
+Este sistema de transformaciones mantiene la coherencia visual durante todas las operaciones de interacción, asegurando que la relación entre los datos y su representación visual se preserve incluso durante cambios dinámicos en la escala o posición de la señal.
+
+### 9.3 Implementación de los Controles del Osciloscopio
+
+Esta sección describe la implementación de los controles del osciloscopio, detallando cómo el usuario interactúa con la visualización y cómo estas interacciones se traducen en cambios en la presentación de la señal.
+
+#### 9.3.1 Arquitectura de los Controles
+
+Los controles del osciloscopio se implementan como widgets que interactúan con componentes que gestionan el estado de la visualización y la adquisición de datos. Estos componentes actúan como intermediarios, gestionando el estado de la visualización y la adquisición de datos, respectivamente. El componente de visualización gestiona el estado de la visualización, incluyendo la escala de tiempo, la escala de voltaje y los offsets horizontal y vertical. El componente de adquisición gestiona el estado de la adquisición de datos, incluyendo la frecuencia de muestreo, el nivel de trigger y el tipo de filtro. La interfaz de usuario se construye utilizando widgets como botones, sliders, dropdowns y campos de texto, que permiten al usuario ajustar diferentes parámetros del osciloscopio. Además de los controles en pantalla, el usuario puede interactuar directamente con el gráfico mediante gestos táctiles, como pellizcar para hacer zoom y arrastrar para desplazar la señal. Un sistema de gestión de estado se utiliza para reconstruir la interfaz de usuario de forma eficiente cuando cambian los valores de las variables reactivas en los componentes.
+
+La arquitectura de los controles se basa en el principio de separación de responsabilidades, donde cada control se encarga de una función específica. Los controles se agrupan en paneles lógicos, como el panel de escala y el panel de offset, para facilitar la navegación y el uso. Esta organización modular facilita la extensibilidad y el mantenimiento del código. El uso del patrón Observer en la comunicación entre los componentes y los widgets permite que la interfaz de usuario se actualice de forma eficiente cuando cambian los datos o la configuración del osciloscopio. Los widgets observan las variables reactivas en los componentes y se reconstruyen automáticamente cuando cambian los valores.
+
+#### 9.3.2 Controles de Escala
+
+Los controles de escala permiten al usuario ajustar la escala de tiempo y la escala de voltaje de la visualización. Estos controles se implementan utilizando botones que incrementan o decrementan la escala en un factor predefinido. Adicionalmente, el usuario puede utilizar gestos de pellizco (pinch-to-zoom) directamente sobre el área del gráfico para ajustar la escala de tiempo y voltaje de forma continua. También se puede utilizar la rueda del mouse para hacer zoom, manteniendo presionada la tecla Control para zoom horizontal (escala de tiempo) o la tecla Shift para zoom vertical (escala de voltaje). El sistema detecta cuando estas teclas están presionadas.
+
+La escala de tiempo se ajusta mediante los botones de incremento y decremento, que modifican el valor de la propiedad de escala de tiempo. Al aumentar la escala de tiempo, se reduce el intervalo temporal visible, permitiendo un examen más detallado de la señal. Al disminuir la escala de tiempo, se aumenta el intervalo temporal visible, permitiendo visualizar la señal en un contexto más amplio.
+
+De forma similar, la escala de voltaje se ajusta mediante botones que modifican la propiedad de escala de voltaje. Aumentar la escala de voltaje reduce el rango de voltaje visible, permitiendo examinar señales de menor amplitud con mayor detalle. Disminuir la escala de voltaje aumenta el rango de voltaje visible, permitiendo visualizar señales de mayor amplitud.
+
+La implementación de los gestos táctiles se realiza mediante un widget que detecta los gestos de pellizco y arrastre sobre el área del gráfico. Los métodos que gestionan los gestos de pellizco actualizan las propiedades correspondientes para modificar la escala y el offset de la visualización. El uso de variables reactivas permite que la interfaz de usuario se actualice automáticamente cuando cambian los valores de los controles, tanto los controles en pantalla como los gestos táctiles.
+
+#### 9.3.3 Controles de Offset y Desplazamiento
+
+Los controles de offset permiten al usuario desplazar la señal horizontal y verticalmente en la pantalla. Estos controles se implementan utilizando botones que incrementan o decrementan el offset en una cantidad predefinida. Además de los botones, el usuario puede arrastrar la señal directamente sobre el área del gráfico para ajustar el offset horizontal y vertical de forma intuitiva. Los valores de offset se actualizan mediante funciones que reciben un valor de offset normalizado (entre 0 y 1) y lo utilizan para calcular el desplazamiento real en píxeles. La función que gestiona el offset horizontal limita el offset horizontal para evitar que la señal se desplace completamente fuera del área visible. La función que gestiona el offset vertical no tiene restricciones, permitiendo desplazar la señal verticalmente sin límites.
+
+### 9.4 Funcionalidad de Autoset
+
+La funcionalidad de Autoset ajusta automáticamente las escalas de tiempo y voltaje para mostrar la señal de manera óptima. Al presionar el botón de Autoset, el sistema analiza los datos adquiridos y determina los valores de escala que mejor se adaptan a la señal.
+
+El proceso de Autoset se inicia en el widget correspondiente, que llama al método que gestiona el Autoset. Este método delega el cálculo de las escalas óptimas a un servicio especializado en la adquisición de datos. Este servicio analiza los datos para determinar el rango de voltaje y el período de la señal. Utilizando esta información, calcula los valores de escala de tiempo y voltaje que permitirán visualizar la señal de manera completa y legible.
+
+Una vez calculados los valores de escala, el servicio los envía al componente encargado de proveer los datos al gráfico, que actualiza las propiedades de escala de tiempo y voltaje. Estas propiedades son reactivas, por lo que la interfaz de usuario se actualiza automáticamente para reflejar los nuevos valores de escala.
+
+El Autoset también afecta el nivel de trigger. Después de ajustar las escalas, el sistema recalcula el nivel de trigger para asegurar que la señal se dispare correctamente. El nuevo nivel de trigger se calcula basándose en el rango de voltaje actual y se actualiza en el componente de adquisición de datos.

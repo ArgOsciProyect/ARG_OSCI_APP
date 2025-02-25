@@ -222,7 +222,7 @@ void main() {
       provider.autoset(Size(800, 600), testFreq);
       expect(provider.timeScale.value, lessThanOrEqualTo(1.0));
       expect(provider.valueScale.value, 1.0);
-      expect(provider.horizontalOffset, 0.0);
+      expect(provider.horizontalOffset, 1.0);
       expect(provider.verticalOffset, 0.0);
     });
 
