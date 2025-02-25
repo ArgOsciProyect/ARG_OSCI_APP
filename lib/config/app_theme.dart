@@ -74,7 +74,7 @@ class AppTheme {
   static Paint getZeroPaint(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Paint()
-      ..color = isDark ? Colors.greenAccent : Colors.red
+      ..color = isDark ? const Color.fromARGB(255, 87, 202, 255) : Colors.red
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
   }
