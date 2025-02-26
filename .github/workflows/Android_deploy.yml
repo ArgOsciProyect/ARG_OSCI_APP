@@ -46,12 +46,38 @@ jobs:
         
       - name: 🔧 Setup Android SDK
         run: flutter config --android-sdk $ANDROID_SDK_ROOT
-
+      
+      # Add these new steps here
+      - name: 🎯 Setup Flutter icons
+        run: |
+          # Add flutter_launcher_icons package
+          flutter pub add --dev flutter_launcher_icons
+          
+          # Create config file for flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml << EOF
+          flutter_launcher_icons:
+            android: true
+            ios: false
+            image_path: "lib/assets/icons/ARG_OSCI_ICON.png"
+            adaptive_icon_background: "#121212" # Dark background for the icon
+            adaptive_icon_foreground: "lib/assets/icons/ARG_OSCI_ICON.png"
+          EOF
+          
+          # Generate icons
+          flutter pub run flutter_launcher_icons
+      
+      - name: 🔧 Update Android Manifest
+        run: |
+          # Make sure app has a proper label in AndroidManifest.xml
+          if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+            sed -i 's/android:label="[^"]*"/android:label="ARG OSCI"/' android/app/src/main/AndroidManifest.xml
+          fi
+      
+      # Then continue with your existing steps
       - name: 🔧 Build debug APK (initial)
         run: |
           # Add --no-tree-shake-icons to avoid potential issues
-          flutter build apk --debug --no-tree-shake-icons || echo "Initial build expected to fail, continuing..."
-          
+          flutter build apk --debug --no-tree-shake-icons || echo "Initial build expected to fail, continuing..."         
           # Make sure gradlew is executable if it exists
           if [ -f "android/gradlew" ]; then
             chmod +x android/gradlew
