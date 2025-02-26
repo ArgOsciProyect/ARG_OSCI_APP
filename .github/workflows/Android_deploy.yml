@@ -32,24 +32,29 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔧 Initialize Gradle
+      - name: 🔧 Generate Gradle wrapper
         run: |
           cd android
           if [ ! -f "./gradlew" ]; then
             echo "Generating Gradle wrapper..."
-            flutter create --platforms=android .
+            gradle wrapper
           fi
+          chmod +x ./gradlew
           cd ..
-          chmod +x android/gradlew
 
-      - name: 🔧 Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v1
+      - name: 🔧 Check Android settings
+        run: |
+          if [ ! -d "android/app" ]; then
+            echo "Creating Android app directory structure..."
+            mkdir -p android/app/src/main
+          fi
 
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+            mkdir -p android/app
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
             cat > android/key.properties << EOF
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}

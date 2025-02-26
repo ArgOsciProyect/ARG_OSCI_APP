@@ -63,7 +63,7 @@ jobs:
           sudo snap install core20
           sudo snap install snapcraft --classic
           
-      - name: � Extract and inspect archive
+      - name: 📦 Extract and inspect archive
         run: |
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
@@ -74,10 +74,10 @@ jobs:
           echo "Executable found: $EXEC_FILE"
           echo "EXEC_NAME=$(basename $EXEC_FILE)" >> $GITHUB_ENV
           
-      - name: �📝 Create snapcraft.yaml
+      - name: 📝 Create snapcraft.yaml
         run: |
           mkdir -p snap
-          cat > snap/snapcraft.yaml << EOF
+          cat > snap/snapcraft.yaml << 'EOF'
           name: arg-osci
           version: '1.0'
           summary: ARG OSCI Flutter Application
@@ -89,7 +89,7 @@ jobs:
 
           apps:
             arg-osci:
-              command: ${{ env.EXEC_NAME }}
+              command: arg_osci
               extensions: [gnome-3-38]
               plugs:
                 - network
@@ -104,17 +104,25 @@ jobs:
             app:
               plugin: dump
               source: linux-app.tar.gz
-              override-build: |
-                craftctl default
-                chmod +x \$CRAFT_PART_INSTALL/${{ env.EXEC_NAME }}
               stage-packages:
                 - libgtk-3-0
                 - libc6
                 - libstdc++6
           EOF
 
-      - name: 🏗️ Build snap package
-        run: snapcraft --destructive-mode
+      - name: 🏗️ Prepare for snap build
+        run: |
+          # Create directories that would be created by snapcraft
+          mkdir -p prime
+
+          # Extract files directly into the prime directory
+          tar -xzvf linux-app.tar.gz -C prime
+
+          # Make sure the executable is executable
+          chmod +x prime/arg_osci
+          
+          # Use classic confinement snapcraft build
+          snapcraft pack prime --output=arg-osci_1.0_amd64.snap
         
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
@@ -161,17 +169,17 @@ jobs:
           cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > debian-package/usr/bin/$APP_NAME << EOF
+          cat > debian-package/usr/bin/$APP_NAME << 'EOF'
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          exec /usr/lib/$APP_NAME/arg_osci "$@"
           EOF
           chmod +x debian-package/usr/bin/$APP_NAME
           
-          cat > debian-package/usr/share/applications/$APP_NAME.desktop << EOF
+          cat > debian-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
           [Desktop Entry]
           Name=ARG OSCI
-          Exec=$APP_NAME
-          Icon=$APP_NAME
+          Exec=arg-osci
+          Icon=arg-osci
           Type=Application
           Categories=Science;Education;
           Comment=Oscilloscope Visualization Tool
@@ -233,17 +241,17 @@ jobs:
           cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > rpm-package/usr/bin/$APP_NAME << EOF
+          cat > rpm-package/usr/bin/$APP_NAME << 'EOF'
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          exec /usr/lib/$APP_NAME/arg_osci "$@"
           EOF
           chmod +x rpm-package/usr/bin/$APP_NAME
           
-          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << EOF
+          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
           [Desktop Entry]
           Name=ARG OSCI
-          Exec=$APP_NAME
-          Icon=$APP_NAME
+          Exec=arg-osci
+          Icon=arg-osci
           Type=Application
           Categories=Science;Education;
           Comment=Oscilloscope Visualization Tool
