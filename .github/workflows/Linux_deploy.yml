@@ -8,6 +8,10 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build-linux:
     name: 🐧 Build Linux App
@@ -288,9 +292,11 @@ jobs:
 
   create-release:
     name: 📦 Create Release
-    needs: [appimage-package, deb-package, rpm-package]  # Updated dependencies
+    needs: [appimage-package, deb-package, rpm-package]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Only contents permission needed for releases
     steps:
       - name: 📥 Download all packages
         uses: actions/download-artifact@v4
@@ -304,5 +310,6 @@ jobs:
             packages/appimage-package/*.AppImage
             packages/deb-package/*.deb
             packages/rpm-package/*.rpm
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

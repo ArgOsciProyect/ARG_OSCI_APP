@@ -8,6 +8,11 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write
+  packages: write
+
+
 jobs:
   build-windows:
     name: 🖥️ Build Windows App
@@ -69,16 +74,21 @@ jobs:
     needs: [build-windows]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    # Add specific permissions for release job
+    permissions:
+      contents: write
     steps:
       - name: 📥 Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: releases
 
-      - name: � Create Release
+      - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             releases/windows-release/windows-release.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
