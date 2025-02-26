@@ -22,46 +22,53 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔧 Initialize Android project
-        run: |
-          cd android
-          if [ ! -f "gradlew" ]; then
-            gradle wrapper
-          fi
-          cd ..
-          chmod +x android/gradlew
+      - name: 🔧 Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
+      - name: 🔧 Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
 
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-            echo "storeFile=keystore.jks" >> android/key.properties
+            cat << EOF > android/key.properties
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
           fi
 
       - name: 📱 Build Debug APK
         if: github.event_name != 'release'
         run: flutter build apk --debug
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
 
       - name: 📱 Build Release APK
-        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
         run: flutter build apk --release
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
 
       - name: 📱 Build App Bundle
-        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
         run: flutter build appbundle --release
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_17_X64 }}
 
       - name: 📤 Upload Debug APK
         if: github.event_name != 'release'
@@ -71,7 +78,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
 
       - name: 📤 Upload Release Artifacts
-        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
         uses: actions/upload-artifact@v4
         with:
           name: android-release

@@ -1,5 +1,4 @@
 name: Linux Build
-description: "Linux build pipeline for ARG OSCI"
 
 on:
   push:
@@ -71,11 +70,9 @@ jobs:
           summary: ARG OSCI Flutter Application
           description: |
             ARG OSCI Flutter application for oscilloscope visualization
-
           grade: stable
           confinement: strict
           base: core20
-
           apps:
             arg-osci:
               command: bin/arg_osci
@@ -86,7 +83,6 @@ jobs:
                 - desktop-legacy
                 - wayland
                 - x11
-
           parts:
             app:
               source: linux-app.tar.gz
@@ -97,7 +93,7 @@ jobs:
                 - -opt/arg-osci/lib/*.a
                 - opt/arg-osci/**
           EOF
-          
+
       - name: 🏗️ Build snap package
         run: snapcraft --destructive-mode
         
@@ -142,21 +138,21 @@ jobs:
           cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > debian-package/usr/bin/$APP_NAME << EOL
-#!/bin/bash
-exec /usr/lib/$APP_NAME/arg_osci "\$@"
-EOL
+          cat > debian-package/usr/bin/$APP_NAME << 'EOF'
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/arg_osci "$@"
+          EOF
           chmod +x debian-package/usr/bin/$APP_NAME
           
-          cat > debian-package/usr/share/applications/$APP_NAME.desktop << EOL
-[Desktop Entry]
-Name=ARG OSCI
-Exec=$APP_NAME
-Icon=$APP_NAME
-Type=Application
-Categories=Science;Education;
-Comment=Oscilloscope Visualization Tool
-EOL
+          cat > debian-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
+          EOF
           
           fpm -s dir -t deb -C debian-package \
             --name $APP_NAME \
@@ -208,21 +204,21 @@ EOL
           cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > rpm-package/usr/bin/$APP_NAME << EOL
-#!/bin/bash
-exec /usr/lib/$APP_NAME/arg_osci "\$@"
-EOL
+          cat > rpm-package/usr/bin/$APP_NAME << 'EOF'
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/arg_osci "$@"
+          EOF
           chmod +x rpm-package/usr/bin/$APP_NAME
           
-          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << EOL
-[Desktop Entry]
-Name=ARG OSCI
-Exec=$APP_NAME
-Icon=$APP_NAME
-Type=Application
-Categories=Science;Education;
-Comment=Oscilloscope Visualization Tool
-EOL
+          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
+          EOF
           
           fpm -s dir -t rpm -C rpm-package \
             --name $APP_NAME \
