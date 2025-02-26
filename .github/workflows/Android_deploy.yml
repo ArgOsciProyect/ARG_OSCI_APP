@@ -21,14 +21,12 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.4'
           channel: 'stable'
-          cache: true
 
       - name: 📥 Get dependencies
         run: flutter pub get
@@ -47,7 +45,6 @@ jobs:
       - name: 🔧 Setup Android SDK
         run: flutter config --android-sdk $ANDROID_SDK_ROOT
       
-      # Add these new steps here
       - name: 🎯 Setup Flutter icons
         run: |
           # Add flutter_launcher_icons package
@@ -89,7 +86,6 @@ jobs:
           echo "Debug AndroidManifest.xml:"
           cat android/app/src/debug/AndroidManifest.xml || echo "Debug manifest not found"
       
-      # Then continue with your existing steps
       - name: 🔧 Build debug APK (initial)
         run: |
           # Add --no-tree-shake-icons to avoid potential issues
@@ -149,29 +145,40 @@ jobs:
   create-release:
     name: 📦 Create Release
     needs: build-android
-    if: github.event_name == 'release'
+    # Stricter condition to ensure this only runs for actual releases
+    if: github.event_name == 'release' && github.event.action == 'created'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: 📥 Download artifacts
+      - name: 📥 Download debug artifact
+        if: github.event_name == 'release' && env.HAS_KEYSTORE != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: debug-apk
+          path: release-artifacts
+          
+      - name: 📥 Download release artifact
+        if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
         uses: actions/download-artifact@v4
         with:
           name: android-release
-          path: . # Download to current directory
+          path: release-artifacts
       
       - name: 📝 List downloaded files
         shell: bash
         run: |
-          echo "Downloaded files:"
-          ls -R || echo "No files found" # List files in current directory
+          echo "Current directory content:"
+          ls -la
+          echo "Downloaded files in release-artifacts:"
+          ls -la release-artifacts || echo "No files found"
       
       - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            app-release.apk
-            app-release.aab
+            release-artifacts/*.apk
+            release-artifacts/*.aab
           fail_on_unmatched_files: false
           generate_release_notes: true
         env:
