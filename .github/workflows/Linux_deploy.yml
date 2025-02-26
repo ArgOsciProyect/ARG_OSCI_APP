@@ -91,7 +91,7 @@ jobs:
           description: |
             ARG OSCI Flutter application for oscilloscope visualization
           grade: stable
-          confinement: classic
+          confinement: strict  # Changed from classic to strict
           base: core20
           
           apps:
@@ -106,6 +106,8 @@ jobs:
                 - x11
                 - home
                 - removable-media
+                - hardware-observe
+                - serial-port  # For oscilloscope USB connectivity
           
           parts:
             app:
