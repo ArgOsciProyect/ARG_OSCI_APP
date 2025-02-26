@@ -68,10 +68,26 @@ jobs:
       
       - name: 🔧 Update Android Manifest
         run: |
-          # Make sure app has a proper label in AndroidManifest.xml
+          # Add tools namespace and replace attribute to main AndroidManifest.xml
           if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
-            sed -i 's/android:label="[^"]*"/android:label="ARG OSCI"/' android/app/src/main/AndroidManifest.xml
+            # Add tools namespace if not present
+            sed -i '/<manifest/s/xmlns:android="[^"]*"/& xmlns:tools="http:\/\/schemas.android.com\/tools"/' android/app/src/main/AndroidManifest.xml
+            
+            # Add tools:replace to application tag
+            sed -i '/<application/s/android:label="[^"]*"/android:label="ARG OSCI" tools:replace="android:label"/' android/app/src/main/AndroidManifest.xml
           fi
+          
+          # Update debug AndroidManifest.xml if it exists
+          if [ -f "android/app/src/debug/AndroidManifest.xml" ]; then
+            # Remove android:label from debug manifest to avoid conflicts
+            sed -i '/<application/s/android:label="[^"]*"//' android/app/src/debug/AndroidManifest.xml
+          fi
+      
+          # Verify changes
+          echo "Main AndroidManifest.xml:"
+          cat android/app/src/main/AndroidManifest.xml
+          echo "Debug AndroidManifest.xml:"
+          cat android/app/src/debug/AndroidManifest.xml || echo "Debug manifest not found"
       
       # Then continue with your existing steps
       - name: 🔧 Build debug APK (initial)
