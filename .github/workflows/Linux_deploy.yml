@@ -117,9 +117,9 @@ jobs:
                 - libstdc++6
           EOF
           
-          # Build snap using Docker instead of LXD
+          # Build snap using the correct command for snapcraft 8.6.3
           cd snap-project
-          snapcraft --use-container
+          SNAPCRAFT_BUILD_ENVIRONMENT=host snapcraft
           cd ..
           
           # Copy snap to working directory
