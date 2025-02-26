@@ -31,28 +31,36 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔧 Make gradlew executable
-        run: chmod +x android/gradlew
+      - name: 🔧 Initialize Android project
+        run: |
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          cd ..
+          chmod +x android/gradlew
 
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-          echo "storeFile=keystore.jks" >> android/key.properties
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+            echo "storeFile=keystore.jks" >> android/key.properties
+          fi
 
       - name: 📱 Build Debug APK
         if: github.event_name != 'release'
         run: flutter build apk --debug
 
       - name: 📱 Build Release APK
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
         run: flutter build apk --release
 
       - name: 📱 Build App Bundle
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
         run: flutter build appbundle --release
 
       - name: 📤 Upload Debug APK
@@ -63,7 +71,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
 
       - name: 📤 Upload Release Artifacts
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && env.KEYSTORE_BASE64 != ''
         uses: actions/upload-artifact@v4
         with:
           name: android-release

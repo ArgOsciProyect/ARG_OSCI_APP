@@ -65,38 +65,38 @@ jobs:
       - name: 📝 Create snapcraft.yaml
         run: |
           mkdir -p snap
-          cat > snap/snapcraft.yaml << EOL
-name: arg-osci
-version: '1.0'
-summary: ARG OSCI Flutter Application
-description: |
-  ARG OSCI Flutter application for oscilloscope visualization
+          cat > snap/snapcraft.yaml << 'EOF'
+          name: arg-osci
+          version: '1.0'
+          summary: ARG OSCI Flutter Application
+          description: |
+            ARG OSCI Flutter application for oscilloscope visualization
 
-grade: stable
-confinement: strict
-base: core20
+          grade: stable
+          confinement: strict
+          base: core20
 
-apps:
-  arg-osci:
-    command: bin/arg_osci
-    extensions: [gnome-3-38]
-    plugs:
-      - network
-      - desktop
-      - desktop-legacy
-      - wayland
-      - x11
+          apps:
+            arg-osci:
+              command: bin/arg_osci
+              extensions: [gnome-3-38]
+              plugs:
+                - network
+                - desktop
+                - desktop-legacy
+                - wayland
+                - x11
 
-parts:
-  app:
-    source: linux-app.tar.gz
-    plugin: dump
-    organize:
-      '*': opt/arg-osci/
-    prime:
-      - -opt/arg-osci/lib/*.a
-      - opt/arg-osci/**
-EOL
+          parts:
+            app:
+              source: linux-app.tar.gz
+              plugin: dump
+              organize:
+                '*': opt/arg-osci/
+              prime:
+                - -opt/arg-osci/lib/*.a
+                - opt/arg-osci/**
+          EOF
           
       - name: 🏗️ Build snap package
         run: snapcraft --destructive-mode
