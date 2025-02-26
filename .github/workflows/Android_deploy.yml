@@ -21,6 +21,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
@@ -31,19 +32,27 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔧 Flutter doctor
-        run: flutter doctor -v
+      - name: 🔧 Fix Java home in Gradle
+        run: |
+          # Create or update gradle.properties to use the correct Java home
+          mkdir -p ~/.gradle
+          echo "org.gradle.java.home=$JAVA_HOME" > ~/.gradle/gradle.properties
+          
+          # Display Java info for debugging
+          echo "Using JAVA_HOME: $JAVA_HOME"
+          java -version
+        
+      - name: 🔧 Setup Android SDK
+        run: flutter config --android-sdk $ANDROID_SDK_ROOT
 
-      - name: 🔧 Initialize Android project
+      - name: 🔧 Build debug APK (initial)
         run: |
-          flutter config --android-sdk $ANDROID_SDK_ROOT
-          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+          # First build to create necessary Android files
+          flutter build apk --debug --target-platform android-arm64 || echo "Initial build expected to fail, continuing..."
           
-      - name: 🔧 Check Android structure
-        run: |
-          ls -la android/
-          ls -la android/app/ || echo "No app directory"
-          
+          # Make sure gradlew is executable
+          chmod +x android/gradlew
+      
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
         run: |
@@ -63,11 +72,11 @@ jobs:
 
       - name: 📱 Build Debug APK
         if: github.event_name != 'release' || env.HAS_KEYSTORE != 'true'
-        run: flutter build apk --debug --target-platform android-arm64 --split-per-abi
+        run: flutter build apk --debug
 
       - name: 📱 Build Release APK
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
-        run: flutter build apk --release --target-platform android-arm64 --split-per-abi
+        run: flutter build apk --release
 
       - name: 📱 Build App Bundle
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
@@ -87,7 +96,6 @@ jobs:
           name: android-release
           path: |
             build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/flutter-apk/app-*-release.apk
             build/app/outputs/bundle/release/app-release.aab
 
   create-release:
@@ -107,7 +115,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-artifacts/app*-release.apk
+            release-artifacts/app-release.apk
             release-artifacts/app-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

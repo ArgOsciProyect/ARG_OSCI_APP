@@ -76,10 +76,15 @@ jobs:
           EXEC_NAME=$(basename $EXEC_FILE)
           echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
           
-      - name: 📝 Create snapcraft.yaml
+      - name: 🏗️ Build with snapcraft directly
         run: |
-          mkdir -p snap
-          cat > snap/snapcraft.yaml << EOF
+          # Create snapcraft project
+          mkdir -p snap-project
+          cp linux-app.tar.gz snap-project/
+          
+          # Create snapcraft.yaml
+          mkdir -p snap-project/snap
+          cat > snap-project/snap/snapcraft.yaml << EOF
           name: arg-osci
           version: '1.0'
           summary: ARG OSCI Flutter Application
@@ -88,7 +93,7 @@ jobs:
           grade: stable
           confinement: strict
           base: core20
-
+          
           apps:
             arg-osci:
               command: ${{ env.EXEC_NAME }}
@@ -101,7 +106,7 @@ jobs:
                 - x11
                 - home
                 - removable-media
-
+          
           parts:
             app:
               plugin: dump
@@ -111,21 +116,15 @@ jobs:
                 - libc6
                 - libstdc++6
           EOF
-
-      - name: 🏗️ Prepare for snap build
-        run: |
-          # Create directories that would be created by snapcraft
-          mkdir -p prime
           
-          # Extract files directly into the prime directory
-          tar -xzvf linux-app.tar.gz -C prime
+          # Build snap
+          cd snap-project
+          snapcraft
+          cd ..
           
-          # Make sure the executable is executable
-          chmod +x prime/${{ env.EXEC_NAME }}
+          # Copy snap to working directory
+          cp snap-project/*.snap .
           
-          # Use classic confinement snapcraft build
-          snapcraft pack prime --output=arg-osci_1.0_amd64.snap
-        
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
         with:
