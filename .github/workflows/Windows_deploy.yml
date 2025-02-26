@@ -20,6 +20,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
       - name: 📥 Get dependencies
         run: flutter pub get
@@ -31,24 +32,31 @@ jobs:
         run: flutter build windows --release
 
       - name: 📦 Package Windows
+        shell: pwsh
         run: |
-          $BUILD_DIR = "build/windows/runner/Release"
-          $ICON_PATH = "lib/assets/icons/ARG_OSCI_ICON.png"
+          $BUILD_DIR = "build\windows\x64\runner\Release"
+          $ICON_PATH = "lib\assets\icons\ARG_OSCI_ICON.png"
           
-          # Create destination directory if it doesn't exist
-          if (!(Test-Path $BUILD_DIR)) {
+          # Verify build directory exists
+          if (!(Test-Path -Path $BUILD_DIR)) {
             Write-Error "Build directory not found: $BUILD_DIR"
             exit 1
           }
           
-          # Copy icon if it exists
-          if (Test-Path $ICON_PATH) {
-            Copy-Item $ICON_PATH -Destination "$BUILD_DIR/ARG_OSCI_ICON.png" -Force
+          # Copy icon if exists
+          if (Test-Path -Path $ICON_PATH) {
+            Copy-Item -Path $ICON_PATH -Destination "$BUILD_DIR\ARG_OSCI_ICON.png" -Force
           } else {
             Write-Warning "Icon not found: $ICON_PATH"
           }
           
-          Compress-Archive -Path "$BUILD_DIR/*" -DestinationPath "windows-release.zip" -Force
+          # Create zip archive
+          $ZIP_PATH = "windows-release.zip"
+          if (Test-Path -Path $ZIP_PATH) {
+            Remove-Item -Path $ZIP_PATH -Force
+          }
+          
+          Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_PATH -Force
 
       - name: 📤 Upload Windows Build
         uses: actions/upload-artifact@v4
@@ -56,9 +64,10 @@ jobs:
           name: windows-release
           path: windows-release.zip
 
-  release-all:
+  create-release:
+    name: 📦 Create Release
     needs: [build-windows]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Download all artifacts
@@ -66,7 +75,7 @@ jobs:
         with:
           path: releases
 
-      - name: 📦 Create Release
+      - name: � Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |

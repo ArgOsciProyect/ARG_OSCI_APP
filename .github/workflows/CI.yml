@@ -1,5 +1,4 @@
 name: Quality & Tests
-description: "Quality checks and testing for ARG OSCI"
 
 on:
   push:

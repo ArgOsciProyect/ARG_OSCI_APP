@@ -59,7 +59,9 @@ jobs:
           name: linux-app-tar
       
       - name: 🔧 Install Snapcraft
-        run: sudo snap install snapcraft --classic
+        run: |
+          sudo snap install core20
+          sudo snap install snapcraft --classic
           
       - name: 📝 Create snapcraft.yaml
         run: |
@@ -72,36 +74,33 @@ jobs:
             ARG OSCI Flutter application for oscilloscope visualization
           grade: stable
           confinement: strict
-          base: core22
-          
+          base: core20
+
           apps:
             arg-osci:
-              command: arg_osci
-              extensions: [gnome-42]
+              command: usr/lib/arg-osci/arg_osci
+              extensions: [gnome-3-38]
               plugs:
                 - network
                 - desktop
                 - desktop-legacy
                 - wayland
                 - x11
-          
+                - home
+                - removable-media
+
           parts:
             app:
-              source: linux-app.tar.gz
               plugin: dump
+              source: linux-app.tar.gz
               organize:
-                'arg_osci': bin/arg_osci
                 '*': usr/lib/arg-osci/
               stage:
-                - bin/arg_osci
                 - usr/lib/arg-osci/**
           EOF
 
       - name: 🏗️ Build snap package
-        run: |
-          sudo snap install core22
-          sudo snap install snapcraft --classic
-          snapcraft --destructive-mode
+        run: snapcraft --destructive-mode
         
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
