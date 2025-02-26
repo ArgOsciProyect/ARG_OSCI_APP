@@ -59,12 +59,9 @@ jobs:
         with:
           name: linux-app-tar
       
-      - name: 🔧 Install Snapcraft and LXD
+      - name: 🔧 Install Snapcraft
         run: |
-          sudo snap install core20
           sudo snap install snapcraft --classic
-          sudo snap install lxd
-          sudo /snap/bin/lxd init --auto
       
       - name: 📦 Extract and inspect archive
         run: |
@@ -120,9 +117,9 @@ jobs:
                 - libstdc++6
           EOF
           
-          # Build snap
+          # Build snap using Docker instead of LXD
           cd snap-project
-          snapcraft --use-lxd
+          snapcraft --use-container
           cd ..
           
           # Copy snap to working directory
