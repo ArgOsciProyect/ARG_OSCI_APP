@@ -78,7 +78,7 @@ jobs:
 
           apps:
             arg-osci:
-              command: usr/lib/arg-osci/arg_osci
+              command: bin/arg_osci
               extensions: [gnome-3-38]
               plugs:
                 - network
@@ -94,13 +94,25 @@ jobs:
               plugin: dump
               source: linux-app.tar.gz
               organize:
+                'arg_osci': bin/arg_osci
                 '*': usr/lib/arg-osci/
-              stage:
-                - usr/lib/arg-osci/**
+              override-prime: |
+                craftctl default
+                chmod +x $CRAFT_PRIME/bin/arg_osci
+              stage-packages:
+                - libgtk-3-0
+                - libc6
+                - libstdc++6
           EOF
 
       - name: 🏗️ Build snap package
-        run: snapcraft --destructive-mode
+        run: |
+          mkdir -p prime/bin
+          mkdir -p prime/usr/lib/arg-osci
+          tar xf linux-app.tar.gz -C prime/usr/lib/arg-osci
+          cp prime/usr/lib/arg-osci/arg_osci prime/bin/
+          chmod +x prime/bin/arg_osci
+          snapcraft --destructive-mode
         
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
@@ -166,6 +178,8 @@ jobs:
             --description "$APP_DESCRIPTION" \
             --depends "libgtk-3-0" \
             --depends "liblzma5" \
+            --depends "libc6" \
+            --depends "libstdc++6" \
             .
             
       - name: 📤 Upload .deb package
@@ -232,6 +246,8 @@ jobs:
             --description "$APP_DESCRIPTION" \
             --depends "gtk3" \
             --depends "xz-libs" \
+            --depends "glibc" \
+            --depends "libstdc++" \
             .
             
       - name: 📤 Upload .rpm package
