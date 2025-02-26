@@ -46,92 +46,6 @@ jobs:
           name: linux-app-tar
           path: linux-app.tar.gz
 
-  snap-package:
-    name: 📦 Build Snap Package
-    needs: build-linux
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v3
-      
-      - name: 📥 Download built application
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-app-tar
-      
-      - name: 🔧 Install Snapcraft
-        run: |
-          sudo snap install core20
-          sudo snap install snapcraft --classic
-          
-      - name: 📦 Extract and inspect archive
-        run: |
-          mkdir -p app-contents
-          tar -xzvf linux-app.tar.gz -C app-contents
-          echo "Files in extracted archive:"
-          find app-contents -type f -name "*" | sort
-          
-          # Find the executable file
-          EXEC_FILE=$(find app-contents -type f -executable | head -1)
-          echo "Executable found: $EXEC_FILE"
-          EXEC_NAME=$(basename $EXEC_FILE)
-          echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
-          
-      - name: 🏗️ Build with snapcraft directly
-        run: |
-          # Create snapcraft project
-          mkdir -p snap-project
-          cp linux-app.tar.gz snap-project/
-          
-          # Create snapcraft.yaml
-          mkdir -p snap-project/snap
-          cat > snap-project/snap/snapcraft.yaml << EOF
-          name: arg-osci
-          version: '1.0'
-          summary: ARG OSCI Flutter Application
-          description: |
-            ARG OSCI Flutter application for oscilloscope visualization
-          grade: stable
-          confinement: strict
-          base: core20
-          
-          apps:
-            arg-osci:
-              command: ${{ env.EXEC_NAME }}
-              extensions: [gnome-3-38]
-              plugs:
-                - network
-                - desktop
-                - desktop-legacy
-                - wayland
-                - x11
-                - home
-                - removable-media
-          
-          parts:
-            app:
-              plugin: dump
-              source: linux-app.tar.gz
-              stage-packages:
-                - libgtk-3-0
-                - libc6
-                - libstdc++6
-          EOF
-          
-          # Build snap
-          cd snap-project
-          snapcraft --destructive-mode
-          cd ..
-          
-          # Copy snap to working directory
-          cp snap-project/*.snap .
-          
-      - name: 📤 Upload snap package
-        uses: actions/upload-artifact@v4
-        with:
-          name: snap-package
-          path: '*.snap'
-
   deb-package:
     name: 📦 Build DEB Package
     needs: build-linux
@@ -280,9 +194,77 @@ jobs:
           name: rpm-package
           path: '*.rpm'
 
+  appimage-package:
+    name: 📦 Build AppImage
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: 📥 Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+          
+      - name: 🔧 Install AppImage tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+          wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool
+          
+      - name: 📦 Extract application
+        run: |
+          mkdir -p AppDir/usr/{bin,lib,share/{applications,icons/hicolor/256x256/apps}}
+          tar -xzvf linux-app.tar.gz -C AppDir/usr/lib
+          
+          # Find the executable file
+          EXEC_FILE=$(find AppDir/usr/lib -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          EXEC_NAME=$(basename $EXEC_FILE)
+          echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+      
+      - name: 🏗️ Build AppImage
+        run: |
+          # Create AppRun
+          cat > AppDir/AppRun << EOF
+          #!/bin/bash
+          APPDIR="\$(dirname "\$(readlink -f "\$0")")"
+          export LD_LIBRARY_PATH="\$APPDIR/usr/lib:\$LD_LIBRARY_PATH"
+          exec "\$APPDIR/usr/lib/${{ env.EXEC_NAME }}" "\$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Copy icon
+          cp lib/assets/icons/ARG_OSCI_ICON.png AppDir/usr/share/icons/hicolor/256x256/apps/arg-osci.png || echo "Warning: Icon not found"
+          
+          # Create desktop file
+          cat > AppDir/usr/share/applications/arg-osci.desktop << EOF
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=AppRun
+          Icon=arg-osci
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
+          EOF
+          
+          # Create symlinks
+          ln -sf usr/share/icons/hicolor/256x256/apps/arg-osci.png AppDir/arg-osci.png
+          
+          # Build AppImage
+          ./appimagetool AppDir
+            
+      - name: 📤 Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: '*.AppImage'
+
   create-release:
     name: 📦 Create Release
-    needs: [snap-package, deb-package, rpm-package]
+    needs: [deb-package, rpm-package, appimage-package]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
@@ -295,8 +277,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            packages/snap-package/*.snap
             packages/deb-package/*.deb
             packages/rpm-package/*.rpm
+            packages/appimage/*.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
