@@ -21,7 +21,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
@@ -32,23 +31,19 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔧 Generate Gradle wrapper
-        run: |
-          cd android
-          if [ ! -f "./gradlew" ]; then
-            echo "Generating Gradle wrapper..."
-            gradle wrapper
-          fi
-          chmod +x ./gradlew
-          cd ..
+      - name: 🔧 Flutter doctor
+        run: flutter doctor -v
 
-      - name: 🔧 Check Android settings
+      - name: 🔧 Initialize Android project
         run: |
-          if [ ! -d "android/app" ]; then
-            echo "Creating Android app directory structure..."
-            mkdir -p android/app/src/main
-          fi
-
+          flutter config --android-sdk $ANDROID_SDK_ROOT
+          flutter build apk --debug --target-platform android-arm64 --split-per-abi
+          
+      - name: 🔧 Check Android structure
+        run: |
+          ls -la android/
+          ls -la android/app/ || echo "No app directory"
+          
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
         run: |
@@ -68,11 +63,11 @@ jobs:
 
       - name: 📱 Build Debug APK
         if: github.event_name != 'release' || env.HAS_KEYSTORE != 'true'
-        run: flutter build apk --debug
+        run: flutter build apk --debug --target-platform android-arm64 --split-per-abi
 
       - name: 📱 Build Release APK
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: 📱 Build App Bundle
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
@@ -92,6 +87,7 @@ jobs:
           name: android-release
           path: |
             build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-*-release.apk
             build/app/outputs/bundle/release/app-release.aab
 
   create-release:
@@ -111,7 +107,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-artifacts/app-release.apk
+            release-artifacts/app*-release.apk
             release-artifacts/app-release.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
