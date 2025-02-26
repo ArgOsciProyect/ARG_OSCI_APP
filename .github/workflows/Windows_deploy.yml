@@ -1,5 +1,4 @@
 name: Windows Build
-description: "Windows build pipeline for ARG OSCI"
 
 on:
   push:
@@ -11,7 +10,7 @@ on:
 
 jobs:
   build-windows:
-    name: Build Windows App
+    name: 🖥️ Build Windows App
     runs-on: windows-latest
     steps:
       - name: 📥 Checkout repository
@@ -31,13 +30,25 @@ jobs:
       - name: 🎯 Build Windows
         run: flutter build windows --release
 
-      - name: 🎨 Copy Icon
-        run: |
-          Copy-Item "lib/assets/icons/ARG_OSCI_ICON.png" -Destination "build/windows/runner/Release/ARG_OSCI_ICON.png"
-
       - name: 📦 Package Windows
         run: |
-          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath "windows-release.zip"
+          $BUILD_DIR = "build/windows/runner/Release"
+          $ICON_PATH = "lib/assets/icons/ARG_OSCI_ICON.png"
+          
+          # Create destination directory if it doesn't exist
+          if (!(Test-Path $BUILD_DIR)) {
+            Write-Error "Build directory not found: $BUILD_DIR"
+            exit 1
+          }
+          
+          # Copy icon if it exists
+          if (Test-Path $ICON_PATH) {
+            Copy-Item $ICON_PATH -Destination "$BUILD_DIR/ARG_OSCI_ICON.png" -Force
+          } else {
+            Write-Warning "Icon not found: $ICON_PATH"
+          }
+          
+          Compress-Archive -Path "$BUILD_DIR/*" -DestinationPath "windows-release.zip" -Force
 
       - name: 📤 Upload Windows Build
         uses: actions/upload-artifact@v4

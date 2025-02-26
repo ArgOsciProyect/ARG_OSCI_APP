@@ -72,30 +72,36 @@ jobs:
             ARG OSCI Flutter application for oscilloscope visualization
           grade: stable
           confinement: strict
-          base: core20
+          base: core22
+          
           apps:
             arg-osci:
-              command: bin/arg_osci
-              extensions: [gnome-3-38]
+              command: arg_osci
+              extensions: [gnome-42]
               plugs:
                 - network
                 - desktop
                 - desktop-legacy
                 - wayland
                 - x11
+          
           parts:
             app:
               source: linux-app.tar.gz
               plugin: dump
               organize:
-                '*': opt/arg-osci/
-              prime:
-                - -opt/arg-osci/lib/*.a
-                - opt/arg-osci/**
+                'arg_osci': bin/arg_osci
+                '*': usr/lib/arg-osci/
+              stage:
+                - bin/arg_osci
+                - usr/lib/arg-osci/**
           EOF
 
       - name: 🏗️ Build snap package
-        run: snapcraft --destructive-mode
+        run: |
+          sudo snap install core22
+          sudo snap install snapcraft --classic
+          snapcraft --destructive-mode
         
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
