@@ -143,6 +143,8 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/bundle/release/app-release.aab
+          # Changed upload path to root
+          if-no-files-found: error
 
   create-release:
     name: 📦 Create Release
@@ -156,20 +158,20 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: android-release
-          path: release-artifacts
+          path: . # Download to current directory
       
       - name: 📝 List downloaded files
         shell: bash
         run: |
           echo "Downloaded files:"
-          ls -R release-artifacts || echo "No files found"
+          ls -R || echo "No files found" # List files in current directory
       
       - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-artifacts/app-release.apk
-            release-artifacts/app-release.aab
+            app-release.apk
+            app-release.aab
           fail_on_unmatched_files: false
           generate_release_notes: true
         env:
