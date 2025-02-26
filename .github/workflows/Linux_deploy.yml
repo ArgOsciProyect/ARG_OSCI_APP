@@ -1,0 +1,267 @@
+name: Linux Packaging
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  release:
+    types: [created]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Enable linux build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+          flutter config --enable-linux-desktop
+        
+      - name: Build Linux
+        run: flutter build linux --release
+        
+      - name: Package as tar.gz
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czvf ../../../../../linux-app.tar.gz .
+          cd ../../../../../
+          
+      - name: Upload Build Artifact (tar.gz)
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-app-tar
+          path: linux-app.tar.gz
+
+  snap-package:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+      
+      - name: Install Snapcraft
+        run: |
+          sudo snap install snapcraft --classic
+          
+      - name: Create snapcraft.yaml if it doesn't exist
+        run: |
+          if [ ! -f snap/snapcraft.yaml ]; then
+            mkdir -p snap
+            cat > snap/snapcraft.yaml << EOF
+            name: your-app-name
+            version: '1.0'
+            summary: Flutter Application
+            description: |
+              Your Flutter application packaged as a snap
+            
+            grade: stable
+            confinement: strict
+            base: core20
+            
+            apps:
+              your-app-name:
+                command: your_app_name
+                extensions: [gnome-3-38]
+                plugs:
+                  - network
+                  - desktop
+                  - desktop-legacy
+                  - wayland
+                  - x11
+                  
+            parts:
+              app:
+                source: linux-app.tar.gz
+                plugin: dump
+                organize:
+                  '*': opt/your-app-name/
+                prime:
+                  - -opt/your-app-name/lib/*.a
+                  - opt/your-app-name/**
+            EOF
+            echo "Created default snapcraft.yaml - adjust app name and other details!"
+          fi
+          
+      - name: Build snap package
+        run: snapcraft
+        
+      - name: Upload snap package
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-package
+          path: '*.snap'
+
+  deb-package:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+          
+      - name: Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential
+          sudo gem install --no-document fpm
+          
+      - name: Extract application
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          
+      - name: Build .deb package
+        run: |
+          APP_NAME="your-app-name"
+          APP_VERSION="1.0.0"
+          APP_DESCRIPTION="Your Flutter application"
+          
+          # Create package structure
+          mkdir -p debian-package/usr/bin
+          mkdir -p debian-package/usr/lib/$APP_NAME
+          mkdir -p debian-package/usr/share/applications
+          mkdir -p debian-package/usr/share/icons/hicolor/128x128/apps
+          
+          # Copy app files
+          cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
+          
+          # Create launcher script
+          cat > debian-package/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/your_app_executable "\$@"
+          EOF
+          chmod +x debian-package/usr/bin/$APP_NAME
+          
+          # Create desktop file
+          cat > debian-package/usr/share/applications/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Name=$APP_NAME
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Utility;
+          EOF
+          
+          # Build the package
+          fpm -s dir -t deb -C debian-package \
+            --name $APP_NAME \
+            --version $APP_VERSION \
+            --architecture amd64 \
+            --description "$APP_DESCRIPTION" \
+            --depends "libgtk-3-0" \
+            --depends "liblzma5" \
+            .
+            
+      - name: Upload .deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: '*.deb'
+
+  rpm-package:
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+          
+      - name: Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo gem install --no-document fpm
+          
+      - name: Extract application
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          
+      - name: Build .rpm package
+        run: |
+          APP_NAME="your-app-name"
+          APP_VERSION="1.0.0"
+          APP_DESCRIPTION="Your Flutter application"
+          
+          # Create package structure
+          mkdir -p rpm-package/usr/bin
+          mkdir -p rpm-package/usr/lib/$APP_NAME
+          mkdir -p rpm-package/usr/share/applications
+          mkdir -p rpm-package/usr/share/icons/hicolor/128x128/apps
+          
+          # Copy app files
+          cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
+          
+          # Create launcher script
+          cat > rpm-package/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/your_app_executable "\$@"
+          EOF
+          chmod +x rpm-package/usr/bin/$APP_NAME
+          
+          # Create desktop file
+          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Name=$APP_NAME
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Utility;
+          EOF
+          
+          # Build the package
+          fpm -s dir -t rpm -C rpm-package \
+            --name $APP_NAME \
+            --version $APP_VERSION \
+            --architecture x86_64 \
+            --description "$APP_DESCRIPTION" \
+            --depends "gtk3" \
+            --depends "xz-libs" \
+            .
+            
+      - name: Upload .rpm package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: '*.rpm'
+
+  release-packages:
+    needs: [snap-package, deb-package, rpm-package]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all packages
+        uses: actions/download-artifact@v4
+        with:
+          path: packages
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/snap-package/*.snap
+            packages/deb-package/*.deb
+            packages/rpm-package/*.rpm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

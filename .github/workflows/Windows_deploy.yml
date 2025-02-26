@@ -1,0 +1,64 @@
+name: Windows Build
+description: "Windows build pipeline for ARG OSCI"
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  release:
+    types: [created]
+
+jobs:
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: 📥 Get dependencies
+        run: flutter pub get
+
+      - name: 🖥️ Enable Windows build
+        run: flutter config --enable-windows-desktop
+
+      - name: 🎯 Build Windows
+        run: flutter build windows --release
+
+      - name: 🎨 Copy Icon
+        run: |
+          Copy-Item "lib/assets/icons/ARG_OSCI_ICON.png" -Destination "build/windows/runner/Release/ARG_OSCI_ICON.png"
+
+      - name: 📦 Package Windows
+        run: |
+          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath "windows-release.zip"
+
+      - name: 📤 Upload Windows Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: windows-release.zip
+
+  release-all:
+    needs: [build-windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: releases
+
+      - name: 📦 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            releases/windows-release/windows-release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

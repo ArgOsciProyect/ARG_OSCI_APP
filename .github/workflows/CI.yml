@@ -1,22 +1,22 @@
-name: Flutter Test
+name: Quality & Tests
+description: "Quality checks and testing for ARG OSCI"
 
 on:
   push:
-    branches:
-      - develop
+    branches: [main, develop]
   pull_request:
-    branches:
-      - '**'
+    branches: ['**']
 
 jobs:
-  test:
+  quality:
+    name: Code Quality & Tests
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
-      - name: Cache Flutter dependencies
+      - name: 💾 Cache Flutter dependencies
         uses: actions/cache@v3
         with:
           path: |
@@ -26,45 +26,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-flutter-
 
-      - name: Set up Flutter
+      - name: 🎯 Set up Flutter
         if: steps.flutter-cache.outputs.cache-hit != 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
 
-      - name: Install lcov
+      - name: 📦 Install lcov
         run: sudo apt-get update && sudo apt-get install -y lcov
 
-      - name: Dart version
-        run: dart --version
+      - name: ℹ️ Environment info
+        run: |
+          dart --version
+          flutter --version
+          flutter doctor
 
-      - name: Flutter version
-        run: flutter --version
-
-      - name: Flutter doctor
-        run: flutter doctor
-
-      - name: Install dependencies
+      - name: 📥 Install dependencies
         run: flutter pub get
 
-      - name: Check Dart format
+      - name: 🎨 Check Dart format
         run: dart format --set-exit-if-changed .
-        # This will fail the workflow if there are any formatting issues
 
-      - name: Run tests with coverage
+      - name: 🧪 Run tests with coverage
         run: |
           flutter test --coverage
-          # Generar reporte lcov
           genhtml coverage/lcov.info -o coverage/html
 
-      - name: Upload Coverage Report as Artifact
+      - name: 📊 Upload Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage
-          # Subimos toda la carpeta coverage que contiene tanto lcov.info como el directorio html
 
-      - name: Enforce Coverage Threshold
+      - name: ✅ Check Coverage Threshold
         run: |
           echo "Starting coverage check..."
           
@@ -74,7 +68,6 @@ jobs:
             exit 1
           fi
           
-          echo "Calculating coverage..."
           LINES_HIT=$(grep -oP "LH:\d+" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum}')
           LINES_FOUND=$(grep -oP "LF:\d+" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum}')
           
@@ -90,10 +83,6 @@ jobs:
           
           if (( $(echo "$COVERAGE < 30" | bc -l) )); then
             echo "Coverage ($COVERAGE%) is below threshold (30%)"
-            echo "Full contents of lcov.info:"
-            echo "===================="
-            cat coverage/lcov.info
-            echo "===================="
             exit 1
           fi
           
