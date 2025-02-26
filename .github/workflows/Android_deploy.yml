@@ -26,7 +26,8 @@ jobs:
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: '3.24.4'
+          channel: 'stable'
           cache: true
 
       - name: 📥 Get dependencies
@@ -38,20 +39,23 @@ jobs:
           mkdir -p ~/.gradle
           echo "org.gradle.java.home=$JAVA_HOME" > ~/.gradle/gradle.properties
           
-          # Display Java info for debugging
+          # Display Java and Flutter info for debugging
           echo "Using JAVA_HOME: $JAVA_HOME"
           java -version
+          flutter --version
         
       - name: 🔧 Setup Android SDK
         run: flutter config --android-sdk $ANDROID_SDK_ROOT
 
       - name: 🔧 Build debug APK (initial)
         run: |
-          # First build to create necessary Android files
-          flutter build apk --debug --target-platform android-arm64 || echo "Initial build expected to fail, continuing..."
+          # Add --no-tree-shake-icons to avoid potential issues
+          flutter build apk --debug --no-tree-shake-icons || echo "Initial build expected to fail, continuing..."
           
-          # Make sure gradlew is executable
-          chmod +x android/gradlew
+          # Make sure gradlew is executable if it exists
+          if [ -f "android/gradlew" ]; then
+            chmod +x android/gradlew
+          fi
       
       - name: 🔑 Setup Keystore
         if: github.event_name == 'release'
@@ -72,11 +76,11 @@ jobs:
 
       - name: 📱 Build Debug APK
         if: github.event_name != 'release' || env.HAS_KEYSTORE != 'true'
-        run: flutter build apk --debug
+        run: flutter build apk --debug --no-tree-shake-icons
 
       - name: 📱 Build Release APK
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: 📱 Build App Bundle
         if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'

@@ -19,6 +19,7 @@ jobs:
       - name: 🎯 Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.4'
           channel: stable
           
       - name: 📦 Install dependencies
@@ -119,7 +120,7 @@ jobs:
           
           # Build snap
           cd snap-project
-          snapcraft
+          snapcraft --destructive-mode
           cd ..
           
           # Copy snap to working directory
@@ -170,7 +171,7 @@ jobs:
           mkdir -p debian-package/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
           
           cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
-          cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
+          cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
           
           cat > debian-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
@@ -244,7 +245,7 @@ jobs:
           mkdir -p rpm-package/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
           
           cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
-          cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
+          cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
           
           cat > rpm-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
