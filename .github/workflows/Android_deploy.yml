@@ -20,7 +20,7 @@ jobs:
       - name: 🎯 Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # Changed from zulu
           java-version: '17'
 
       - name: 🎯 Setup Flutter
@@ -31,31 +31,44 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      - name: 🔑 Decode Keystore
+      # Add gradle wrapper permissions
+      - name: � Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: 🔑 Setup Keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+            
+            # Create key.properties
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+            echo "storeFile=keystore.jks" >> android/key.properties
+          else
+            echo "No keystore provided, building debug version"
+          fi
 
       - name: 📱 Build APK
-        run: flutter build apk --release
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -f "android/key.properties" ]; then
+            flutter build apk --release
+          else
+            flutter build apk --debug
+          fi
 
       - name: 📱 Build App Bundle
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: flutter build appbundle --release
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/*.apk
 
       - name: 📤 Upload Bundle
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: release-bundle
