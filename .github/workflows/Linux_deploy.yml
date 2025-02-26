@@ -63,10 +63,21 @@ jobs:
           sudo snap install core20
           sudo snap install snapcraft --classic
           
-      - name: 📝 Create snapcraft.yaml
+      - name: � Extract and inspect archive
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          echo "Files in extracted archive:"
+          find app-contents -type f -name "*" | sort
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          echo "EXEC_NAME=$(basename $EXEC_FILE)" >> $GITHUB_ENV
+          
+      - name: �📝 Create snapcraft.yaml
         run: |
           mkdir -p snap
-          cat > snap/snapcraft.yaml << 'EOF'
+          cat > snap/snapcraft.yaml << EOF
           name: arg-osci
           version: '1.0'
           summary: ARG OSCI Flutter Application
@@ -78,7 +89,7 @@ jobs:
 
           apps:
             arg-osci:
-              command: bin/arg_osci
+              command: ${{ env.EXEC_NAME }}
               extensions: [gnome-3-38]
               plugs:
                 - network
@@ -93,12 +104,9 @@ jobs:
             app:
               plugin: dump
               source: linux-app.tar.gz
-              organize:
-                'arg_osci': bin/arg_osci
-                '*': usr/lib/arg-osci/
-              override-prime: |
+              override-build: |
                 craftctl default
-                chmod +x $CRAFT_PRIME/bin/arg_osci
+                chmod +x \$CRAFT_PART_INSTALL/${{ env.EXEC_NAME }}
               stage-packages:
                 - libgtk-3-0
                 - libc6
@@ -106,13 +114,7 @@ jobs:
           EOF
 
       - name: 🏗️ Build snap package
-        run: |
-          mkdir -p prime/bin
-          mkdir -p prime/usr/lib/arg-osci
-          tar xf linux-app.tar.gz -C prime/usr/lib/arg-osci
-          cp prime/usr/lib/arg-osci/arg_osci prime/bin/
-          chmod +x prime/bin/arg_osci
-          snapcraft --destructive-mode
+        run: snapcraft --destructive-mode
         
       - name: 📤 Upload snap package
         uses: actions/upload-artifact@v4
@@ -143,6 +145,10 @@ jobs:
         run: |
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          echo "EXEC_NAME=$(basename $EXEC_FILE)" >> $GITHUB_ENV
           
       - name: 🏗️ Build .deb package
         run: |
@@ -155,13 +161,13 @@ jobs:
           cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > debian-package/usr/bin/$APP_NAME << 'EOF'
+          cat > debian-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/arg_osci "$@"
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
           EOF
           chmod +x debian-package/usr/bin/$APP_NAME
           
-          cat > debian-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
+          cat > debian-package/usr/share/applications/$APP_NAME.desktop << EOF
           [Desktop Entry]
           Name=ARG OSCI
           Exec=$APP_NAME
@@ -211,6 +217,10 @@ jobs:
         run: |
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          echo "EXEC_NAME=$(basename $EXEC_FILE)" >> $GITHUB_ENV
           
       - name: 🏗️ Build .rpm package
         run: |
@@ -223,13 +233,13 @@ jobs:
           cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png
           
-          cat > rpm-package/usr/bin/$APP_NAME << 'EOF'
+          cat > rpm-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/arg_osci "$@"
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
           EOF
           chmod +x rpm-package/usr/bin/$APP_NAME
           
-          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << 'EOF'
+          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << EOF
           [Desktop Entry]
           Name=ARG OSCI
           Exec=$APP_NAME

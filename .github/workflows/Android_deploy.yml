@@ -37,7 +37,7 @@ jobs:
           cd android
           if [ ! -f "./gradlew" ]; then
             echo "Generating Gradle wrapper..."
-            gradle wrapper
+            flutter create --platforms=android .
           fi
           cd ..
           chmod +x android/gradlew
@@ -46,37 +46,42 @@ jobs:
         uses: gradle/wrapper-validation-action@v1
 
       - name: 🔑 Setup Keystore
-        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release'
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-          cat > android/key.properties << EOF
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "HAS_KEYSTORE=true" >> $GITHUB_ENV
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+            cat > android/key.properties << EOF
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=keystore.jks
           EOF
+          else
+            echo "HAS_KEYSTORE=false" >> $GITHUB_ENV
+          fi
 
       - name: 📱 Build Debug APK
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' || env.HAS_KEYSTORE != 'true'
         run: flutter build apk --debug
 
       - name: 📱 Build Release APK
-        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
         run: flutter build apk --release
 
       - name: 📱 Build App Bundle
-        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
         run: flutter build appbundle --release
 
       - name: 📤 Upload Debug APK
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' || env.HAS_KEYSTORE != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
 
       - name: 📤 Upload Release Artifacts
-        if: github.event_name == 'release' && secrets.KEYSTORE_BASE64 != ''
+        if: github.event_name == 'release' && env.HAS_KEYSTORE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: android-release
@@ -95,6 +100,7 @@ jobs:
         with:
           name: android-release
           path: release-artifacts
+          continue-on-error: true
 
       - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
