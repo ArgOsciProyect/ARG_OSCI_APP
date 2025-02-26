@@ -46,8 +46,8 @@ jobs:
           name: linux-app-tar
           path: linux-app.tar.gz
 
-  snap-package:
-    name: 📦 Build Snap Package
+  appimage-package:
+    name: 📦 Build AppImage Package
     needs: build-linux
     runs-on: ubuntu-latest
     steps:
@@ -59,16 +59,17 @@ jobs:
         with:
           name: linux-app-tar
       
-      - name: 🔧 Install Snapcraft
+      - name: 🔧 Install AppImage tools
         run: |
-          sudo snap install snapcraft --classic
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 wget
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
       
-      - name: 📦 Extract and inspect archive
+      - name: 📦 Extract application
         run: |
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
-          echo "Files in extracted archive:"
-          find app-contents -type f -name "*" | sort
           
           # Find the executable file
           EXEC_FILE=$(find app-contents -type f -executable | head -1)
@@ -76,62 +77,58 @@ jobs:
           EXEC_NAME=$(basename $EXEC_FILE)
           echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
       
-      - name: 🏗️ Build with snapcraft
+      - name: 🏗️ Build AppImage
         run: |
-          # Create snapcraft project
-          mkdir -p snap-project
-          cp linux-app.tar.gz snap-project/
+          APP_NAME="arg-osci"
           
-          # Create snapcraft.yaml
-          mkdir -p snap-project/snap
-          cat > snap-project/snap/snapcraft.yaml << EOF
-          name: arg-osci
-          version: '1.0.0'
-          summary: ARG OSCI Flutter Application
-          description: |
-            ARG OSCI Flutter application for oscilloscope visualization
-          grade: stable
-          confinement: strict  # Changed from classic to strict
-          base: core20
+          # Create AppDir structure
+          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
           
-          apps:
-            arg-osci:
-              command: ${{ env.EXEC_NAME }}
-              extensions: [gnome-3-38]
-              plugs:
-                - network
-                - desktop
-                - desktop-legacy
-                - wayland
-                - x11
-                - home
-                - removable-media
-                - hardware-observe
-                - serial-port  # For oscilloscope USB connectivity
+          # Copy application files
+          cp -r app-contents/* AppDir/usr/lib/$APP_NAME/
           
-          parts:
-            app:
-              plugin: dump
-              source: linux-app.tar.gz
-              stage-packages:
-                - libgtk-3-0
-                - libc6
-                - libstdc++6
+          # Create launcher script
+          cat > AppDir/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          EOF
+          chmod +x AppDir/usr/bin/$APP_NAME
+          
+          # Create icon and desktop file
+          cp lib/assets/icons/ARG_OSCI_ICON.png AppDir/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
+          
+          # Create desktop file
+          cat > AppDir/usr/share/applications/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
           EOF
           
-          # Build snap using the correct command for snapcraft 8.6.3
-          cd snap-project
-          SNAPCRAFT_BUILD_ENVIRONMENT=host snapcraft
-          cd ..
+          # Create AppRun file (entry point)
+          cat > AppDir/AppRun << EOF
+          #!/bin/bash
+          APPDIR="\$(dirname "\$(readlink -f "\${0}")")"
+          export PATH="\${APPDIR}/usr/bin:\${PATH}"
+          export LD_LIBRARY_PATH="\${APPDIR}/usr/lib:\${LD_LIBRARY_PATH}"
+          exec "\${APPDIR}/usr/bin/$APP_NAME" "\$@"
+          EOF
+          chmod +x AppDir/AppRun
           
-          # Copy snap to working directory
-          cp snap-project/*.snap .
+          # Link the icon to root for AppImage to find it
+          ln -sf usr/share/icons/hicolor/128x128/apps/$APP_NAME.png AppDir/$APP_NAME.png
+          
+          # Create the AppImage
+          ./appimagetool AppDir "${APP_NAME}-1.0.0-x86_64.AppImage"
       
-      - name: 📤 Upload snap package
+      - name: 📤 Upload AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: snap-package
-          path: '*.snap'
+          name: appimage-package
+          path: '*.AppImage'
   deb-package:
     name: 📦 Build DEB Package
     needs: build-linux
@@ -282,7 +279,7 @@ jobs:
 
   create-release:
     name: 📦 Create Release
-    needs: [snap-package, deb-package, rpm-package]
+    needs: [appimage-package, deb-package, rpm-package]  # Updated dependencies
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
     steps:
@@ -295,7 +292,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            packages/snap-package/*.snap
+            packages/appimage-package/*.AppImage
             packages/deb-package/*.deb
             packages/rpm-package/*.rpm
         env:
