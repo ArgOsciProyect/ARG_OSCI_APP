@@ -11,7 +11,7 @@ on:
 
 jobs:
   build-android:
-    name: Build Android App
+    name: 📱 Build Android App
     runs-on: ubuntu-latest
     steps:
       - name: 📥 Checkout repository
@@ -20,7 +20,7 @@ jobs:
       - name: 🎯 Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin' # Changed from zulu
+          distribution: 'temurin'
           java-version: '17'
 
       - name: 🎯 Setup Flutter
@@ -31,45 +31,63 @@ jobs:
       - name: 📥 Get dependencies
         run: flutter pub get
 
-      # Add gradle wrapper permissions
-      - name: � Make gradlew executable
+      - name: 🔧 Make gradlew executable
         run: chmod +x android/gradlew
 
       - name: 🔑 Setup Keystore
+        if: github.event_name == 'release'
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
-            
-            # Create key.properties
-            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
-            echo "storeFile=keystore.jks" >> android/key.properties
-          else
-            echo "No keystore provided, building debug version"
-          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=keystore.jks" >> android/key.properties
 
-      - name: 📱 Build APK
-        run: |
-          if [ -f "android/key.properties" ]; then
-            flutter build apk --release
-          else
-            flutter build apk --debug
-          fi
+      - name: 📱 Build Debug APK
+        if: github.event_name != 'release'
+        run: flutter build apk --debug
+
+      - name: 📱 Build Release APK
+        if: github.event_name == 'release'
+        run: flutter build apk --release
 
       - name: 📱 Build App Bundle
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: github.event_name == 'release'
         run: flutter build appbundle --release
 
-      - name: 📤 Upload APK
+      - name: 📤 Upload Debug APK
+        if: github.event_name != 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: 📤 Upload Bundle
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: 📤 Upload Release Artifacts
+        if: github.event_name == 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: release-bundle
-          path: build/app/outputs/bundle/release/app-release.aab
+          name: android-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+  create-release:
+    name: 📦 Create Release
+    needs: build-android
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release
+          path: release-artifacts
+
+      - name: 🚀 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-artifacts/app-release.apk
+            release-artifacts/app-release.aab
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
