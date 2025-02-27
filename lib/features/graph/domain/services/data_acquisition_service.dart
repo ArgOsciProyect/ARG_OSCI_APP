@@ -441,7 +441,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             );
 
         isConnected = true;
-        print("packet size: ${setup.packetSize}");
+        if (kDebugMode) {
+          print("packet size: ${setup.packetSize}");
+        }
         _setupSocketListener(socketService, setup.sendPort);
 
         // Add error listener to detect disconnections

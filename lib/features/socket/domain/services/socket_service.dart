@@ -196,7 +196,6 @@ class SocketService implements SocketRepository {
   String? _ip;
   int? _port;
   final TransmissionStats _stats = TransmissionStats();
-  Timer? _statsTimer;
   // Timer for aggregating incoming data measurements without per-packet overhead.
   Timer? _measurementTimer;
   int _incomingBytesAcc = 0;
@@ -235,25 +234,6 @@ class SocketService implements SocketRepository {
       if (kDebugMode) {
         print("Connected to $_ip:$_port");
         // Timer to periodically print incoming data stats (every minute)
-        _statsTimer = Timer.periodic(Duration(minutes: 1), (_) {
-          final summary = _stats.getSummary();
-          print('\n=== Transmission Statistics (15min) ===');
-          print(
-              'Mean rate: ${(summary['mean_bps'] / 1e6).toStringAsFixed(2)} MB/s');
-          print(
-              'Median rate: ${(summary['median_bps'] / 1e6).toStringAsFixed(2)} MB/s');
-          print(
-              'Std Dev: ${(summary['std_dev_bps'] / 1e6).toStringAsFixed(2)} MB/s');
-          print(
-              'Min rate: ${(summary['min_bps'] / 1e6).toStringAsFixed(2)} MB/s');
-          print(
-              'Max rate: ${(summary['max_bps'] / 1e6).toStringAsFixed(2)} MB/s');
-          print(
-              'Packets/sec: ${summary['packets_per_second'].toStringAsFixed(2)}');
-          print('Total packets: ${summary['total_packets']}');
-          print('Window: ${summary['measurement_window_seconds']}s');
-          print('======================================\n');
-        });
         // Timer to aggregate incoming data measurements (every second)
         _measurementTimer = Timer.periodic(Duration(seconds: 1), (_) {
           final now = DateTime.now();
@@ -326,6 +306,7 @@ class SocketService implements SocketRepository {
   @override
   Future<void> sendMessage(String message) async {
     if (_socket != null) {
+      // ignore: prefer_interpolation_to_compose_strings, unnecessary_string_escapes
       String nulledMessage = message + '\0';
       final data = utf8.encode(nulledMessage);
       final start = DateTime.now();
@@ -367,6 +348,7 @@ class SocketService implements SocketRepository {
   }
 
   // Getters and setters
+  // ignore: unnecessary_getters_setters
   Socket? get socket => _socket;
   set socket(Socket? socket) => _socket = socket;
   StreamController<List<int>> get controller => _controller;

@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:flutter/widgets.dart'; // For Widget, Size

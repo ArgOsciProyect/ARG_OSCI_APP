@@ -9,8 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-const double _offsetX = 50;
-
 /// [FFTChart] is a Flutter [StatelessWidget] that displays the FFT chart and its controls.
 class FFTChart extends StatelessWidget {
   const FFTChart({super.key});

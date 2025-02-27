@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:arg_osci_app/features/graph/domain/models/data_point.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
@@ -30,7 +29,6 @@ class FFTChartProvider extends GetxController {
   double _initialValueScale = 1.0;
   Timer? _incrementTimer;
   final frequency = 0.0.obs;
-  double _drawingWidth = 0.0;
 
   // Computed properties based on device configuration
   double get samplingFrequency => deviceConfig.samplingFrequency;

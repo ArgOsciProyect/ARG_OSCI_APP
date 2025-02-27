@@ -1,4 +1,6 @@
 // test/features/graph/domain/services/data_acquisition_service_test.dart
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
@@ -178,9 +180,7 @@ class MockDeviceConfigProvider extends GetxController
       .length;
 
   @override
-  void listen(void Function(DeviceConfig? p1) onChanged) {
-    // TODO: implement listen
-  }
+  void listen(void Function(DeviceConfig? p1) onChanged) {}
 }
 
 // Mock para HttpClient
@@ -329,7 +329,6 @@ void main() {
   late DataAcquisitionService service;
   late MockHttpConfig mockHttpConfig;
   late MockDeviceConfigProvider mockDeviceConfigProvider;
-  late MockSocketService mockSocketService;
   late DeviceConfig mockDeviceConfig;
 
   setUp(() async {
@@ -349,7 +348,6 @@ void main() {
 
     mockHttpConfig = MockHttpConfig();
     mockDeviceConfigProvider = MockDeviceConfigProvider();
-    mockSocketService = MockSocketService();
 
     // Initialize DeviceConfigProvider with the configuration first
     mockDeviceConfigProvider.updateConfig(mockDeviceConfig);
@@ -485,7 +483,9 @@ void main() {
       );
 
       for (int i = 0; i < points.length; i++) {
-        print("Point $i: ${points[i].y}");
+        if (kDebugMode) {
+          print("Point $i: ${points[i].y}");
+        }
         expect(points[i].y, closeTo(expectedVoltages[i], 0.01),
             reason: 'Point at index $i should be ${expectedVoltages[i]}V');
       }
@@ -621,8 +621,12 @@ void main() {
       ];
 
       service.updateMetrics(points, 0, 0);
-      print(service.currentMaxValue);
-      print(service.currentMinValue);
+      if (kDebugMode) {
+        print(service.currentMaxValue);
+      }
+      if (kDebugMode) {
+        print(service.currentMinValue);
+      }
       final result = await service.autoset(300.0, 400.0); // Add await here
 
       expect(result, equals([100000.0, 1.0]));
@@ -919,12 +923,14 @@ void main() {
         queue.add((uint16Value >> 8) & 0xFF);
       }
 
-      print('\nTest Configuration:');
-      print('Trigger Level: ${service.triggerLevel}V');
-      print('Scale: ${service.scale}');
-      print('Mid: ${service.mid}');
-      print('Hysteresis: ${service.useHysteresis}');
-      print('LowPassFilter: ${service.useLowPassFilter}');
+      if (kDebugMode) {
+        print('\nTest Configuration:');
+        print('Trigger Level: ${service.triggerLevel}V');
+        print('Scale: ${service.scale}');
+        print('Mid: ${service.mid}');
+        print('Hysteresis: ${service.useHysteresis}');
+        print('LowPassFilter: ${service.useLowPassFilter}');
+      }
 
       final points = DataAcquisitionService.processDataForTest(
           queue,
@@ -940,10 +946,12 @@ void main() {
           mockDeviceConfigProvider.config!,
           getMockSendPort());
 
-      print('\nSignal Analysis:');
-      print('Min value: ${points.map((p) => p.y).reduce(min)}V');
-      print('Max value: ${points.map((p) => p.y).reduce(max)}V');
-      print('Trigger points: ${points.where((p) => p.isTrigger).length}');
+      if (kDebugMode) {
+        print('\nSignal Analysis:');
+        print('Min value: ${points.map((p) => p.y).reduce(min)}V');
+        print('Max value: ${points.map((p) => p.y).reduce(max)}V');
+        print('Trigger points: ${points.where((p) => p.isTrigger).length}');
+      }
 
       expect(points.any((p) => p.y >= service.triggerLevel), isTrue,
           reason: 'No points above trigger level');
@@ -968,12 +976,14 @@ void main() {
         queue.add((uint16Value >> 8) & 0xFF); // High byte
       }
 
-      print('\nTest Configuration:');
-      print('Trigger Level: ${service.triggerLevel}V');
-      print('Scale: ${service.scale}');
-      print('Mid: ${service.mid}');
-      print('Hysteresis: ${service.useHysteresis}');
-      print('LowPassFilter: ${service.useLowPassFilter}');
+      if (kDebugMode) {
+        print('\nTest Configuration:');
+        print('Trigger Level: ${service.triggerLevel}V');
+        print('Scale: ${service.scale}');
+        print('Mid: ${service.mid}');
+        print('Hysteresis: ${service.useHysteresis}');
+        print('LowPassFilter: ${service.useLowPassFilter}');
+      }
 
       final points = DataAcquisitionService.processDataForTest(
           queue,
@@ -989,12 +999,13 @@ void main() {
           mockDeviceConfigProvider.config!,
           getMockSendPort());
 
-      print('\nProcessed Points Summary:');
-      print('Total points: ${points.length}');
-      print(
-          'Points below trigger: ${points.where((p) => p.y <= service.triggerLevel).length}');
-      print('Trigger points: ${points.where((p) => p.isTrigger).length}');
-
+      if (kDebugMode) {
+        print('\nProcessed Points Summary:');
+        print('Total points: ${points.length}');
+        print(
+            'Points below trigger: ${points.where((p) => p.y <= service.triggerLevel).length}');
+        print('Trigger points: ${points.where((p) => p.isTrigger).length}');
+      }
       expect(points.any((p) => p.y <= service.triggerLevel), isTrue,
           reason: 'No points below trigger level');
       expect(points.any((p) => p.isTrigger), isTrue,
@@ -1028,10 +1039,12 @@ void main() {
           getMockSendPort());
 
       final triggerCount = points.where((p) => p.isTrigger).length;
-      print('No filters - trigger count: $triggerCount');
-      print(
-          'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      if (kDebugMode) {
+        print('No filters - trigger count: $triggerCount');
 
+        print(
+            'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      }
       expect(triggerCount, greaterThan(0));
       // Expect more false triggers due to noise
       expect(triggerCount,
@@ -1065,9 +1078,12 @@ void main() {
           getMockSendPort());
 
       final triggerCount = points.where((p) => p.isTrigger).length;
-      print('Low-pass filter only - trigger count: $triggerCount');
-      print(
-          'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      if (kDebugMode) {
+        print('Low-pass filter only - trigger count: $triggerCount');
+
+        print(
+            'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      }
       // Should have fewer triggers than no filter case
       expect(triggerCount, greaterThan(0));
       expect(triggerCount,
@@ -1101,9 +1117,11 @@ void main() {
           getMockSendPort());
 
       final triggerCount = points.where((p) => p.isTrigger).length;
-      print('Hysteresis only - trigger count: $triggerCount');
-      print(
-          'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      if (kDebugMode) {
+        print('Hysteresis only - trigger count: $triggerCount');
+        print(
+            'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      }
 
       // Calculate expected triggers based on signal frequency
       final expectedTriggers = (mainFreq * numSamples / 1650000.0).round();
@@ -1139,9 +1157,11 @@ void main() {
           getMockSendPort());
 
       final triggerCount = points.where((p) => p.isTrigger).length;
-      print('Both filters - trigger count: $triggerCount');
-      print(
-          'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      if (kDebugMode) {
+        print('Both filters - trigger count: $triggerCount');
+        print(
+            'Expected triggers: ${(mainFreq * numSamples / 1650000.0).round()}');
+      }
       // Should have the most accurate trigger count
       expect(triggerCount, greaterThan(0));
       expect(triggerCount,
@@ -1223,15 +1243,19 @@ void main() {
       // Esperar la frecuencia emitida
       final actualFrequency = await frequencyFuture;
 
-      print('Expected Frequency: $expectedFrequency');
-      print('Actual Frequency: $actualFrequency');
+      if (kDebugMode) {
+        print('Expected Frequency: $expectedFrequency');
+        print('Actual Frequency: $actualFrequency');
+      }
 
       expect(actualFrequency, equals(expectedFrequency));
     });
 
     test('should send correct trigger percentage to server', () async {
       final mockHttpService = Get.find<HttpService>() as MockHttpService;
-      print('Found HttpService: ${mockHttpService.runtimeType}');
+      if (kDebugMode) {
+        print('Found HttpService: ${mockHttpService.runtimeType}');
+      }
 
       // Test mid-range
       service.triggerLevel = 1.65;
@@ -1266,8 +1290,11 @@ void main() {
 
       final actualFrequency = await frequencyFuture;
 
-      print('Expected Frequency: 0.0');
-      print('Actual Frequency: $actualFrequency');
+      if (kDebugMode) {
+        print('Expected Frequency: 0.0');
+
+        print('Actual Frequency: $actualFrequency');
+      }
 
       expect(actualFrequency, equals(0.0));
     });
@@ -1286,8 +1313,11 @@ void main() {
 
       final actualFrequency = await frequencyFuture;
 
-      print('Expected Frequency: 0.0');
-      print('Actual Frequency: $actualFrequency');
+      if (kDebugMode) {
+        print('Expected Frequency: 0.0');
+
+        print('Actual Frequency: $actualFrequency');
+      }
 
       expect(actualFrequency, equals(0.0));
     });

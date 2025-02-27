@@ -46,6 +46,9 @@ jobs:
       - name: 🎨 Check Dart format
         run: dart format --set-exit-if-changed .
 
+      - name: 🔍 Run Flutter analyzer
+        run: flutter analyze --no-fatal-infos
+
       - name: 🧪 Run tests with coverage
         run: |
           flutter test --coverage

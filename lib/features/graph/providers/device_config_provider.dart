@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use_from_same_package, provide_deprecation_message
+
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';

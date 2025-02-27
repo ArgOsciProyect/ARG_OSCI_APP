@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -11,8 +9,6 @@ import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
 import 'package:arg_osci_app/features/setup/domain/models/wifi_credentials.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
-import 'package:pointycastle/asymmetric/api.dart';
-import 'package:encrypt/encrypt.dart';
 
 class MockSocketService extends Mock implements SocketService {}
 

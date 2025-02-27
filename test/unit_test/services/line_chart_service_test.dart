@@ -42,6 +42,7 @@ void main() {
       bitsPerPacket: 16,
       dataMask: 0x0FFF,
       channelMask: 0xF000,
+      // ignore: deprecated_member_use_from_same_package
       usefulBits: 12,
       samplesPerPacket: 4096,
       dividingFactor: 1,

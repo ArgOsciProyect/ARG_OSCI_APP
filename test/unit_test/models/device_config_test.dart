@@ -1,4 +1,6 @@
 // test/unit_test/models/device_config_test.dart
+// ignore_for_file: deprecated_member_use_from_same_package
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
 

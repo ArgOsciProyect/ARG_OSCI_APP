@@ -1,3 +1,5 @@
+// ignore_for_file: provide_deprecation_message, deprecated_member_use_from_same_package
+
 class DeviceConfig {
   /// Private base sampling frequency in Hz
   final double _baseSamplingFrequency;

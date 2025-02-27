@@ -21,7 +21,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:get/get.dart';
 import 'package:mockito/mockito.dart';
 
-const String LOG_FILE_PATH =
+const String logFilePath =
     '/home/jotalora/Tesis/ARG_OSCI_APP/test/integration_test/logs/osci_test_performance_99.log';
 
 // First add mock HTTP service
@@ -122,7 +122,6 @@ void main() {
   late DataAcquisitionService dataAcquisitionService;
   late DataAcquisitionProvider graphProvider;
   late FFTChartService fftService;
-  late File logFile;
   final stopwatch = Stopwatch();
 
   // Performance metrics calculation
@@ -142,7 +141,7 @@ void main() {
       String testCase, String operation, int dataSize, int durationMicros,
       {String? error, Map<String, dynamic>? extraData}) {
     try {
-      final logFile = File(LOG_FILE_PATH);
+      final logFile = File(logFilePath);
 
       // Ensure directory exists
       if (!logFile.parent.existsSync()) {
@@ -187,13 +186,13 @@ void main() {
       sink.close();
 
       if (kDebugMode) {
-        print('Logged entry to file: $LOG_FILE_PATH');
+        print('Logged entry to file: $logFilePath');
         print(logEntry.toString());
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error writing to log: $e');
-        print('Attempted to write to: $LOG_FILE_PATH');
+        print('Attempted to write to: $logFilePath');
       }
     }
   }
@@ -204,7 +203,7 @@ void main() {
 
     // Initialize log file first
     try {
-      final logFile = File(LOG_FILE_PATH);
+      final logFile = File(logFilePath);
       if (!logFile.existsSync()) {
         if (!logFile.parent.existsSync()) {
           logFile.parent.createSync(recursive: true);
@@ -212,12 +211,12 @@ void main() {
         logFile.createSync();
         // Write header only once
         logFile.writeAsStringSync(
-            '=== Performance Test Results ===\n' +
-                'Started at: ${DateTime.now()}\n\n',
+            '=== Performance Test Results ===\n'
+            'Started at: ${DateTime.now()}\n\n',
             mode: FileMode.append);
       }
       if (kDebugMode) {
-        print('Using log file at $LOG_FILE_PATH');
+        print('Using log file at $logFilePath');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -262,7 +261,7 @@ void main() {
     Get.reset();
 
     try {
-      final logFile = File(LOG_FILE_PATH);
+      final logFile = File(logFilePath);
       if (logFile.existsSync()) {
         final content = logFile.readAsStringSync();
         if (kDebugMode) {
