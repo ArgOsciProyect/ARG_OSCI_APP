@@ -47,8 +47,8 @@ void main() {
     });
 
     test('has correct properties', () {
-      expect(mode.name, equals('FFT'));
-      expect(mode.title, equals('Graph - FFT Mode'));
+      expect(mode.name, equals('Spectrum Analyzer'));
+      expect(mode.title, equals('Graph - Spectrum Analyzer Mode'));
       expect(mode.showTriggerControls, isFalse);
       expect(mode.showTimebaseControls, isFalse);
       expect(mode.showCustomControls, isTrue);
