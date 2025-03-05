@@ -44,7 +44,7 @@ class GraphScreen extends StatelessWidget {
         final size = Get.size;
         graphProvider.autoset(size.height, size.width);
         oscilloscopeChartProvider.resetOffsets();
-      } else if (graphMode == 'FFT') {
+      } else if (graphMode == 'Spectrum Analyzer') {
         final size = Get.size;
         final fftProvider = Get.find<FFTChartProvider>();
         final frequency = fftProvider.frequency.value > 0

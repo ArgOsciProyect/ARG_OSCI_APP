@@ -69,10 +69,10 @@ class FFTMode extends GraphMode {
   FFTMode(this.fftChartService);
 
   @override
-  String get name => 'FFT';
+  String get name => 'Spectrum Analyzer';
 
   @override
-  String get title => 'Graph - FFT Mode';
+  String get title => 'Graph - Spectrum Analyzer Mode';
 
   @override
   Widget buildChart() => FFTChart();
