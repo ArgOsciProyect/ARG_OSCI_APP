@@ -9,9 +9,9 @@ This project is useful because it allows you to visualize and analyze electrical
 ### How to Get Started
 
 1.  **Download the App:**
-    *   **Windows:** Download the `windows-release.zip` file from the latest release in the [Releases](https://github.com/your-username/ARG_OSCI/releases) section. Extract the contents and run the executable.
+    *   **Windows:** Download the `windows-release.zip` file from the latest release in the [Releases](https://github.com/ArgOsciProyect/ARG_OSCI_APP/releases) section. Extract the contents and run the executable.
     *   **Linux:** Download the `.AppImage`, `.deb`, or `.rpm` package from the latest release. Make the `.AppImage` executable (`chmod +x arg-osci-1.0.0-x86_64.AppImage`) and run it. Install the `.deb` or `.rpm` package using your distribution's package manager.
-    *   **Android:** Download the `app-release.apk` or `arg-osci-<version>.apk` file from the latest release and install it on your Android device. You may need to enable "Install from Unknown Sources" in your device settings.
+    *   **Android:** Download the `arg-osci-<version>.apk` file from the latest release and install it on your Android device. You may need to enable "Install from Unknown Sources" in your device settings.
 
 2.  **Connect to Your Device:** The application is designed to connect to an ESP32 device via Wi-Fi. Ensure your ESP32 is set up and broadcasting a Wi-Fi network.
 

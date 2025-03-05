@@ -13,7 +13,7 @@ Please note that this project is released with a [Contributor Covenant Code of C
 2.  **Clone the Fork:** Clone your forked repository to your local machine:
 
     ```bash
-    git clone https://github.com/<your_username>/ARG_OSCI.git
+    git clone https://github.com/ArgOsciProyect/ARG_OSCI_APP.git
     cd ARG_OSCI
     ```
 
@@ -109,8 +109,6 @@ The project follows a modular structure, separating concerns into distinct direc
 *   `lib/config`: Contains configuration files, such as the app theme (`app_theme.dart`) and dependency injection setup (`initializer.dart`). The `Initializer` class is responsible for initializing all necessary dependencies for the app, ensuring that services and providers are correctly set up at startup.
 *   `lib/features`: Contains feature-specific modules, such as `graph`, `setup`, and `socket`.
 *   `test`: Contains unit tests and integration tests.
-
-
 
 ## Requirements
 
