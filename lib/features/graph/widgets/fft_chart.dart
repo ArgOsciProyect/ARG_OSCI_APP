@@ -250,14 +250,14 @@ class _OffsetControls extends StatelessWidget {
       children: [
         _ControlButton(
           icon: Icons.keyboard_arrow_left,
-          onTap: fftChartProvider.incrementHorizontalOffset, 
-          onLongPress: fftChartProvider.incrementHorizontalOffset, 
+          onTap: fftChartProvider.incrementHorizontalOffset,
+          onLongPress: fftChartProvider.incrementHorizontalOffset,
           provider: fftChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_right,
-          onTap: fftChartProvider.decrementHorizontalOffset, 
-          onLongPress: fftChartProvider.decrementHorizontalOffset, 
+          onTap: fftChartProvider.decrementHorizontalOffset,
+          onLongPress: fftChartProvider.decrementHorizontalOffset,
           provider: fftChartProvider,
         ),
         _ControlButton(
@@ -323,7 +323,7 @@ class _ScaleButtons extends StatelessWidget {
     return Row(
       children: [
         _ControlButton(
-          icon: Icons.remove, 
+          icon: Icons.remove,
           onTap: fftChartProvider.decrementTimeScale,
           onLongPress: fftChartProvider.decrementTimeScale,
           provider: fftChartProvider,
@@ -336,14 +336,14 @@ class _ScaleButtons extends StatelessWidget {
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_down,
-          onTap: fftChartProvider.decrementValueScale, 
-          onLongPress: fftChartProvider.decrementValueScale, 
+          onTap: fftChartProvider.decrementValueScale,
+          onLongPress: fftChartProvider.decrementValueScale,
           provider: fftChartProvider,
         ),
         _ControlButton(
           icon: Icons.keyboard_arrow_up,
-          onTap: fftChartProvider.incrementValueScale, 
-          onLongPress: fftChartProvider.incrementValueScale, 
+          onTap: fftChartProvider.incrementValueScale,
+          onLongPress: fftChartProvider.incrementValueScale,
           provider: fftChartProvider,
         ),
       ],
