@@ -1,4 +1,5 @@
 # ARG_OSCI - Oscilloscope Visualization Tool
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ARG_OSCI is a versatile oscilloscope visualization tool designed to capture and display real-time data, offering functionalities for signal analysis in both time and frequency domains. It provides a user-friendly interface for configuring data acquisition, adjusting display settings, and analyzing signals, making it suitable for educational, hobbyist, and professional use.
 
@@ -52,3 +53,4 @@ The codebase is structured around Flutter and GetX, utilizing a modular architec
 To get started, familiarize yourself with the project structure and coding conventions. More detailed information on how to contribute, including guidelines for submitting pull requests, can be found in the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 If you need more help, refer to the project's documentation, which includes details on the data acquisition process, signal processing algorithms, and UI components. You can also explore the source code, which is extensively commented to explain the functionality of each module. Additionally, the project utilizes GitHub Actions for continuous integration, with workflow files in `.github/workflows` that detail the build and deployment processes for different platforms.
+
