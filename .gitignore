@@ -50,7 +50,7 @@ app.*.map.json
 /android/gradle-wrapper.jar
 /android/captures/
 /android/app/release/
-/android/key.properties  # If you have signing configurations
+/android/key.properties  
 /android/*.iml
 /android/.idea/
 
