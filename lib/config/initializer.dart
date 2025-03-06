@@ -12,6 +12,7 @@ import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
 import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
 /// [Initializer] is a utility class that initializes the app's dependencies.
@@ -19,6 +20,10 @@ class Initializer {
   /// Initializes all necessary dependencies for the app.
   static Future<void> init() async {
     try {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // Clean up any existing instances
+      //await _cleanupPreviousInstances();
       // 1. Initialize configs and base providers
       final globalHttpConfig = HttpConfig('http://192.168.4.1:81');
       final globalSocketConnection = SocketConnection('192.168.4.1', 8080);
