@@ -54,3 +54,7 @@ To get started, familiarize yourself with the project structure and coding conve
 
 If you need more help, refer to the project's documentation, which includes details on the data acquisition process, signal processing algorithms, and UI components. You can also explore the source code, which is extensively commented to explain the functionality of each module. Additionally, the project utilizes GitHub Actions for continuous integration, with workflow files in `.github/workflows` that detail the build and deployment processes for different platforms.
 
+
+## Acknowledgements
+
+This project is part of the ARG_OSCI oscilloscope visualization tool suite. For the firmware and hardware used, visit the [ARG_OSCI_FIRMWARE repository](https://github.com/ArgOsciProyect/ARG_OSCI_FIRMWARE) and the [ARG_OSCI_HARDWARE repository](https://github.com/ArgOsciProyect/ARG_OSCI_HARDWARE).
