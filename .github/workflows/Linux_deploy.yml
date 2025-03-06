@@ -1,0 +1,311 @@
+name: Linux Build
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-linux:
+    name: 🐧 Build Linux App
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.4'
+          channel: stable
+          
+      - name: 📦 Install dependencies
+        run: flutter pub get
+        
+      - name: 🔧 Enable linux build
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+          flutter config --enable-linux-desktop
+        
+      - name: 🏗️ Build Linux
+        run: flutter build linux --release
+        
+      - name: 📦 Package as tar.gz
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czvf ../../../../../linux-app.tar.gz .
+          cd ../../../../../
+          
+      - name: 📤 Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-app-tar
+          path: linux-app.tar.gz
+
+  appimage-package:
+    name: 📦 Build AppImage Package
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: 📥 Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+      
+      - name: 🔧 Install AppImage tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 wget
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+      
+      - name: 📦 Extract application
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          EXEC_NAME=$(basename $EXEC_FILE)
+          echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+      
+      - name: 🏗️ Build AppImage
+        run: |
+          APP_NAME="arg-osci"
+          
+          # Create AppDir structure
+          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
+          
+          # Copy application files
+          cp -r app-contents/* AppDir/usr/lib/$APP_NAME/
+          
+          # Create launcher script
+          cat > AppDir/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          EOF
+          chmod +x AppDir/usr/bin/$APP_NAME
+          
+          # Extract icon name from path and copy the icon
+          cp lib/assets/icons/ARG_OSCI_ICON.png AppDir/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
+          
+          # Create desktop file - must be in root and be named exactly as AppImageTool expects
+          cat > AppDir/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Type=Application
+          Name=ARG OSCI
+          GenericName=Oscilloscope
+          Comment=Oscilloscope Visualization Tool
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Terminal=false
+          Categories=Science;Education;
+          EOF
+          
+          # Copy desktop file to standard locations
+          cp AppDir/$APP_NAME.desktop AppDir/usr/share/applications/
+          
+          # Create AppRun file (entry point)
+          cat > AppDir/AppRun << EOF
+          #!/bin/bash
+          APPDIR="\$(dirname "\$(readlink -f "\${0}")")"
+          export PATH="\${APPDIR}/usr/bin:\${PATH}"
+          export LD_LIBRARY_PATH="\${APPDIR}/usr/lib:\${LD_LIBRARY_PATH}"
+          exec "\${APPDIR}/usr/bin/$APP_NAME" "\$@"
+          EOF
+          chmod +x AppDir/AppRun
+          
+          # Link the icon to root for AppImage to find it
+          ln -sf usr/share/icons/hicolor/128x128/apps/$APP_NAME.png AppDir/$APP_NAME.png
+          
+          # List files for debugging
+          echo "Content of AppDir:"
+          find AppDir -type f | sort
+          
+          # Create the AppImage with the correct environment
+          ARCH=x86_64 ./appimagetool --no-appstream AppDir "${APP_NAME}-1.0.0-x86_64.AppImage"
+      
+      - name: 📤 Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage-package
+          path: '*.AppImage'
+  deb-package:
+    name: 📦 Build DEB Package
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: 📥 Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+          
+      - name: 🔧 Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential
+          sudo gem install --no-document fpm
+          
+      - name: 📦 Extract application
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          EXEC_NAME=$(basename $EXEC_FILE)
+          echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+          
+      - name: 🏗️ Build .deb package
+        run: |
+          APP_NAME="arg-osci"
+          APP_VERSION="1.0.0"
+          APP_DESCRIPTION="ARG OSCI Flutter application for oscilloscope visualization"
+          
+          mkdir -p debian-package/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
+          
+          cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
+          cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
+          
+          cat > debian-package/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          EOF
+          chmod +x debian-package/usr/bin/$APP_NAME
+          
+          cat > debian-package/usr/share/applications/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
+          EOF
+          
+          fpm -s dir -t deb -C debian-package \
+            --name $APP_NAME \
+            --version $APP_VERSION \
+            --architecture amd64 \
+            --description "$APP_DESCRIPTION" \
+            --depends "libgtk-3-0" \
+            --depends "liblzma5" \
+            --depends "libc6" \
+            --depends "libstdc++6" \
+            .
+            
+      - name: 📤 Upload .deb package
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-package
+          path: '*.deb'
+
+  rpm-package:
+    name: 📦 Build RPM Package
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: 📥 Download built application
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app-tar
+          
+      - name: 🔧 Install FPM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo gem install --no-document fpm
+          
+      - name: 📦 Extract application
+        run: |
+          mkdir -p app-contents
+          tar -xzvf linux-app.tar.gz -C app-contents
+          
+          # Find the executable file
+          EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          echo "Executable found: $EXEC_FILE"
+          EXEC_NAME=$(basename $EXEC_FILE)
+          echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+          
+      - name: 🏗️ Build .rpm package
+        run: |
+          APP_NAME="arg-osci"
+          APP_VERSION="1.0.0"
+          APP_DESCRIPTION="ARG OSCI Flutter application for oscilloscope visualization"
+          
+          mkdir -p rpm-package/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
+          
+          cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
+          cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
+          
+          cat > rpm-package/usr/bin/$APP_NAME << EOF
+          #!/bin/bash
+          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          EOF
+          chmod +x rpm-package/usr/bin/$APP_NAME
+          
+          cat > rpm-package/usr/share/applications/$APP_NAME.desktop << EOF
+          [Desktop Entry]
+          Name=ARG OSCI
+          Exec=$APP_NAME
+          Icon=$APP_NAME
+          Type=Application
+          Categories=Science;Education;
+          Comment=Oscilloscope Visualization Tool
+          EOF
+          
+          fpm -s dir -t rpm -C rpm-package \
+            --name $APP_NAME \
+            --version $APP_VERSION \
+            --architecture x86_64 \
+            --description "$APP_DESCRIPTION" \
+            --depends "gtk3" \
+            --depends "xz-libs" \
+            --depends "glibc" \
+            --depends "libstdc++" \
+            .
+            
+      - name: 📤 Upload .rpm package
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: '*.rpm'
+
+  create-release:
+    name: 📦 Create Release
+    needs: [appimage-package, deb-package, rpm-package]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Only contents permission needed for releases
+    steps:
+      - name: 📥 Download all packages
+        uses: actions/download-artifact@v4
+        with:
+          path: packages
+          
+      - name: 🚀 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            packages/appimage-package/*.AppImage
+            packages/deb-package/*.deb
+            packages/rpm-package/*.rpm
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

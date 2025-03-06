@@ -1,0 +1,156 @@
+name: Android Build
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-android:
+    name: 📱 Build Android App
+    runs-on: ubuntu-latest
+    outputs:
+      has_keystore: ${{ steps.keystore_check.outputs.has_keystore }}
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🎯 Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 🎯 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.4'
+          channel: 'stable'
+
+      - name: 📥 Get dependencies
+        run: flutter pub get
+
+      - name: 🔧 Fix Java home in Gradle
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.java.home=$JAVA_HOME" > ~/.gradle/gradle.properties
+          echo "Using JAVA_HOME: $JAVA_HOME"
+          java -version
+          flutter --version
+        
+      - name: 🔧 Setup Android SDK
+        run: flutter config --android-sdk $ANDROID_SDK_ROOT
+      
+      - name: 🎯 Setup Flutter icons
+        run: |
+          flutter pub add --dev flutter_launcher_icons
+          cat > flutter_launcher_icons.yaml << EOF
+          flutter_launcher_icons:
+            android: true
+            ios: false
+            image_path: "lib/assets/icons/ARG_OSCI_ICON.png"
+            adaptive_icon_background: "#121212"
+            adaptive_icon_foreground: "lib/assets/icons/ARG_OSCI_ICON.png"
+          EOF
+          flutter pub run flutter_launcher_icons
+      
+      - name: 🔧 Update Android Manifest
+        run: |
+          if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+            sed -i '/<manifest/s/xmlns:android="[^"]*"/& xmlns:tools="http:\/\/schemas.android.com\/tools"/' android/app/src/main/AndroidManifest.xml
+            sed -i '/<application/s/android:label="[^"]*"/android:label="ARG OSCI" tools:replace="android:label"/' android/app/src/main/AndroidManifest.xml
+          fi
+          if [ -f "android/app/src/debug/AndroidManifest.xml" ]; then
+            sed -i '/<application/s/android:label="[^"]*"//' android/app/src/debug/AndroidManifest.xml
+          fi
+      
+      - name: 🔧 Ensure gradlew is executable
+        run: |
+          chmod +x android/gradlew || echo "gradlew not found"
+      
+      - name: 🔑 Check for keystore
+        id: keystore_check
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "has_keystore=true" >> $GITHUB_OUTPUT
+            
+            # Setup keystore files
+            mkdir -p android/app
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+            cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=keystore.jks
+          EOF
+          else
+            echo "has_keystore=false" >> $GITHUB_OUTPUT
+            echo "No keystore provided. Building unsigned release APK."
+          fi
+
+      # Build release APK for all builds (PR, push, release)
+      - name: 📱 Build Release APK
+        run: |
+          flutter build apk --release
+          
+          # For releases, create a version-named copy
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            VERSION="${{ github.ref_name }}"
+            cp build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/arg-osci-${VERSION}.apk"
+          fi
+
+      # Build App Bundle only for releases with keystore
+      - name: 📱 Build App Bundle
+        if: github.event_name == 'release' && steps.keystore_check.outputs.has_keystore == 'true'
+        run: flutter build appbundle --release
+
+      # Upload artifacts for all builds
+      - name: 📤 Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          
+      # Upload version-named APK for releases
+      - name: 📤 Upload Versioned APK
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: versioned-apk
+          path: build/app/outputs/flutter-apk/arg-osci-${{ github.ref_name }}.apk
+          
+      # Upload AAB for releases with keystore
+      - name: � Upload App Bundle
+        if: github.event_name == 'release' && steps.keystore_check.outputs.has_keystore == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-bundle
+          path: build/app/outputs/bundle/release/app-release.aab
+
+  create-release:
+    name: � Create Release
+    needs: build-android
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: 📥 Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: .
+          
+      - name: 📝 List downloaded files
+        run: |
+          echo "Downloaded files:"
+          find . -type f | sort
+          
+      - name: 🚀 Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            versioned-apk/arg-osci-${{ github.ref_name }}.apk
+            app-bundle/app-release.aab
+          fail_on_unmatched_files: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

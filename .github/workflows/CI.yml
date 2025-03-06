@@ -1,0 +1,92 @@
+name: Quality & Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: ['**']
+
+jobs:
+  quality:
+    name: Code Quality & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 💾 Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            /opt/hostedtoolcache/flutter
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      - name: 🎯 Set up Flutter
+        if: steps.flutter-cache.outputs.cache-hit != 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: 📦 Install lcov
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: ℹ️ Environment info
+        run: |
+          dart --version
+          flutter --version
+          flutter doctor
+
+      - name: 📥 Install dependencies
+        run: flutter pub get
+
+      - name: 🎨 Check Dart format
+        run: dart format --set-exit-if-changed .
+
+      - name: 🔍 Run Flutter analyzer
+        run: flutter analyze --no-fatal-infos
+
+      - name: 🧪 Run tests with coverage
+        run: |
+          flutter test --coverage
+          genhtml coverage/lcov.info -o coverage/html
+
+      - name: 📊 Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+
+      - name: ✅ Check Coverage Threshold
+        run: |
+          echo "Starting coverage check..."
+          
+          if [ ! -f coverage/lcov.info ] || [ ! -s coverage/lcov.info ]; then
+            echo "Error: coverage/lcov.info is missing or empty"
+            ls -la coverage/
+            exit 1
+          fi
+          
+          LINES_HIT=$(grep -oP "LH:\d+" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum}')
+          LINES_FOUND=$(grep -oP "LF:\d+" coverage/lcov.info | awk -F: '{sum+=$2} END {print sum}')
+          
+          if [ "$LINES_FOUND" -eq 0 ]; then
+            echo "Error: No lines found for coverage calculation"
+            exit 1
+          fi
+          
+          COVERAGE=$(echo "scale=2; ($LINES_HIT * 100) / $LINES_FOUND" | bc)
+          echo "Lines Found: $LINES_FOUND"
+          echo "Lines Hit: $LINES_HIT"
+          echo "Total Coverage: $COVERAGE%"
+          
+          if (( $(echo "$COVERAGE < 30" | bc -l) )); then
+            echo "Coverage ($COVERAGE%) is below threshold (30%)"
+            exit 1
+          fi
+          
+          echo "Coverage check passed!"
+        shell: bash
