@@ -43,7 +43,30 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/local.properties
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/gradle-wrapper.jar
+/android/captures/
+/android/app/release/
+/android/key.properties  # If you have signing configurations
+/android/*.iml
+/android/.idea/
 
+# Linux
+/linux/flutter/
+/linux/build/
+/linux/.dart_tool/
+/linux/*.so
+
+#windows 
+/windows/flutter/
+/windows/build/
+/windows/.vs/
+/windows/out/
+/windows/*.user
+/windows/*.sln.docstates
 
 #release
 logocolor.png
