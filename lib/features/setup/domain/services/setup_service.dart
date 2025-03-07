@@ -158,7 +158,7 @@ class NetworkInfoService {
           if (currentSSID != null) {
             currentSSID = currentSSID.replaceAll('"', '');
 
-            if (currentSSID.startsWith(_apSsid)) {
+            if (currentSSID == _apSsid) {
               if (kDebugMode) {
                 print("Connected to $_apSsid via traditional method");
               }
@@ -209,6 +209,16 @@ class NetworkInfoService {
   /// Gets the current WiFi IP address.
   Future<String?> getWifiIP() async {
     return _networkInfo.getWifiIP();
+  }
+
+  /// Check if device is connected to a specific WiFi network
+  Future<bool> isConnectedToNetwork(String ssid) async {
+    String? currentSSID = await getWifiName();
+    if (Platform.isAndroid && currentSSID != null) {
+      currentSSID = currentSSID.replaceAll('"', '');
+    }
+
+    return currentSSID == ssid;
   }
 }
 
@@ -401,61 +411,85 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {
-    if (Platform.isAndroid) {
-      // Show credentials dialog
-      Map<String, String>? credentials = await Get.dialog<Map<String, String>>(
-        const WiFiCredentialsDialog(),
-        barrierDismissible: false,
-      );
+    // Show credentials dialog for all platforms
+    Map<String, String>? credentials = await Get.dialog<Map<String, String>>(
+      const WiFiCredentialsDialog(),
+      barrierDismissible: false,
+    );
 
-      if (credentials != null) {
-        // Set custom credentials
-        _networkInfo.setApCredentials(
-            credentials['ssid']!, credentials['password']!);
-      }
+    if (credentials == null) {
+      // User canceled the dialog
+      throw SetupException('Setup canceled by user');
+    }
+
+    // Set the target SSID for any platform
+    final targetSsid = credentials['ssid'] ?? 'ESP32_AP';
+
+    if (Platform.isAndroid) {
+      // For Android, use WiFiForIoTPlugin to connect automatically
+      _networkInfo.setApCredentials(
+        targetSsid,
+        credentials['password'] ?? 'password123',
+      );
 
       final connected = await _networkInfo.connectWithRetries();
       if (!connected) {
         // Show error message
         Get.snackbar(
           'Connection Failed',
-          'Failed to connect to ESP32 AP. Please check credentials and try again.',
+          'Failed to connect to $targetSsid. Please check credentials and try again.',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
-        throw Exception('Failed to connect to ESP32_AP');
-      }
-
-      await Future.delayed(const Duration(seconds: 2));
-      if (kDebugMode) {
-        print(await _networkInfo.getWifiName());
-        print(await _networkInfo.getWifiIP());
+        throw SetupException('Failed to connect to $targetSsid');
       }
     } else {
-      // For non-Android platforms, prompt the user to connect manually
+      // For other platforms, guide the user to connect manually
       Get.snackbar(
         'Manual Connection Required',
-        'Please connect your device to the ESP32_AP WiFi network',
+        'Please connect your device to the $targetSsid WiFi network in your device settings.',
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 8),
       );
 
+      // Wait for the user to connect to the specified network
+      const maxWaitTime = Duration(minutes: 2);
+      final startTime = DateTime.now();
+
       while (true) {
-        String? wifiName = await _networkInfo.getWifiName();
-        if (Platform.isAndroid && wifiName != null) {
-          wifiName = wifiName.replaceAll('"', '');
+        // Check if we've exceeded the maximum wait time
+        if (DateTime.now().difference(startTime) > maxWaitTime) {
+          throw TimeoutException(
+              'Connection timeout: Please connect to $targetSsid network');
         }
 
-        if (wifiName != null && wifiName.startsWith('ESP32_AP')) {
+        // Check if connected to the target network
+        String? currentSSID = await _networkInfo.getWifiName();
+        if (Platform.isIOS && currentSSID != null) {
+          // On iOS, remove quotes that might be around SSID
+          currentSSID = currentSSID.replaceAll('"', '');
+        }
+
+        if (currentSSID!.startsWith(targetSsid)) {
+          if (kDebugMode) {
+            print("Successfully connected to $targetSsid");
+          }
           break;
         }
 
         if (kDebugMode) {
-          print('Please connect manually to ESP32_AP network');
+          print(
+              'Waiting for connection to $targetSsid. Current network: $currentSSID');
         }
         await Future.delayed(const Duration(seconds: 1));
       }
+    }
+
+    await Future.delayed(const Duration(seconds: 2));
+    if (kDebugMode) {
+      print('Connected to WiFi: ${await _networkInfo.getWifiName()}');
+      print('IP address: ${await _networkInfo.getWifiIP()}');
     }
 
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);

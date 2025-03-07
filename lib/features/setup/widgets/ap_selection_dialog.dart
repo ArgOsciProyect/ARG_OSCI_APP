@@ -21,13 +21,13 @@ Future<void> showAPSelectionDialog() async {
         ],
       ),
     ),
-    barrierDismissible: false,
+    // Change this to true to allow dismissing by clicking outside
+    barrierDismissible: true,
   );
 
   try {
     // Connect to the local AP
     await controller.connectToLocalAP();
-    // Close the loading dialog after the connection is established
     Get.back();
 
     // Show dialog to select between Local AP and External AP modes
@@ -37,34 +37,29 @@ Future<void> showAPSelectionDialog() async {
         content: const Text('Choose your preferred AP mode.'),
         actions: [
           TextButton(
-            // Handle Local AP selection
             onPressed: () async {
               Get.back();
               await controller.handleModeSelection('Internal AP');
               Get.snackbar('AP Mode', 'Local AP selected.');
-
-              // Navigate to the mode selection screen
               Get.to(() => const ModeSelectionScreen());
             },
             child: const Text('Local AP'),
           ),
           TextButton(
-            // Handle External AP selection
             onPressed: () async {
               Get.back();
               await controller.handleModeSelection('External AP');
               Get.snackbar('AP Mode', 'External AP selected.');
-
-              // Show dialog to select external WiFi network
               await showWiFiNetworkDialog();
             },
             child: const Text('External AP'),
           ),
         ],
       ),
+      // Change this to true to allow dismissing by clicking outside
+      barrierDismissible: true,
     );
   } catch (e) {
-    // Handle connection errors
     Get.back();
     Get.snackbar('Error', 'Failed to connect to ESP32 AP: $e');
   }
