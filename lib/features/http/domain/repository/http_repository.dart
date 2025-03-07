@@ -1,38 +1,28 @@
 /// Repository interface for making HTTP requests to the oscilloscope API
 abstract class HttpRepository {
-  /// Makes a GET request to the specified endpoint
-  ///
-  /// [endpoint] The path to append to the base URL
-  /// Returns parsed JSON response on success
-  /// Throws [HttpException] if request fails
-  /// Throws [FormatException] if response is not valid JSON
-  Future<dynamic> get(String endpoint);
+  /// Performs a GET request.
+  /// [endpoint] - API endpoint to call
+  /// [skipNavigation] - if true, won't navigate to setup screen on error
+  Future<dynamic> get(String endpoint, {bool skipNavigation});
 
-  /// Makes a POST request to the specified endpoint with optional JSON body
-  ///
-  /// [endpoint] The path to append to the base URL
-  /// [body] Optional request body that will be JSON encoded
-  /// Returns parsed JSON response on success
-  /// Throws [HttpException] if request fails
-  /// Throws [FormatException] if response is not valid JSON
-  Future<dynamic> post(String endpoint, [Map<String, dynamic>? body]);
+  /// Performs a POST request.
+  /// [endpoint] - API endpoint to call
+  /// [body] - Optional request body
+  /// [skipNavigation] - if true, won't navigate to setup screen on error
+  Future<dynamic> post(String endpoint,
+      [Map<String, dynamic>? body, bool skipNavigation]);
 
-  /// Makes a PUT request to the specified endpoint with JSON body
-  ///
-  /// [endpoint] The path to append to the base URL
-  /// [body] Request body that will be JSON encoded
-  /// Returns parsed JSON response on success
-  /// Throws [HttpException] if request fails
-  /// Throws [FormatException] if response is not valid JSON
-  Future<dynamic> put(String endpoint, Map<String, dynamic> body);
+  /// Performs a PUT request.
+  /// [endpoint] - API endpoint to call
+  /// [body] - Request body
+  /// [skipNavigation] - if true, won't navigate to setup screen on error
+  Future<dynamic> put(String endpoint, Map<String, dynamic> body,
+      {bool skipNavigation});
 
-  /// Makes a DELETE request to the specified endpoint
-  ///
-  /// [endpoint] The path to append to the base URL
-  /// Returns parsed JSON response on success
-  /// Throws [HttpException] if request fails
-  /// Throws [FormatException] if response is not valid JSON
-  Future<dynamic> delete(String endpoint);
+  /// Performs a DELETE request.
+  /// [endpoint] - API endpoint to call
+  /// [skipNavigation] - if true, won't navigate to setup screen on error
+  Future<dynamic> delete(String endpoint, {bool skipNavigation});
 
   /// Base URL for all requests
   String get baseUrl;

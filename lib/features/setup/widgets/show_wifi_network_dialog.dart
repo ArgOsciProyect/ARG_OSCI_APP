@@ -16,81 +16,78 @@ Future<void> showWiFiNetworkDialog() async {
         canPop: false,
         child: AlertDialog(
           title: const Text('Scanning Networks'),
-          content: Obx(() {
-            final state = controller.state;
+          content: SizedBox(
+            width: 300,
+            height: MediaQuery.of(Get.context!).size.height * 0.5,
+            child: Obx(() {
+              final state = controller.state;
 
-            switch (state.status) {
-              case SetupStatus.scanning:
-                // Display a loading indicator while scanning
-                return const SizedBox(
-                  width: 60,
-                  height: 60,
-                  child: Center(
+              switch (state.status) {
+                case SetupStatus.scanning:
+                  // Display a loading indicator while scanning
+                  return const Center(
                     child: CircularProgressIndicator(),
-                  ),
-                );
+                  );
 
-              case SetupStatus.selecting:
-                // Display the list of available WiFi networks
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 300,
-                      height: 350, // Reduced height to make room for button
-                      child: ListView.builder(
-                        itemCount: state.networks.length,
-                        itemBuilder: (_, i) => ListTile(
-                          title: Text(state.networks[i]),
-                          onTap: () async {
-                            Get.back();
-                            await askForPassword(state.networks[i]);
-                          },
+                case SetupStatus.selecting:
+                  // Display the list of available WiFi networks
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: state.networks.length,
+                          itemBuilder: (_, i) => ListTile(
+                            title: Text(state.networks[i]),
+                            onTap: () async {
+                              Get.back();
+                              await askForPassword(state.networks[i]);
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton.icon(
-                      // Button to rescan for WiFi networks
-                      onPressed: () {
-                        controller.handleExternalAPSelection();
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Rescan Networks'),
-                    ),
-                  ],
-                );
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        // Button to rescan for WiFi networks
+                        onPressed: () {
+                          controller.handleExternalAPSelection();
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Rescan Networks'),
+                      ),
+                    ],
+                  );
 
-              case SetupStatus.error:
-                // Display an error message and retry options
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Error: ${state.error}'),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        TextButton(
-                          child: const Text('Retry'),
-                          onPressed: () {
-                            controller.reset();
-                            controller.handleExternalAPSelection();
-                          },
-                        ),
-                        TextButton(
-                          onPressed: () => Get.back(),
-                          child: const Text('Back'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
+                case SetupStatus.error:
+                  // Display an error message and retry options
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: ${state.error}'),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          TextButton(
+                            child: const Text('Retry'),
+                            onPressed: () {
+                              controller.reset();
+                              controller.handleExternalAPSelection();
+                            },
+                          ),
+                          TextButton(
+                            onPressed: () => Get.back(),
+                            child: const Text('Back'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
 
-              default:
-                return const SizedBox.shrink();
-            }
-          }),
+                default:
+                  return const SizedBox.shrink();
+              }
+            }),
+          ),
         ),
       ),
     );
@@ -104,37 +101,88 @@ Future<void> showWiFiNetworkDialog() async {
 Future<void> askForPassword(String ssid) async {
   final passwordController = TextEditingController();
   final controller = Get.find<SetupProvider>();
+  final formKey = GlobalKey<FormState>();
 
   try {
     // Show dialog to input WiFi password once.
     final password = await Get.dialog<String>(
       PopScope(
         canPop: false,
-        child: AlertDialog(
-          title: Text('Enter Password for $ssid'),
-          content: SizedBox(
-            width: 300,
-            child: TextField(
-              controller: passwordController,
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                border: OutlineInputBorder(),
+        child: Dialog(
+          child: Builder(builder: (context) {
+            // Get the orientation
+            final isLandscape =
+                MediaQuery.of(context).orientation == Orientation.landscape;
+
+            return SingleChildScrollView(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                width: isLandscape ? 360 : 300,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Enter Password for $ssid',
+                          style: Theme.of(Get.context!).textTheme.titleLarge,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextFormField(
+                          controller: passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
+                          obscureText: true,
+                          autofocus: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter password';
+                            }
+                            return null;
+                          },
+                          onFieldSubmitted: (value) {
+                            if (formKey.currentState!.validate()) {
+                              Get.back(result: value);
+                            }
+                          },
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Get.back(),
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              // Hide keyboard first to improve UX
+                              FocusScope.of(context).unfocus();
+
+                              if (formKey.currentState!.validate()) {
+                                Get.back(result: passwordController.text);
+                              }
+                            },
+                            child: const Text('Connect'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              obscureText: true,
-              autofocus: true,
-              onSubmitted: (value) => Get.back(result: value),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Get.back(result: passwordController.text),
-              child: const Text('Connect'),
-            ),
-          ],
+            );
+          }),
         ),
       ),
     );
@@ -147,63 +195,64 @@ Future<void> askForPassword(String ssid) async {
           canPop: false,
           child: AlertDialog(
             title: const Text('Connecting'),
-            content: Obx(() {
-              final state = controller.state;
-              switch (state.status) {
-                case SetupStatus.configuring:
-                  return const Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Connecting to network...'),
-                    ],
-                  );
-                case SetupStatus.waitingForNetworkChange:
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.wifi, size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Please connect your device to\n"$ssid"',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 24),
-                      const CircularProgressIndicator(),
-                    ],
-                  );
-                case SetupStatus.error:
-                  // On error, offer retry (which uses the same password) or exit.
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(state.error ?? 'Connection failed'),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          TextButton(
-                            onPressed: () async {
-                              // Automatically retry connection with the same password.
-                              await controller.connectToExternalAP(
-                                  ssid, password);
-                            },
-                            child: const Text('Retry'),
-                          ),
-                          TextButton(
-                            onPressed: () => Get.back(),
-                            child: const Text('Exit'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                default:
-                  return const SizedBox.shrink();
-              }
-            }),
+            content: SizedBox(
+              width: 300,
+              child: Obx(() {
+                final state = controller.state;
+                switch (state.status) {
+                  case SetupStatus.configuring:
+                    return const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Connecting to network...'),
+                      ],
+                    );
+                  case SetupStatus.waitingForNetworkChange:
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wifi, size: 48),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Please connect your device to\n"$ssid"',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        const SizedBox(height: 24),
+                        const CircularProgressIndicator(),
+                      ],
+                    );
+                  case SetupStatus.error:
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(state.error ?? 'Connection failed'),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            TextButton(
+                              onPressed: () async {
+                                await controller.connectToExternalAP(
+                                    ssid, password);
+                              },
+                              child: const Text('Retry'),
+                            ),
+                            TextButton(
+                              onPressed: () => Get.back(),
+                              child: const Text('Exit'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  default:
+                    return const SizedBox.shrink();
+                }
+              }),
+            ),
           ),
         ),
       );
