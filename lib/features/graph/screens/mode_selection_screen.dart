@@ -41,19 +41,62 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
       appBar: AppBar(
         title: const Text('Select Mode'),
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Get.back(),
+        ),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: modeProvider.availableModes
-              .map((mode) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: ElevatedButton(
-                      onPressed: () => modeProvider.navigateToMode(mode),
-                      child: Text(mode),
+      body: SafeArea(
+        // Add SafeArea to respect system UI
+        child: SingleChildScrollView(
+          // Add SingleChildScrollView to handle overflow
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Instructions text
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    child: Text(
+                      'Select a display mode:',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      textAlign: TextAlign.center,
                     ),
-                  ))
-              .toList(),
+                  ),
+                  const SizedBox(height: 20),
+                  // Mode selection buttons
+                  ...modeProvider.availableModes.map((mode) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 20),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(200, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () => modeProvider.navigateToMode(mode),
+                          child: Text(
+                            mode,
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ),
+                      )),
+                  // Back button at the bottom
+                  const SizedBox(height: 40),
+                  TextButton.icon(
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Return to Setup'),
+                    onPressed: () => Get.back(),
+                  ),
+                  const SizedBox(height: 16), // Add bottom padding
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

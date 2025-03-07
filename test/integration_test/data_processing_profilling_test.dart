@@ -27,7 +27,8 @@ const String logFilePath =
 // First add mock HTTP service
 class MockHttpService extends Mock implements HttpService {
   @override
-  Future<Response<dynamic>> post(String path, [dynamic data]) async {
+  Future<dynamic> post(String path,
+      [Map<String, dynamic>? data, bool? flag]) async {
     return Response(
       body: {'status': 'success'},
       statusCode: 200,
@@ -35,7 +36,7 @@ class MockHttpService extends Mock implements HttpService {
   }
 
   @override
-  Future<Response<dynamic>> get(String path) async {
+  Future<dynamic> get(String path, {bool skipNavigation = false}) async {
     switch (path) {
       case '/config':
         return Response(

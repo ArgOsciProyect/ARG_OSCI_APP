@@ -245,7 +245,7 @@ class MockHttpService extends Mock implements HttpService {
   Map<String, dynamic>? lastPostData;
 
   @override
-  Future<Response> get(String path) async {
+  Future<Response> get(String path, {bool skipNavigation = false}) async {
     lastGetEndpoint = path;
     switch (path) {
       case '/config':
@@ -277,9 +277,10 @@ class MockHttpService extends Mock implements HttpService {
   }
 
   @override
-  Future<Response> post(String path, [dynamic data]) async {
+  Future<Response> post(String path,
+      [Map<String, dynamic>? data, bool? flag]) async {
     lastPostEndpoint = path;
-    lastPostData = data as Map<String, dynamic>?;
+    lastPostData = data;
 
     if (path == '/trigger' && data != null) {
       if (data['trigger_percentage'] != null) {

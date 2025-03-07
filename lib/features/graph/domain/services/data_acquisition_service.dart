@@ -278,11 +278,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Calculate percentage based on the full range
       final percentage = ((rawTrigger - deviceConfig.minBits) / range) * 100;
 
-      await httpService.post('/trigger', {
-        'trigger_percentage': percentage.clamp(0, 100),
-        'trigger_edge':
-            _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
-      });
+      await httpService.post(
+          '/trigger',
+          {
+            'trigger_percentage': percentage.clamp(0, 100),
+            'trigger_edge':
+                _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
+          },
+          true);
     } catch (e) {
       if (kDebugMode) {
         print('Error posting trigger status: $e');

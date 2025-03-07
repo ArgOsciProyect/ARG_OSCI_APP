@@ -184,7 +184,7 @@ void main() {
       expect(provider.title.value, 'Graph - Oscilloscope Mode');
       expect(provider.frequencySource.value, FrequencySource.timeDomain);
       expect(provider.frequency.value, 0.0);
-      expect(provider.availableModes, ['Oscilloscope', 'FFT']);
+      expect(provider.availableModes, ['Oscilloscope', 'Spectrum Analyzer']);
     });
   });
 
@@ -202,7 +202,7 @@ void main() {
       provider.setMode('FFT');
 
       expect(provider.mode.value, 'FFT');
-      expect(provider.title.value, 'Graph - FFT Mode');
+      expect(provider.title.value, 'Graph - Spectrum Analyzer Mode');
       expect(fakeOscilloscopeService.pauseCalled, true);
       expect(fakeFFTService.resumeCalled, true);
     });

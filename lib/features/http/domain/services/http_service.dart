@@ -33,6 +33,13 @@ class HttpService implements HttpRepository {
         print('Already on setup screen: $isAlreadyOnSetupScreen');
       }
 
+      if (isAlreadyOnSetupScreen) {
+        if (kDebugMode) {
+          print('Already on setup screen');
+          return;
+        }
+      }
+
       // First stop all data acquisition before navigation
       if (Get.isRegistered<DataAcquisitionProvider>()) {
         final dataProvider = Get.find<DataAcquisitionProvider>();
@@ -110,7 +117,11 @@ class HttpService implements HttpRepository {
   String get baseUrl => config.baseUrl;
 
   /// Retry mechanism for HTTP requests
-  Future<dynamic> _retryRequest(Future<dynamic> Function() requestFunc) async {
+  /// [skipNavigation] - if true, won't navigate to setup screen on error (default: false)
+  Future<dynamic> _retryRequest(
+    Future<dynamic> Function() requestFunc, {
+    bool skipNavigation = false,
+  }) async {
     int retries = 0;
     while (true) {
       try {
@@ -122,10 +133,15 @@ class HttpService implements HttpRepository {
         }
 
         if (retries >= _maxRetries) {
-          // Use the injected function instead of direct navigation
-          navigateToSetupScreen(
-              'Connection failed after $_maxRetries attempts: $e');
-          throw HttpException('Max retries reached: $e');
+          if (skipNavigation) {
+            // Just throw the exception without navigation
+            throw HttpException('Max retries reached: $e');
+          } else {
+            // Use the injected function for navigation
+            navigateToSetupScreen(
+                'Connection failed after $_maxRetries attempts: $e');
+            throw HttpException('Max retries reached: $e');
+          }
         }
 
         // Wait before retrying with exponential backoff
@@ -135,44 +151,65 @@ class HttpService implements HttpRepository {
   }
 
   @override
-  Future<dynamic> get(String endpoint) async {
-    return _retryRequest(() async {
-      final response = await config.client!.get(Uri.parse('$baseUrl$endpoint'));
-      return _handleResponse(response);
-    });
+  Future<dynamic> get(String endpoint, {bool skipNavigation = false}) async {
+    return _retryRequest(
+      () async {
+        final response =
+            await config.client!.get(Uri.parse('$baseUrl$endpoint'));
+        return _handleResponse(response);
+      },
+      skipNavigation: skipNavigation,
+    );
   }
 
   @override
-  Future<dynamic> post(String endpoint, [Map<String, dynamic>? body]) async {
-    return _retryRequest(() async {
-      final response = await config.client!.post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: {'Content-Type': 'application/json'},
-        body: body != null ? jsonEncode(body) : null,
-      );
-      return _handleResponse(response);
-    });
+  Future<dynamic> post(
+    String endpoint, [
+    Map<String, dynamic>? body,
+    bool skipNavigation = false,
+  ]) async {
+    return _retryRequest(
+      () async {
+        final response = await config.client!.post(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: {'Content-Type': 'application/json'},
+          body: body != null ? jsonEncode(body) : null,
+        );
+        return _handleResponse(response);
+      },
+      skipNavigation: skipNavigation,
+    );
   }
 
   @override
-  Future<dynamic> put(String endpoint, Map<String, dynamic> body) async {
-    return _retryRequest(() async {
-      final response = await config.client!.put(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-      return _handleResponse(response);
-    });
+  Future<dynamic> put(
+    String endpoint,
+    Map<String, dynamic> body, {
+    bool skipNavigation = false,
+  }) async {
+    return _retryRequest(
+      () async {
+        final response = await config.client!.put(
+          Uri.parse('$baseUrl$endpoint'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        );
+        return _handleResponse(response);
+      },
+      skipNavigation: skipNavigation,
+    );
   }
 
   @override
-  Future<dynamic> delete(String endpoint) async {
-    return _retryRequest(() async {
-      final response =
-          await config.client!.delete(Uri.parse('$baseUrl$endpoint'));
-      return _handleResponse(response);
-    });
+  Future<dynamic> delete(String endpoint, {bool skipNavigation = false}) async {
+    return _retryRequest(
+      () async {
+        final response =
+            await config.client!.delete(Uri.parse('$baseUrl$endpoint'));
+        return _handleResponse(response);
+      },
+      skipNavigation: skipNavigation,
+    );
   }
 
   /// Handles the HTTP response and parses the JSON body.
