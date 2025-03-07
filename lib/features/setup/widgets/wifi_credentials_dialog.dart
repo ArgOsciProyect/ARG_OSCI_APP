@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 class WiFiCredentialsDialog extends StatefulWidget {
@@ -8,10 +9,10 @@ class WiFiCredentialsDialog extends StatefulWidget {
 }
 
 class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
-  final TextEditingController _ssidController =
-      TextEditingController(text: 'ESP32_AP');
+  final TextEditingController _ssidController = TextEditingController(text: 'ESP32_AP');
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final bool _isAndroid = Platform.isAndroid;
 
   @override
   void dispose() {
@@ -27,8 +28,7 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
       backgroundColor: Colors.transparent,
       body: Builder(builder: (context) {
         // Get the orientation
-        final isLandscape =
-            MediaQuery.of(context).orientation == Orientation.landscape;
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
         return Center(
           child: SingleChildScrollView(
@@ -48,7 +48,9 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Text(
-                        'ESP32 WiFi Credentials',
+                        _isAndroid
+                            ? 'ESP32 WiFi Credentials'
+                            : 'Enter ESP32 Network Name',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -57,10 +59,10 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                       child: TextFormField(
                         controller: _ssidController,
                         decoration: const InputDecoration(
-                          labelText: 'SSID',
+                          labelText: 'ESP32 AP SSID',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          hintText: 'Default: ESP32_AP',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -70,25 +72,36 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                         },
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
+                    // Only show password field for Android
+                    if (_isAndroid)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextFormField(
+                          controller: _passwordController,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          obscureText: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter password';
+                            }
+                            return null;
+                          },
                         ),
-                        obscureText: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter password';
-                          }
-                          return null;
-                        },
                       ),
-                    ),
+                    // Explanation text for non-Android platforms
+                    if (!_isAndroid)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          'Please connect to the ESP32 WiFi network manually in your device settings, then enter the network name above.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -107,12 +120,12 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                                 context,
                                 {
                                   'ssid': _ssidController.text,
-                                  'password': _passwordController.text,
+                                  'password': _isAndroid ? _passwordController.text : '',
                                 },
                               );
                             }
                           },
-                          child: const Text('Connect'),
+                          child: Text(_isAndroid ? 'Connect' : 'Continue'),
                         ),
                       ],
                     ),
