@@ -217,7 +217,7 @@ class NetworkInfoService {
     if (Platform.isAndroid && currentSSID != null) {
       currentSSID = currentSSID.replaceAll('"', '');
     }
-    
+
     return currentSSID == ssid;
   }
 }
@@ -416,22 +416,22 @@ class SetupService implements SetupRepository {
       const WiFiCredentialsDialog(),
       barrierDismissible: false,
     );
-  
+
     if (credentials == null) {
       // User canceled the dialog
       throw SetupException('Setup canceled by user');
     }
-  
+
     // Set the target SSID for any platform
     final targetSsid = credentials['ssid'] ?? 'ESP32_AP';
-    
+
     if (Platform.isAndroid) {
       // For Android, use WiFiForIoTPlugin to connect automatically
       _networkInfo.setApCredentials(
         targetSsid,
         credentials['password'] ?? 'password123',
       );
-  
+
       final connected = await _networkInfo.connectWithRetries();
       if (!connected) {
         // Show error message
@@ -452,44 +452,46 @@ class SetupService implements SetupRepository {
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 8),
       );
-  
+
       // Wait for the user to connect to the specified network
       const maxWaitTime = Duration(minutes: 2);
       final startTime = DateTime.now();
-      
+
       while (true) {
         // Check if we've exceeded the maximum wait time
         if (DateTime.now().difference(startTime) > maxWaitTime) {
-          throw TimeoutException('Connection timeout: Please connect to $targetSsid network');
+          throw TimeoutException(
+              'Connection timeout: Please connect to $targetSsid network');
         }
-        
+
         // Check if connected to the target network
         String? currentSSID = await _networkInfo.getWifiName();
         if (Platform.isIOS && currentSSID != null) {
           // On iOS, remove quotes that might be around SSID
           currentSSID = currentSSID.replaceAll('"', '');
         }
-        
+
         if (currentSSID!.startsWith(targetSsid)) {
           if (kDebugMode) {
             print("Successfully connected to $targetSsid");
           }
           break;
         }
-        
+
         if (kDebugMode) {
-          print('Waiting for connection to $targetSsid. Current network: $currentSSID');
+          print(
+              'Waiting for connection to $targetSsid. Current network: $currentSSID');
         }
         await Future.delayed(const Duration(seconds: 1));
       }
     }
-  
+
     await Future.delayed(const Duration(seconds: 2));
     if (kDebugMode) {
       print('Connected to WiFi: ${await _networkInfo.getWifiName()}');
       print('IP address: ${await _networkInfo.getWifiIP()}');
     }
-  
+
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
   }
 

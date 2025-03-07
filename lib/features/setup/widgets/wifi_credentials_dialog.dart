@@ -9,7 +9,8 @@ class WiFiCredentialsDialog extends StatefulWidget {
 }
 
 class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
-  final TextEditingController _ssidController = TextEditingController(text: 'ESP32_AP');
+  final TextEditingController _ssidController =
+      TextEditingController(text: 'ESP32_AP');
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final bool _isAndroid = Platform.isAndroid;
@@ -28,7 +29,8 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
       backgroundColor: Colors.transparent,
       body: Builder(builder: (context) {
         // Get the orientation
-        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+        final isLandscape =
+            MediaQuery.of(context).orientation == Orientation.landscape;
 
         return Center(
           child: SingleChildScrollView(
@@ -61,7 +63,8 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                         decoration: const InputDecoration(
                           labelText: 'ESP32 AP SSID',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           hintText: 'Default: ESP32_AP',
                         ),
                         validator: (value) {
@@ -81,7 +84,8 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                           decoration: const InputDecoration(
                             labelText: 'Password',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                           ),
                           obscureText: true,
                           validator: (value) {
@@ -120,7 +124,9 @@ class _WiFiCredentialsDialogState extends State<WiFiCredentialsDialog> {
                                 context,
                                 {
                                   'ssid': _ssidController.text,
-                                  'password': _isAndroid ? _passwordController.text : '',
+                                  'password': _isAndroid
+                                      ? _passwordController.text
+                                      : '',
                                 },
                               );
                             }
