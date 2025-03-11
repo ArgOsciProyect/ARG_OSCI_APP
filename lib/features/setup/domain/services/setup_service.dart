@@ -69,7 +69,7 @@ class NetworkInfoService {
   /// Tests the connection to the ESP32 by making a GET request.
   Future<bool> testConnection() async {
     try {
-      await _httpService.get('/testConnect', skipNavigation: true).timeout(
+      await _httpService.get('/testConnect', skipNavigation: false).timeout(
             const Duration(seconds: 5),
             onTimeout: () => throw TimeoutException('Connection timed out'),
           );
@@ -291,7 +291,7 @@ class SetupService implements SetupRepository {
     try {
       // Fetch the public key from the device
       final publicKeyResponse = await localHttpService
-          .get('/get_public_key', skipNavigation: true)
+          .get('/get_public_key', skipNavigation: false)
           .timeout(Duration(seconds: 5));
 
       _pubKey = publicKeyResponse;
@@ -300,7 +300,7 @@ class SetupService implements SetupRepository {
 
       // Scan for available WiFi networks
       final wifiResponse = await localHttpService
-          .get('/scan_wifi', skipNavigation: true)
+          .get('/scan_wifi', skipNavigation: false)
           .timeout(Duration(seconds: 15));
 
       final wifiData = wifiResponse as List;

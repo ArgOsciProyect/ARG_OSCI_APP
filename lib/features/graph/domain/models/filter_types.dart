@@ -113,7 +113,7 @@ class NoFilter extends FilterType {
   @override
   List<DataPoint> apply(List<DataPoint> points, Map<String, dynamic> params,
       {bool doubleFilt = true}) {
-    return points;
+    return points; // NoFilter devuelve los puntos sin modificar, preservando todas las propiedades
   }
 }
 
@@ -138,8 +138,12 @@ class MovingAverageFilter extends FilterType with FiltfiltHelper {
     final filtered =
         doubleFilt ? _filtfilt(b, a, signal) : _singleFilt(b, a, signal);
 
+    // Preservar todas las propiedades originales de cada punto
     return List.generate(
-        points.length, (i) => DataPoint(points[i].x, filtered[i]));
+        points.length,
+        (i) => DataPoint(points[i].x, filtered[i],
+            isTrigger: points[i].isTrigger,
+            isInterpolated: points[i].isInterpolated));
   }
 }
 
@@ -184,12 +188,22 @@ class ExponentialFilter extends FilterType with FiltfiltHelper {
       y = _lfilterWithInit(b, a, y, initBwd);
       y = y.reversed.toList();
       final filtered = y.sublist(lrefl, lrefl + signal.length);
+
+      // Preservar todas las propiedades originales de cada punto
       return List.generate(
-          points.length, (i) => DataPoint(points[i].x, filtered[i]));
+          points.length,
+          (i) => DataPoint(points[i].x, filtered[i],
+              isTrigger: points[i].isTrigger,
+              isInterpolated: points[i].isInterpolated));
     } else {
       final filtered = _singleFilt(b, a, signal);
+
+      // Preservar todas las propiedades originales de cada punto
       return List.generate(
-          points.length, (i) => DataPoint(points[i].x, filtered[i]));
+          points.length,
+          (i) => DataPoint(points[i].x, filtered[i],
+              isTrigger: points[i].isTrigger,
+              isInterpolated: points[i].isInterpolated));
     }
   }
 }
@@ -227,7 +241,11 @@ class LowPassFilter extends FilterType with FiltfiltHelper {
         ? _filtfilt(_butterB, _butterA, signal)
         : _singleFilt(_butterB, _butterA, signal);
 
+    // Preservar todas las propiedades originales de cada punto
     return List.generate(
-        points.length, (i) => DataPoint(points[i].x, filtered[i]));
+        points.length,
+        (i) => DataPoint(points[i].x, filtered[i],
+            isTrigger: points[i].isTrigger,
+            isInterpolated: points[i].isInterpolated));
   }
 }

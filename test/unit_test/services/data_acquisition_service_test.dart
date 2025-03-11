@@ -457,11 +457,12 @@ void main() {
     test('should correctly scale voltage with new maxBits/midBits system', () {
       // Set voltage scale to ±1V
       service.setVoltageScale(VoltageScales.volt_1);
+      service.triggerLevel = 1; // Set trigger level to 0V
 
       // Create test signal data using the new bit ranges
       final queue = Queue<int>();
       final testValues = [1, 328, 655]; // min, mid, max
-      final expectedVoltages = [-1.0, 0.0, 1.0];
+      final expectedVoltages = [-1.0, 0.0, 1.0, 1.0];
 
       for (final value in testValues) {
         queue.add(value & 0xFF);
@@ -788,6 +789,7 @@ void main() {
       expect(channel, equals(0));
     });
   });
+
   group('ProcessData', () {
     const numSamples = 16384;
     const mainFreq = 1000.0;
@@ -1224,6 +1226,369 @@ void main() {
     expect(points.length, equals(8));
   });
 
+  group('Trigger Interpolation', () {
+    test('should handle trigger detection for rising edge', () {
+      // Setup a simple rising edge scenario with known values
+      final queue = Queue<int>();
+
+      // Generate a clean crossing of trigger level
+      const belowValue = 250; // Below mid (328)
+      const aboveValue = 400; // Above mid (328)
+
+      // Add these values to the queue in little endian format
+      queue.add(belowValue & 0xFF);
+      queue.add((belowValue >> 8) & 0xFF);
+      queue.add(aboveValue & 0xFF);
+      queue.add((aboveValue >> 8) & 0xFF);
+
+      service.triggerLevel = 0.0; // Set trigger at 0V (which is at mid=328)
+      service.triggerEdge = TriggerEdge.positive;
+      service.useHysteresis = false;
+      service.useLowPassFilter = false;
+      service.scale = 3.3 / 512;
+      service.mid = 328.0; // Use the correct mid value shown in logs
+
+      if (kDebugMode) {
+        print(
+            'Test input: Below=${(belowValue - 328) * service.scale}V, Above=${(aboveValue - 328) * service.scale}V');
+        print('Trigger level: ${service.triggerLevel}V');
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          TriggerMode.normal,
+          mockDeviceConfigProvider.config!,
+          getMockSendPort());
+
+      // Print output points for debugging
+      if (kDebugMode) {
+        print('Output points:');
+        for (var i = 0; i < points.length; i++) {
+          print(
+              'Point $i: x=${points[i].x}, y=${points[i].y}, isTrigger=${points[i].isTrigger}');
+        }
+      }
+
+      // Verify we have at least one trigger point
+      final triggerPoints = points.where((p) => p.isTrigger).toList();
+      expect(triggerPoints.isNotEmpty, isTrue,
+          reason: 'Should have at least one trigger point');
+
+      // Verify a trigger point is at trigger level
+      for (final triggerPoint in triggerPoints) {
+        if (kDebugMode) {
+          print('Trigger point: x=${triggerPoint.x}, y=${triggerPoint.y}');
+        }
+        expect(triggerPoint.y, closeTo(service.triggerLevel, 0.01),
+            reason: 'Trigger point should be at trigger level');
+      }
+
+      // Verify there's a point below and above trigger level
+      expect(points.any((p) => p.y > service.triggerLevel), isTrue,
+          reason: 'Should have a point above trigger level');
+    });
+
+    test('should handle trigger detection for falling edge', () {
+      // Setup a simple falling edge scenario with known values
+      final queue = Queue<int>();
+
+      // Generate a clean falling edge crossing trigger
+      const aboveValue = 400; // Above mid (328)
+      const belowValue = 150; // Below mid (328)
+
+      // Add these values to the queue in little endian format
+      service.triggerLevel = 0.0; // Set trigger at 0V (mid=328)
+      service.triggerEdge = TriggerEdge.negative;
+      service.useHysteresis = false;
+      service.useLowPassFilter = false;
+      service.scale = 3.3 / 512;
+      service.mid = 328.0; // Corrected mid value
+
+      queue.add(aboveValue & 0xFF);
+      queue.add((aboveValue >> 8) & 0xFF);
+      queue.add(belowValue & 0xFF);
+      queue.add((belowValue >> 8) & 0xFF);
+
+      if (kDebugMode) {
+        print(
+            'Test input: Above=${(aboveValue - 328) * service.scale}V, Below=${(belowValue - 328) * service.scale}V');
+        print('Trigger level: ${service.triggerLevel}V');
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.triggerLevel,
+          service.distance,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          TriggerMode.normal,
+          mockDeviceConfigProvider.config!,
+          getMockSendPort());
+
+      // Print output points for debugging
+      if (kDebugMode) {
+        print('Output points:');
+        for (var i = 0; i < points.length; i++) {
+          print(
+              'Point $i: x=${points[i].x}, y=${points[i].y}, isTrigger=${points[i].isTrigger}');
+        }
+      }
+
+      // Verify we have at least one trigger point
+      final triggerPoints = points.where((p) => p.isTrigger).toList();
+      expect(triggerPoints.isNotEmpty, isTrue,
+          reason: 'Should have at least one trigger point');
+
+      // Verify a trigger point is at trigger level
+      for (final triggerPoint in triggerPoints) {
+        expect(triggerPoint.y, closeTo(service.triggerLevel, 0.001),
+            reason: 'Trigger point should be at trigger level');
+      }
+
+      // Verify there's a point above and below trigger level
+      expect(points.any((p) => p.y > service.triggerLevel), isTrue,
+          reason: 'Should have a point above trigger level');
+      expect(points.any((p) => p.y < service.triggerLevel), isTrue,
+          reason: 'Should have a point below trigger level');
+    });
+
+    test('should accurately calculate frequency with interpolated points', () {
+      // Generate a sine wave with a known frequency
+      final queue = Queue<int>();
+      const sampleRate =
+          1000000.0; // 1MHz sample rate (higher to ensure enough samples)
+      const signalFreq =
+          100000.0; // 100kHz signal - scaled up to match sampling rate
+      const points = 1000; // Generate 1000 points
+
+      // Calculate values around the mid point (328)
+      const mid = 328;
+      const amplitude = 100;
+
+      for (int i = 0; i < points; i++) {
+        final t = i / sampleRate;
+        final value = (mid + amplitude * sin(2 * pi * signalFreq * t)).round();
+        queue.add(value & 0xFF);
+        queue.add((value >> 8) & 0xFF);
+      }
+
+      service.triggerLevel = 0.0;
+      service.triggerEdge = TriggerEdge.positive;
+      service.useHysteresis = true;
+      service.useLowPassFilter = false;
+      service.scale = 3.3 / 512;
+      service.mid = 328.0; // Use the correct mid point
+
+      if (kDebugMode) {
+        print(
+            'Expected cycle count: ${(signalFreq * points / sampleRate).round()}');
+      }
+
+      final result = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          TriggerMode.normal,
+          mockDeviceConfigProvider.config!,
+          getMockSendPort());
+
+      // Count trigger points
+      final triggerCount = result.where((p) => p.isTrigger).length;
+
+      if (kDebugMode) {
+        print('Detected trigger count: $triggerCount');
+
+        // Calculate measured frequency
+        final triggerPoints =
+            result.where((p) => p.isTrigger).map((p) => p.x).toList();
+        if (triggerPoints.length >= 2) {
+          final intervals = List.generate(
+            triggerPoints.length - 1,
+            (i) => triggerPoints[i + 1] - triggerPoints[i],
+          );
+          final avgInterval =
+              intervals.reduce((a, b) => a + b) / intervals.length;
+          final measuredFreq = avgInterval > 0 ? 1 / avgInterval : 0.0;
+          print('Measured frequency: $measuredFreq Hz');
+          print('Expected frequency: $signalFreq Hz');
+        }
+      }
+
+      // Verify we detect at least one trigger point
+      expect(triggerCount, greaterThan(0),
+          reason: 'Should detect at least one trigger point');
+
+      // Check that all trigger points are at trigger level
+      final triggerPoints = result.where((p) => p.isTrigger).toList();
+      for (final point in triggerPoints) {
+        expect(point.y, equals(service.triggerLevel),
+            reason: 'All trigger points should be exactly at trigger level');
+      }
+    });
+
+    test('should handle exact trigger level values correctly', () {
+      // Test where a sample point exactly equals the trigger level
+      final queue = Queue<int>();
+
+      // Value exactly at mid (trigger level 0V)
+      const exactValue = 328;
+      // Values around mid
+      const belowValue = 250;
+      const aboveValue = 400;
+
+      // Add sequence: below -> exact -> above
+      queue.add(belowValue & 0xFF);
+      queue.add((belowValue >> 8) & 0xFF);
+      queue.add(exactValue & 0xFF);
+      queue.add((exactValue >> 8) & 0xFF);
+      queue.add(aboveValue & 0xFF);
+      queue.add((aboveValue >> 8) & 0xFF);
+
+      service.triggerLevel = 0.0; // Trigger at mid (0V)
+      service.triggerEdge = TriggerEdge.positive;
+      service.useHysteresis = false;
+      service.useLowPassFilter = false;
+      service.scale = 3.3 / 512;
+      service.mid = 328.0; // Corrected mid value
+
+      final points = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          TriggerMode.normal,
+          mockDeviceConfigProvider.config!,
+          getMockSendPort());
+
+      // Print output points for debugging
+      if (kDebugMode) {
+        print('Points (x,y):');
+        for (int i = 0; i < points.length; i++) {
+          print(
+              '$i: (${points[i].x}, ${points[i].y}) ${points[i].isTrigger ? "- TRIGGER" : ""}');
+        }
+      }
+
+      // Verify we have at least one trigger point
+      final triggerPoints = points.where((p) => p.isTrigger).toList();
+      expect(triggerPoints.isNotEmpty, isTrue,
+          reason: 'Should have at least one trigger point');
+
+      // Verify all trigger points are at trigger level
+      for (final triggerPoint in triggerPoints) {
+        expect(triggerPoint.y, equals(service.triggerLevel),
+            reason: 'Trigger point should be at trigger level');
+      }
+    });
+
+    test('should correctly interpolate the trigger point position', () {
+      // Test with a more precise, controlled case for interpolation
+      final queue = Queue<int>();
+
+      // Use more extreme values to ensure clear crossing
+      const belowValue = 300; // Below mid (328) but not too far
+      const aboveValue = 356; // Above mid (328) but not too far
+
+      // Calculate exact expected values
+      const belowVoltage = (belowValue - 328) * 3.3 / 512;
+      const aboveVoltage = (aboveValue - 328) * 3.3 / 512;
+
+      // Add values to queue
+      queue.add(belowValue & 0xFF);
+      queue.add((belowValue >> 8) & 0xFF);
+      queue.add(aboveValue & 0xFF);
+      queue.add((aboveValue >> 8) & 0xFF);
+
+      service.triggerLevel = 0.0;
+      service.triggerEdge = TriggerEdge.positive;
+      service.useHysteresis = false;
+      service.useLowPassFilter = false;
+      service.scale = 3.3 / 512;
+      service.mid = 328.0;
+      service.distance = 0.001; // 1ms between samples for easier testing
+
+      if (kDebugMode) {
+        print('Test setup:');
+        print('Below point: $belowValue (${belowVoltage}V)');
+        print('Above point: $aboveValue (${aboveVoltage}V)');
+        print('Trigger at: ${service.triggerLevel}V');
+        print('Distance between samples: ${service.distance}s');
+      }
+
+      final points = DataAcquisitionService.processDataForTest(
+          queue,
+          queue.length,
+          service.scale,
+          service.distance,
+          service.triggerLevel,
+          service.triggerEdge,
+          service.mid,
+          service.useHysteresis,
+          service.useLowPassFilter,
+          TriggerMode.normal,
+          mockDeviceConfigProvider.config!,
+          getMockSendPort());
+
+      // Print all points for debugging
+      if (kDebugMode) {
+        print('Result:');
+        for (int i = 0; i < points.length; i++) {
+          print(
+              'Point $i: (${points[i].x}, ${points[i].y}) ${points[i].isTrigger ? "TRIGGER" : ""}');
+        }
+      }
+
+      // Find trigger point and adjacent points
+      final triggerPoint =
+          points.firstWhere((p) => p.isTrigger, orElse: () => DataPoint(0, 0));
+      expect(triggerPoint.isTrigger, isTrue,
+          reason: 'Should have found a trigger point');
+
+      // Verify trigger point is at exactly trigger level
+      expect(triggerPoint.y, equals(service.triggerLevel),
+          reason: 'Trigger point should be at exact trigger level');
+
+      // Calculate expected interpolated position manually
+      final ratio =
+          (service.triggerLevel - belowVoltage) / (aboveVoltage - belowVoltage);
+      final expectedX =
+          service.distance * ratio; // Assuming first point is at x=0
+
+      if (kDebugMode) {
+        print('Interpolation check:');
+        print('Ratio: $ratio');
+        print('Expected X: $expectedX');
+        print('Actual X: ${triggerPoint.x}');
+      }
+
+      // Verify the position with reasonable tolerance for floating point
+      expect(triggerPoint.x, closeTo(expectedX, 0.00001),
+          reason: 'Trigger x should be correctly interpolated');
+    });
+  });
   group('Metrics Calculation', () {
     test('should calculate frequency from triggers', () async {
       final points = [

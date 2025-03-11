@@ -794,6 +794,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   /// Processes the data to extract data points and apply triggering logic.
+  /// Preserves original data points when they exactly match the trigger level.
   static (List<DataPoint>, double, double) _processData(
     Queue<int> queue,
     int chunkSize,
@@ -808,6 +809,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
+    // Extract data points from queue
     for (var i = 0; i < (chunkSize ~/ 2); i++) {
       if (queue.length < 2) break;
       if (i % config.deviceConfig.dividingFactor == 0) {
@@ -815,6 +817,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         final (x, y) =
             _calculateCoordinates(uint12Value, points.length, config);
         points.add(DataPoint(x, y));
+
         maxValue = max(maxValue, y);
         minValue = min(minValue, y);
       } else {
@@ -847,84 +850,101 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       signalForTrigger = points.map((p) => p.y).toList();
     }
 
-    final result = <DataPoint>[];
+    // Create a copy of the original points for processing
+    final result = List<DataPoint>.from(points);
 
-    for (var i = 0; i < points.length; i++) {
-      final point = points[i];
-      if (i > 0) {
-        final prevY = signalForTrigger[i - 1];
-        final currentY = signalForTrigger[i];
+    // Process points for trigger detection
+    for (var i = 1; i < points.length; i++) {
+      final prevPoint = points[i - 1];
+      final currentPoint = points[i];
+      final prevY = signalForTrigger[i - 1];
+      final currentY = signalForTrigger[i];
 
-        bool isTriggerCandidate = _shouldTrigger(
-            prevY,
-            currentY,
-            config.triggerLevel,
-            config.triggerEdge,
-            triggerSensitivity,
-            maxValue,
-            minValue);
+      // Check for exact match to trigger level first
+      final bool exactMatch =
+          prevY == config.triggerLevel || currentY == config.triggerLevel;
 
-        if (isTriggerCandidate && !waitingForNextTrigger) {
-          bool validTrigger = true;
+      // Check if this pair of points contains a trigger crossing
+      bool isTriggerCandidate = exactMatch ||
+          _shouldTrigger(prevY, currentY, config.triggerLevel,
+              config.triggerEdge, triggerSensitivity, maxValue, minValue);
 
-          if (config.useHysteresis) {
-            // Calculate available points for trend
-            const maxWindowSize = 5;
-            final availablePoints = min(i + 1, points.length);
-            final windowSize = min(maxWindowSize, availablePoints);
+      if (isTriggerCandidate && !waitingForNextTrigger) {
+        bool validTrigger = true;
 
-            // Only calculate trend if we have at least 2 points
-            if (windowSize >= 2) {
-              final trend = _calculateTrend(
-                  signalForTrigger.sublist(i - windowSize + 1, i + 1));
-              validTrigger =
-                  (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
-                      (config.triggerEdge == TriggerEdge.negative && trend < 0);
-            } else {
-              // For single point, use simple threshold comparison
-              validTrigger = config.triggerEdge == TriggerEdge.positive
-                  ? currentY > prevY
-                  : currentY < prevY;
-            }
-          }
+        if (config.useHysteresis && !exactMatch) {
+          // Calculate available points for trend
+          const maxWindowSize = 5;
+          final availablePoints = min(i + 1, points.length);
+          final windowSize = min(maxWindowSize, availablePoints);
 
-          if (validTrigger) {
-            if (!foundFirstTrigger) {
-              firstTriggerX = point.x;
-              foundFirstTrigger = true;
-            }
-            result.add(DataPoint(point.x, point.y, isTrigger: true));
-
-            if (config.triggerMode == TriggerMode.normal) {
-              waitingForNextTrigger = true;
-            } else if (config.triggerMode == TriggerMode.single) {
-              // In single mode, if we find the first trigger
-              // we process the rest of the points and finish
-              waitingForNextTrigger = false;
-              // We don't continue to process the rest of the points after the trigger
-            }
-
-            if (config.triggerMode == TriggerMode.normal) {
-              continue;
-            }
+          // Only calculate trend if we have at least 2 points
+          if (windowSize >= 2) {
+            final trend = _calculateTrend(
+                signalForTrigger.sublist(i - windowSize + 1, i + 1));
+            validTrigger =
+                (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
+                    (config.triggerEdge == TriggerEdge.negative && trend < 0);
+          } else {
+            // For single point, use simple threshold comparison
+            validTrigger = config.triggerEdge == TriggerEdge.positive
+                ? currentY > prevY
+                : currentY < prevY;
           }
         }
 
-        if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
-          if (config.triggerEdge == TriggerEdge.positive) {
-            // Reset only when signal goes below trigger level by sensitivity margin
-            if (currentY < (config.triggerLevel - triggerSensitivity)) {
-              waitingForNextTrigger = false;
+        if (validTrigger) {
+          DataPoint triggerPoint;
+
+          // If we have an exact match, mark the existing point as trigger instead of interpolating
+          if (exactMatch) {
+            // Use the original point that matches the trigger level
+            if (prevY == config.triggerLevel) {
+              result[i - 1] =
+                  DataPoint(prevPoint.x, prevPoint.y, isTrigger: true);
+              triggerPoint = result[i - 1];
+            } else {
+              // currentY == config.triggerLevel
+              result[i] =
+                  DataPoint(currentPoint.x, currentPoint.y, isTrigger: true);
+              triggerPoint = result[i];
             }
           } else {
-            // Reset only when signal goes above trigger level by sensitivity margin
-            if (currentY > (config.triggerLevel + triggerSensitivity)) {
-              waitingForNextTrigger = false;
-            }
+            // Interpolate to find exact trigger point
+            triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
+                currentPoint.x, currentY, config.triggerLevel);
+
+            // Replace the previous point with the interpolated trigger point
+            result[i - 1] = triggerPoint;
+          }
+
+          if (!foundFirstTrigger) {
+            firstTriggerX = triggerPoint.x;
+            foundFirstTrigger = true;
+          }
+
+          if (config.triggerMode == TriggerMode.normal) {
+            waitingForNextTrigger = true;
+          } else if (config.triggerMode == TriggerMode.single) {
+            waitingForNextTrigger = false;
           }
         }
       }
-      result.add(point);
+
+      // Handle waitingForNextTrigger reset conditions
+      if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
+        if (config.triggerEdge == TriggerEdge.positive) {
+          // Reset only when signal goes below trigger level by sensitivity margin
+          if (currentY < (config.triggerLevel - triggerSensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        } else {
+          // Reset only when signal goes above trigger level by sensitivity margin
+          if (currentY > (config.triggerLevel + triggerSensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        }
+      }
     }
 
     final adjustedPoints = foundFirstTrigger
@@ -935,6 +955,27 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         : points;
 
     return (adjustedPoints, maxValue, minValue);
+  }
+
+  /// Interpolates to find the exact point where signal crosses trigger level
+  static DataPoint _interpolateTriggerPoint(
+      double x1, double y1, double x2, double y2, double triggerLevel) {
+    // If the points are identical or already at trigger level
+    if (y1 == y2 || y1 == triggerLevel) {
+      return DataPoint(x1, triggerLevel, isTrigger: true, isInterpolated: true);
+    }
+    if (y2 == triggerLevel) {
+      return DataPoint(x2, triggerLevel, isTrigger: true, isInterpolated: true);
+    }
+
+    // Calculate the ratio for linear interpolation
+    final ratio = (triggerLevel - y1) / (y2 - y1);
+
+    // Calculate the x coordinate where the line crosses the trigger level
+    final xTrigger = x1 + ratio * (x2 - x1);
+
+    return DataPoint(xTrigger, triggerLevel,
+        isTrigger: true, isInterpolated: true);
   }
 
   @override
