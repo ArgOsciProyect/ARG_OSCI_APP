@@ -1,6 +1,6 @@
 /// Represents a single data point in the oscilloscope or FFT display
 ///
-/// Contains x and y coordinates and optional trigger flag for visualization
+/// Contains x and y coordinates and optional trigger and interpolation flags for visualization
 class DataPoint {
   /// X-coordinate (time in seconds for oscilloscope, frequency in Hz for FFT)
   double x;
@@ -11,12 +11,17 @@ class DataPoint {
   /// Whether this point triggered data acquisition
   final bool isTrigger;
 
+  /// Whether this point was interpolated (not an actual measurement)
+  final bool isInterpolated;
+
   /// Creates a new data point
   ///
   /// [x] The x-coordinate
   /// [y] The y-coordinate
   /// [isTrigger] Optional flag indicating if this point triggered acquisition
-  DataPoint(this.x, this.y, {this.isTrigger = false});
+  /// [isInterpolated] Optional flag indicating if this point was interpolated
+  DataPoint(this.x, this.y,
+      {this.isTrigger = false, this.isInterpolated = false});
 
   /// Creates a DataPoint from JSON map
   factory DataPoint.fromJson(Map<String, dynamic> json) {
@@ -24,6 +29,7 @@ class DataPoint {
       json['x'],
       json['y'],
       isTrigger: json['isTrigger'] ?? false,
+      isInterpolated: json['isInterpolated'] ?? false,
     );
   }
 
@@ -33,6 +39,7 @@ class DataPoint {
       'x': x,
       'y': y,
       'isTrigger': isTrigger,
+      'isInterpolated': isInterpolated,
     };
   }
 }

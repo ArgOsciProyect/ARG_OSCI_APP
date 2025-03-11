@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// [SetupScreen] is a [StatelessWidget] that provides the initial setup screen for the application.
+/// [SetupScreen] is a [StatefulWidget] that provides the initial setup screen for the application.
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
 
@@ -14,16 +14,40 @@ class SetupScreen extends StatefulWidget {
   State<SetupScreen> createState() => _SetupScreenState();
 }
 
-class _SetupScreenState extends State<SetupScreen> {
-  bool _isDarkMode = false;
+class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
+  final RxBool _isDarkMode = false.obs;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _isDarkMode.value = Get.isDarkMode;
+
     // Check for error arguments and show dialog if needed
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAndShowErrorDialog();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Update when app resumes
+      _isDarkMode.value = Get.isDarkMode;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Update when dependencies change
+    _isDarkMode.value = Get.isDarkMode;
   }
 
   void _checkAndShowErrorDialog() {
@@ -60,7 +84,6 @@ class _SetupScreenState extends State<SetupScreen> {
     }
   }
 
-  // Add this new method to SetupScreen state class:
   void _cleanupAfterError() {
     try {
       // Force cleanup of any remaining connections
@@ -88,7 +111,6 @@ class _SetupScreenState extends State<SetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Existing build method content
     return Scaffold(
       appBar: AppBar(title: const Text('ARG_OSCI')),
       body: Center(
@@ -106,17 +128,18 @@ class _SetupScreenState extends State<SetupScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text('Light Mode'),
-                Switch(
-                  value: _isDarkMode,
-                  onChanged: (value) {
-                    setState(() {
-                      _isDarkMode = value;
-                    });
-                    Get.changeThemeMode(
-                      _isDarkMode ? ThemeMode.dark : ThemeMode.light,
-                    );
-                  },
-                ),
+                Obx(() => Switch(
+                      value: _isDarkMode.value,
+                      onChanged: (value) {
+                        // Set theme first, then update the observable
+                        Get.changeThemeMode(
+                          value ? ThemeMode.dark : ThemeMode.light,
+                        );
+
+                        // Force update the observable to match the theme mode
+                        _isDarkMode.value = value;
+                      },
+                    )),
                 const Text('Dark Mode'),
               ],
             ),

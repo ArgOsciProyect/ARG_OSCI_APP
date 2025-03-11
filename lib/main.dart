@@ -44,10 +44,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      debugShowCheckedModeBanner: false, // Remove debug banner
       title: 'ARG_OSCI',
-      theme: AppTheme.lightTheme, // Set the default theme here
+      theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light, // Use system theme by default
+      themeMode: ThemeMode.light,
       home: SetupScreen(),
       getPages: [
         GetPage(name: '/', page: () => SetupScreen()),
