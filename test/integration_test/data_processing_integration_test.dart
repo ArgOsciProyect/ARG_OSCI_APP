@@ -42,7 +42,7 @@ class MockHttpService extends HttpService {
   MockHttpService(super.config);
 
   @override
-  Future<dynamic> get(String endpoint) async {
+  Future<dynamic> get(String endpoint, {bool skipNavigation = false}) async {
     if (endpoint == '/config') {
       return mockConfigResponse;
     } else if (endpoint == '/reset') {
@@ -52,7 +52,8 @@ class MockHttpService extends HttpService {
   }
 
   @override
-  Future<dynamic> post(String endpoint, [Map<String, dynamic>? body]) async {
+  Future<dynamic> post(String endpoint,
+      [Map<String, dynamic>? body, bool skipNavigation = false]) async {
     if (endpoint == '/freq') {
       if (body?['action'] == 'more') {
         return freqResponse;

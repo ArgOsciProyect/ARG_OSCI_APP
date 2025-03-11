@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:arg_osci_app/features/graph/domain/models/graph_mode.dart'; // Import the graph mode models
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
@@ -22,12 +23,29 @@ class UserSettingsProvider extends GetxController {
 
   Timer? _frequencyUpdateTimer;
 
-  final availableModes = <String>['Oscilloscope', 'FFT'];
+  // Mode instances for reference
+  late final OscilloscopeMode _oscilloscopeMode;
+  late final FFTMode _fftMode;
+
+  // Create static constants for mode names to use in availableModes
+  static const String osciloscopeMode = 'Oscilloscope';
+  static const String spectrumAnalizerMode = 'Spectrum Analyzer';
+
+  // Use the constant mode names
+  final availableModes = <String>[osciloscopeMode, spectrumAnalizerMode];
 
   UserSettingsProvider({
     required this.oscilloscopeService,
     required this.fftChartService,
   }) {
+    // Initialize mode instances with services
+    _oscilloscopeMode = OscilloscopeMode(oscilloscopeService);
+    _fftMode = FFTMode(fftChartService);
+
+    // Set default mode name - use the constant
+    mode.value = osciloscopeMode;
+    _updateTitle();
+
     _startFrequencyUpdates();
   }
 
@@ -53,7 +71,7 @@ class UserSettingsProvider extends GetxController {
     if (source == FrequencySource.fft) {
       fftChartService.resume();
     } else if (source == FrequencySource.timeDomain &&
-        mode.value == 'Oscilloscope') {
+        mode.value == osciloscopeMode) {
       fftChartService.pause();
     }
   }
@@ -67,7 +85,7 @@ class UserSettingsProvider extends GetxController {
 
   /// Updates the services based on the selected mode.
   void _updateServices() {
-    if (mode.value == 'Oscilloscope') {
+    if (mode.value == osciloscopeMode) {
       fftChartService.pause();
       oscilloscopeService.resume();
     } else {
@@ -78,12 +96,16 @@ class UserSettingsProvider extends GetxController {
 
   /// Updates the title of the graph screen.
   void _updateTitle() {
-    title.value = 'Graph - ${mode.value} Mode';
+    if (mode.value == osciloscopeMode) {
+      title.value = _oscilloscopeMode.title;
+    } else {
+      title.value = _fftMode.title;
+    }
   }
 
   /// Returns the current chart widget based on the selected mode.
   Widget getCurrentChart() {
-    return mode.value == 'Oscilloscope' ? OsciloscopeChart() : FFTChart();
+    return mode.value == osciloscopeMode ? OsciloscopeChart() : FFTChart();
   }
 
   /// Navigates to the graph screen with the selected mode.
@@ -98,11 +120,17 @@ class UserSettingsProvider extends GetxController {
   }
 
   /// Returns whether to show trigger controls based on the selected mode.
-  bool get showTriggerControls => mode.value == 'Oscilloscope';
+  bool get showTriggerControls => mode.value == osciloscopeMode
+      ? _oscilloscopeMode.showTriggerControls
+      : _fftMode.showTriggerControls;
 
   /// Returns whether to show timebase controls based on the selected mode.
-  bool get showTimebaseControls => mode.value == 'Oscilloscope';
+  bool get showTimebaseControls => mode.value == osciloscopeMode
+      ? _oscilloscopeMode.showTimebaseControls
+      : _fftMode.showTimebaseControls;
 
   /// Returns whether to show FFT controls based on the selected mode.
-  bool get showFFTControls => mode.value == 'FFT';
+  bool get showFFTControls => mode.value == osciloscopeMode
+      ? _oscilloscopeMode.showCustomControls
+      : _fftMode.showCustomControls;
 }

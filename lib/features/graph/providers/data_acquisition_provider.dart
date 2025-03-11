@@ -6,6 +6,7 @@ import 'package:arg_osci_app/features/graph/domain/services/data_acquisition_ser
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -40,6 +41,7 @@ class DataAcquisitionProvider extends GetxController {
   final useLowPassFilter = true.obs;
   final useDoubleFilt = true.obs; // Start with double filtering enabled
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
+  final isReconnecting = false.obs;
 
   // Kalman filter instance
   final SimpleKalman kalman =
@@ -50,24 +52,15 @@ class DataAcquisitionProvider extends GetxController {
     samplingFrequency.value = deviceConfig.samplingFrequency;
     distance.value = 1 / deviceConfig.samplingFrequency;
 
-    // Subscribe to streams
-    dataAcquisitionService.dataStream.listen((points) {
-      final filteredPoints = _applyFilter(points);
-      dataPoints.value = filteredPoints;
-      _dataPointsController.add(filteredPoints);
-    });
-
-    dataAcquisitionService.frequencyStream.listen((freq) {
-      frequency.value = freq;
-    });
-
-    dataAcquisitionService.maxValueStream.listen((max) {
-      maxValue.value = max;
-    });
+    // Set up initial stream subscriptions
+    _setupStreamSubscriptions();
 
     deviceConfig.listen((config) {
       if (config != null) {
         // Re-apply current voltage scale when config changes
+        samplingFrequency.value = deviceConfig.config!.samplingFrequency;
+        distance.value = 1 / deviceConfig.config!.samplingFrequency;
+        setCutoffFrequency(deviceConfig.config!.samplingFrequency / 2);
         setVoltageScale(currentVoltageScale.value);
       }
     });
@@ -110,9 +103,40 @@ class DataAcquisitionProvider extends GetxController {
     _dataPointsController.add(points);
   }
 
+  void _setupStreamSubscriptions() {
+    // Subscribe to streams
+    dataAcquisitionService.dataStream.listen((points) {
+      final filteredPoints = _applyFilter(points);
+      dataPoints.value = filteredPoints;
+      _dataPointsController.add(filteredPoints);
+    });
+
+    dataAcquisitionService.frequencyStream.listen((freq) {
+      frequency.value = freq;
+    });
+
+    dataAcquisitionService.maxValueStream.listen((max) {
+      maxValue.value = max;
+    });
+
+    // Sync current values with service
+    triggerLevel.value = dataAcquisitionService.triggerLevel;
+    triggerEdge.value = dataAcquisitionService.triggerEdge;
+    distance.value = dataAcquisitionService.distance;
+    scale.value = dataAcquisitionService.scale;
+
+    if (kDebugMode) {
+      print("Stream subscriptions re-established in DataAcquisitionProvider");
+    }
+  }
+
   /// Restarts data acquisition by stopping and then re-fetching data.
   Future<void> restartDataAcquisition() async {
     await stopData();
+
+    // Re-establish stream subscriptions that were set up in the constructor
+    _setupStreamSubscriptions();
+
     await fetchData();
   }
 
@@ -124,6 +148,36 @@ class DataAcquisitionProvider extends GetxController {
       print("Use hysteresis: $value");
     }
     dataAcquisitionService.updateConfig();
+  }
+
+  void handleCriticalError(String errorMessage) {
+    if (isReconnecting.value) return;
+    isReconnecting.value = true;
+
+    if (kDebugMode) {
+      print('CRITICAL ERROR: $errorMessage - Navigating to setup screen');
+    }
+
+    // Stop data acquisition
+    stopData().then((_) {
+      // Reset flag and navigate
+      isReconnecting.value = false;
+
+      // Use GetX for navigation without direct UI dependencies
+      Get.offAll(() => const SetupScreen(),
+          arguments: {'showErrorPopup': true, 'errorMessage': errorMessage});
+    }).catchError((e) {
+      if (kDebugMode) {
+        print('Error stopping data during critical error: $e');
+      }
+
+      // Reset flag and navigate even if stopData fails
+      isReconnecting.value = false;
+      Get.offAll(() => const SetupScreen(), arguments: {
+        'showErrorPopup': true,
+        'errorMessage': '$errorMessage (Failed to clean up: $e)'
+      });
+    });
   }
 
   /// Sets whether the low pass filter is used.
@@ -159,6 +213,8 @@ class DataAcquisitionProvider extends GetxController {
 
   /// Fetches data from the data acquisition service.
   Future<void> fetchData() async {
+    isReconnecting.value = false;
+
     await dataAcquisitionService.fetchData(
         socketConnection.ip.value, socketConnection.port.value);
   }
@@ -348,7 +404,11 @@ class DataAcquisitionProvider extends GetxController {
 
   @override
   void onClose() {
-    stopData(); // Stop data acquisition when the controller is closed
+    stopData().then((_) {
+      if (kDebugMode) {
+        print('Data acquisition stopped on provider close');
+      }
+    });
     _dataPointsController.close();
     super.onClose();
   }

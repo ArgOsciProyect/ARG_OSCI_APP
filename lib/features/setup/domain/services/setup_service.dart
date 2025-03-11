@@ -6,6 +6,7 @@ import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
 import 'package:arg_osci_app/features/setup/domain/models/wifi_credentials.dart';
 import 'package:arg_osci_app/features/setup/domain/repository/setup_repository.dart';
+import 'package:arg_osci_app/features/setup/widgets/wifi_credentials_dialog.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:encrypt/encrypt.dart';
 import 'package:flutter/foundation.dart';
@@ -25,7 +26,17 @@ class NetworkInfoService {
   final HttpService _httpService;
   static const String _baseUrl = 'http://192.168.4.1:81';
 
+  // Default credentials
+  String _apSsid = 'ESP32_AP';
+  String _apPassword = 'password123';
+
   NetworkInfoService() : _httpService = HttpService(HttpConfig(_baseUrl));
+
+  /// Sets custom WiFi credentials for ESP32 AP
+  void setApCredentials(String ssid, String password) {
+    _apSsid = ssid;
+    _apPassword = password;
+  }
 
   /// Attempts to connect to the ESP32 access point with retries.
   Future<bool> connectWithRetries() async {
@@ -58,7 +69,7 @@ class NetworkInfoService {
   /// Tests the connection to the ESP32 by making a GET request.
   Future<bool> testConnection() async {
     try {
-      await _httpService.get('/testConnect').timeout(
+      await _httpService.get('/testConnect', skipNavigation: false).timeout(
             const Duration(seconds: 5),
             onTimeout: () => throw TimeoutException('Connection timed out'),
           );
@@ -86,14 +97,14 @@ class NetworkInfoService {
       const pluginInterval = Duration(seconds: 1);
 
       if (kDebugMode) {
-        print("Attempting to connect to ESP32_AP using IoT plugin...");
+        print("Attempting to connect to $_apSsid using IoT plugin...");
       }
 
       for (int i = 0; i < pluginRetries; i++) {
         try {
           bool connected = await WiFiForIoTPlugin.connect(
-            'ESP32_AP',
-            password: 'password123',
+            _apSsid,
+            password: _apPassword,
             security: NetworkSecurity.WPA,
             joinOnce: true,
             withInternet: false,
@@ -137,10 +148,7 @@ class NetworkInfoService {
       if (kDebugMode) {
         print("IoT plugin connection failed, trying traditional method...");
       }
-      //Snackbar asking to connecto to ESP32 net manually
-      SnackBar(
-          content: Text(
-              'Failed to autoconnect, please connect to ESP32_AP network manually'));
+      // Show Snackbar (this should be handled by the UI component)
       const traditionalRetries = 30;
       const checkInterval = Duration(seconds: 1);
 
@@ -150,9 +158,9 @@ class NetworkInfoService {
           if (currentSSID != null) {
             currentSSID = currentSSID.replaceAll('"', '');
 
-            if (currentSSID.startsWith('ESP32_AP')) {
+            if (currentSSID.startsWith(_apSsid)) {
               if (kDebugMode) {
-                print("Connected to ESP32_AP via traditional method");
+                print("Connected to $_apSsid via traditional method");
               }
 
               if (await testConnection()) {
@@ -168,7 +176,7 @@ class NetworkInfoService {
           if (i < traditionalRetries - 1) {
             if (kDebugMode) {
               print(
-                  "Waiting for ESP32_AP connection... (${i + 1}/$traditionalRetries)");
+                  "Waiting for $_apSsid connection... (${i + 1}/$traditionalRetries)");
             }
             await Future.delayed(checkInterval);
           }
@@ -254,7 +262,7 @@ class SetupService implements SetupRepository {
     }
     try {
       final response = await localHttpService
-          .post('/connect_wifi', credentials.toJson())
+          .post('/connect_wifi', credentials.toJson(), true) // Skip navigation
           .timeout(Duration(seconds: 15));
 
       if (response['Success'] == "false") {
@@ -283,7 +291,7 @@ class SetupService implements SetupRepository {
     try {
       // Fetch the public key from the device
       final publicKeyResponse = await localHttpService
-          .get('/get_public_key')
+          .get('/get_public_key', skipNavigation: false)
           .timeout(Duration(seconds: 5));
 
       _pubKey = publicKeyResponse;
@@ -292,7 +300,7 @@ class SetupService implements SetupRepository {
 
       // Scan for available WiFi networks
       final wifiResponse = await localHttpService
-          .get('/scan_wifi')
+          .get('/scan_wifi', skipNavigation: false)
           .timeout(Duration(seconds: 15));
 
       final wifiData = wifiResponse as List;
@@ -351,8 +359,8 @@ class SetupService implements SetupRepository {
       try {
         // print("Posting to: ${globalHttpConfig.baseUrl}");
         final response = await HttpService(globalHttpConfig)
-            .post('/test', testRequest)
-            .timeout(const Duration(seconds: 2));
+            .post('/test', testRequest, true)
+            .timeout(const Duration(seconds: 5));
 
         if (response['decrypted'] == testWord) {
           if (kDebugMode) {
@@ -394,10 +402,31 @@ class SetupService implements SetupRepository {
   @override
   Future<void> connectToLocalAP({http.Client? client}) async {
     if (Platform.isAndroid) {
+      // Show credentials dialog
+      Map<String, String>? credentials = await Get.dialog<Map<String, String>>(
+        const WiFiCredentialsDialog(),
+        barrierDismissible: false,
+      );
+
+      if (credentials != null) {
+        // Set custom credentials
+        _networkInfo.setApCredentials(
+            credentials['ssid']!, credentials['password']!);
+      }
+
       final connected = await _networkInfo.connectWithRetries();
       if (!connected) {
+        // Show error message
+        Get.snackbar(
+          'Connection Failed',
+          'Failed to connect to ESP32 AP. Please check credentials and try again.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
         throw Exception('Failed to connect to ESP32_AP');
       }
+
       await Future.delayed(const Duration(seconds: 2));
       if (kDebugMode) {
         print(await _networkInfo.getWifiName());
@@ -405,6 +434,13 @@ class SetupService implements SetupRepository {
       }
     } else {
       // For non-Android platforms, prompt the user to connect manually
+      Get.snackbar(
+        'Manual Connection Required',
+        'Please connect your device to the ESP32_AP WiFi network',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 5),
+      );
+
       while (true) {
         String? wifiName = await _networkInfo.getWifiName();
         if (Platform.isAndroid && wifiName != null) {

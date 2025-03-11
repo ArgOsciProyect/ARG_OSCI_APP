@@ -258,21 +258,32 @@ class SocketService implements SocketRepository {
   @override
   void listen() {
     if (_socket != null) {
-      _socket!.listen(
-        (data) {
-          _processIncomingData(data);
-          // Instead of calling addMeasurement on every packet,
-          // accumulate data for periodic measurement.
-          _incomingBytesAcc += data.length;
-          _incomingPacketsAcc++;
+      // Use zones to catch otherwise unhandled errors
+      runZonedGuarded(
+        () {
+          _socket!.listen(
+            (data) {
+              _processIncomingData(data);
+              _incomingBytesAcc += data.length;
+              _incomingPacketsAcc++;
+            },
+            onError: (error) {
+              if (kDebugMode) {
+                print("Socket listen error: $error");
+              }
+              _errorController.add(error);
+            },
+            onDone: () {
+              _errorController.add(Exception('Socket connection closed'));
+              _controller.close();
+            },
+          );
         },
-        onError: (error) {
+        (error, stack) {
+          if (kDebugMode) {
+            print("Socket zoned error: $error");
+          }
           _errorController.add(error);
-          _controller.addError(error);
-        },
-        onDone: () {
-          _errorController.add(Exception('Socket connection closed'));
-          _controller.close();
         },
       );
     } else {

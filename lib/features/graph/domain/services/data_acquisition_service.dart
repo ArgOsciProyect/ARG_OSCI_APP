@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:collection';
@@ -12,12 +13,20 @@ import 'package:arg_osci_app/features/graph/domain/repository/data_acquisition_r
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/http/domain/services/http_service.dart';
-import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:arg_osci_app/features/socket/domain/services/socket_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
+
+extension CompleterExtension<T> on Completer<T> {
+  bool get isCompleted {
+    var completed = false;
+    Future.sync(() =>
+        future.then((_) => completed = true, onError: (_) => completed = true));
+    return completed;
+  }
+}
 
 // Message classes for isolate communication
 /// [SocketIsolateSetup] configures the socket isolate with necessary parameters.
@@ -97,6 +106,7 @@ class UpdateConfigMessage {
   final bool useLowPassFilter;
   final TriggerMode triggerMode;
   final double distance;
+  final DeviceConfig? deviceConfig;
 
   const UpdateConfigMessage({
     required this.scale,
@@ -106,6 +116,7 @@ class UpdateConfigMessage {
     required this.useLowPassFilter,
     required this.triggerMode,
     required this.distance,
+    this.deviceConfig,
   });
 }
 
@@ -113,9 +124,12 @@ class UpdateConfigMessage {
 class DataAcquisitionService implements DataAcquisitionRepository {
   final HttpConfig httpConfig;
   late final DeviceConfigProvider deviceConfig;
-  final _dataController = StreamController<List<DataPoint>>.broadcast();
-  final _frequencyController = StreamController<double>.broadcast();
-  final _maxValueController = StreamController<double>.broadcast();
+
+  // Use nullable StreamControllers and initialize them as needed
+  StreamController<List<DataPoint>>? _dataController;
+  StreamController<double>? _frequencyController;
+  StreamController<double>? _maxValueController;
+
   late final HttpService httpService;
   bool _isReconnecting = false;
 
@@ -146,9 +160,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   SendPort? _socketToProcessingSendPort;
 
   /// Creates a new DataAcquisitionService instance
-  ///
-  /// Requires [httpConfig] for network configuration
-  /// Initializes with default values and locates required dependencies
   DataAcquisitionService(this.httpConfig) {
     try {
       deviceConfig = Get.find<DeviceConfigProvider>();
@@ -156,8 +167,28 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         throw StateError('DeviceConfigProvider has no configuration');
       }
       httpService = Get.find<HttpService>();
+      _ensureControllersExist();
     } catch (e) {
       throw StateError('Failed to initialize DataAcquisitionService: $e');
+    }
+  }
+
+  // Create or recreate stream controllers if they're closed
+  void _ensureControllersExist() {
+    if (_disposed) {
+      _disposed = false; // Reset the disposed flag when recreating controllers
+    }
+
+    if (_dataController == null || _dataController!.isClosed) {
+      _dataController = StreamController<List<DataPoint>>.broadcast();
+    }
+
+    if (_frequencyController == null || _frequencyController!.isClosed) {
+      _frequencyController = StreamController<double>.broadcast();
+    }
+
+    if (_maxValueController == null || _maxValueController!.isClosed) {
+      _maxValueController = StreamController<double>.broadcast();
     }
   }
 
@@ -247,11 +278,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Calculate percentage based on the full range
       final percentage = ((rawTrigger - deviceConfig.minBits) / range) * 100;
 
-      await httpService.post('/trigger', {
-        'trigger_percentage': percentage.clamp(0, 100),
-        'trigger_edge':
-            _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
-      });
+      await httpService.post(
+          '/trigger',
+          {
+            'trigger_percentage': percentage.clamp(0, 100),
+            'trigger_edge':
+                _triggerEdge == TriggerEdge.positive ? 'positive' : 'negative',
+          },
+          true);
     } catch (e) {
       if (kDebugMode) {
         print('Error posting trigger status: $e');
@@ -306,14 +340,14 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   // Stream getters with disposal check
   @override
   Stream<List<DataPoint>> get dataStream {
-    _checkDisposed();
-    return _dataController.stream;
+    _ensureControllersExist();
+    return _dataController!.stream;
   }
 
   @override
   Stream<double> get frequencyStream {
-    _checkDisposed();
-    return _frequencyController.stream;
+    _ensureControllersExist();
+    return _frequencyController!.stream;
   }
 
   @override
@@ -321,14 +355,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Stream<double> get maxValueStream {
-    _checkDisposed();
-    return _maxValueController.stream;
-  }
-
-  void _checkDisposed() {
-    if (_disposed) {
-      throw StateError('Service has been disposed');
-    }
+    _ensureControllersExist();
+    return _maxValueController!.stream;
   }
 
   @override
@@ -421,48 +449,102 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final socketService = SocketService(setup.packetSize);
     final connection = SocketConnection(setup.ip, setup.port);
     final exitPort = ReceivePort();
+    final errorPort = ReceivePort(); // New dedicated error port
 
-    Isolate.current.addOnExitListener(exitPort.sendPort);
-    exitPort.listen((_) async {
-      await socketService.close();
-      exitPort.close();
-    });
+    runZonedGuarded(() async {
+      Isolate.current.addOnExitListener(exitPort.sendPort);
+      Isolate.current
+          .addErrorListener(errorPort.sendPort); // Add error listener
 
-    bool isConnected = false;
-    int retryCount = 0;
-    const maxRetries = 3;
+      exitPort.listen((_) async {
+        await socketService.close();
+        exitPort.close();
+        errorPort.close();
+      });
 
-    while (!isConnected && retryCount < maxRetries) {
-      try {
-        await socketService.connect(connection).timeout(
-              const Duration(seconds: 5),
-              onTimeout: () =>
-                  throw TimeoutException('Socket connection timeout'),
-            );
-
-        isConnected = true;
+      // Listen for errors on the isolate level
+      errorPort.listen((error) {
         if (kDebugMode) {
-          print("packet size: ${setup.packetSize}");
+          print("Socket isolate error from error port: $error");
         }
-        _setupSocketListener(socketService, setup.sendPort);
-
-        // Add error listener to detect disconnections
-        socketService.onError((error) {
-          setup.sendPort
-              .send({'type': 'connection_error', 'error': error.toString()});
+        // Send error directly to main isolate
+        setup.sendPort.send({
+          'type': 'connection_error',
+          'error': 'Socket isolate error: $error',
+          'critical': true // Mark as critical
         });
-      } catch (e) {
-        retryCount++;
-        if (retryCount >= maxRetries) {
-          setup.sendPort.send({
-            'type': 'connection_error',
-            'error': 'Failed to connect after $maxRetries attempts: $e'
+      });
+
+      bool isConnected = false;
+      int retryCount = 0;
+      const maxRetries = 3;
+
+      while (!isConnected && retryCount < maxRetries) {
+        try {
+          await socketService.connect(connection).timeout(
+                const Duration(seconds: 5),
+                onTimeout: () =>
+                    throw TimeoutException('Socket connection timeout'),
+              );
+
+          isConnected = true;
+          if (kDebugMode) {
+            print(
+                "Socket connected to ${connection.ip.value}:${connection.port.value}");
+            print("Packet size: ${setup.packetSize}");
+          }
+
+          // Register a direct error handler on the socket
+          socketService.onError((error) {
+            if (kDebugMode) {
+              print("Socket error detected: $error");
+            }
+
+            // Send error message with high priority
+            setup.sendPort.send({
+              'type': 'connection_error',
+              'error': error.toString(),
+              'critical': true // Mark as critical for immediate handling
+            });
+
+            // Force isolate to exit on critical errors
+            if (error is SocketException) {
+              Isolate.current.kill(priority: Isolate.immediate);
+            }
           });
-          return;
+
+          _setupSocketListener(socketService, setup.sendPort);
+        } catch (e) {
+          retryCount++;
+          if (kDebugMode) {
+            print("Socket connection attempt $retryCount failed: $e");
+          }
+
+          if (retryCount >= maxRetries) {
+            setup.sendPort.send({
+              'type': 'connection_error',
+              'error': 'Failed to connect after $maxRetries attempts: $e',
+              'critical': true
+            });
+            return;
+          }
+          await Future.delayed(Duration(seconds: 1));
         }
-        await Future.delayed(Duration(seconds: 1));
       }
-    }
+    }, (error, stack) {
+      // This catches any uncaught error in the isolate
+      if (kDebugMode) {
+        print("Socket isolate uncaught error: $error");
+        print(stack);
+      }
+
+      // Send error with high priority
+      setup.sendPort.send({
+        'type': 'connection_error',
+        'error': 'Uncaught socket error: $error',
+        'critical': true
+      });
+    });
   }
 
   /// Sets up the socket listener to receive data and send it to the main isolate.
@@ -551,6 +633,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     bool processingEnabled = true;
 
     receivePort.listen((message) {
+      // First check if it's an error message from socket - give it highest priority
+      if (message is Map<String, dynamic> &&
+          message['type'] == 'connection_error') {
+        // Forward error messages immediately to main isolate, skipping processing
+        setup.sendPort.send(message);
+        return;
+      }
+
+      // Process normal messages as before
       if (message == 'stop') {
         processingEnabled = false;
         queue.clear();
@@ -602,6 +693,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       useLowPassFilter: message.useLowPassFilter,
       triggerMode: message.triggerMode,
       distance: message.distance,
+      deviceConfig: message.deviceConfig ?? currentConfig.deviceConfig,
     );
   }
 
@@ -652,24 +744,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (triggerEdge == TriggerEdge.positive) {
       // For initial trigger, only check if we cross the trigger level
       final shouldTrig = prevY < triggerLevel && currentY >= triggerLevel;
-
-      //if (shouldTrig) {
-      //  print('Positive trigger detected:');
-      //  print('prevY: $prevY');
-      //  print('currentY: $currentY');
-      //  print('triggerLevel: $triggerLevel');
-      //}
       return shouldTrig;
     } else {
       // For negative edge, only check if we cross the trigger level downwards
       final shouldTrig = prevY > triggerLevel && currentY <= triggerLevel;
-
-      //if (shouldTrig) {
-      //  print('Negative trigger detected:');
-      //  print('prevY: $prevY');
-      //  print('currentY: $currentY');
-      //  print('triggerLevel: $triggerLevel');
-      //}
       return shouldTrig;
     }
   }
@@ -716,6 +794,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   /// Processes the data to extract data points and apply triggering logic.
+  /// Preserves original data points when they exactly match the trigger level.
   static (List<DataPoint>, double, double) _processData(
     Queue<int> queue,
     int chunkSize,
@@ -730,6 +809,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     double maxValue = double.negativeInfinity;
     double minValue = double.infinity;
 
+    // Extract data points from queue
     for (var i = 0; i < (chunkSize ~/ 2); i++) {
       if (queue.length < 2) break;
       if (i % config.deviceConfig.dividingFactor == 0) {
@@ -770,85 +850,101 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       signalForTrigger = points.map((p) => p.y).toList();
     }
 
-    final result = <DataPoint>[];
+    // Create a copy of the original points for processing
+    final result = List<DataPoint>.from(points);
 
-    for (var i = 0; i < points.length; i++) {
-      final point = points[i];
+    // Process points for trigger detection
+    for (var i = 1; i < points.length; i++) {
+      final prevPoint = points[i - 1];
+      final currentPoint = points[i];
+      final prevY = signalForTrigger[i - 1];
+      final currentY = signalForTrigger[i];
 
-      if (i > 0) {
-        final prevY = signalForTrigger[i - 1];
-        final currentY = signalForTrigger[i];
+      // Check for exact match to trigger level first
+      final bool exactMatch =
+          prevY == config.triggerLevel || currentY == config.triggerLevel;
 
-        bool isTriggerCandidate = _shouldTrigger(
-            prevY,
-            currentY,
-            config.triggerLevel,
-            config.triggerEdge,
-            triggerSensitivity,
-            maxValue,
-            minValue);
+      // Check if this pair of points contains a trigger crossing
+      bool isTriggerCandidate = exactMatch ||
+          _shouldTrigger(prevY, currentY, config.triggerLevel,
+              config.triggerEdge, triggerSensitivity, maxValue, minValue);
 
-        if (isTriggerCandidate && !waitingForNextTrigger) {
-          bool validTrigger = true;
+      if (isTriggerCandidate && !waitingForNextTrigger) {
+        bool validTrigger = true;
 
-          if (config.useHysteresis) {
-            // Calculate available points for trend
-            const maxWindowSize = 5;
-            final availablePoints = min(i + 1, points.length);
-            final windowSize = min(maxWindowSize, availablePoints);
+        if (config.useHysteresis && !exactMatch) {
+          // Calculate available points for trend
+          const maxWindowSize = 5;
+          final availablePoints = min(i + 1, points.length);
+          final windowSize = min(maxWindowSize, availablePoints);
 
-            // Only calculate trend if we have at least 2 points
-            if (windowSize >= 2) {
-              final trend = _calculateTrend(
-                  signalForTrigger.sublist(i - windowSize + 1, i + 1));
-              validTrigger =
-                  (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
-                      (config.triggerEdge == TriggerEdge.negative && trend < 0);
-            } else {
-              // For single point, use simple threshold comparison
-              validTrigger = config.triggerEdge == TriggerEdge.positive
-                  ? currentY > prevY
-                  : currentY < prevY;
-            }
-          }
-
-          if (validTrigger) {
-            if (!foundFirstTrigger) {
-              firstTriggerX = point.x;
-              foundFirstTrigger = true;
-            }
-            result.add(DataPoint(point.x, point.y, isTrigger: true));
-
-            if (config.triggerMode == TriggerMode.normal) {
-              waitingForNextTrigger = true;
-            } else if (config.triggerMode == TriggerMode.single) {
-              // In single mode, if we find the first trigger
-              // we process the rest of the points and finish
-              waitingForNextTrigger = false;
-              // We don't continue to process the rest of the points after the trigger
-            }
-
-            if (config.triggerMode == TriggerMode.normal) {
-              continue;
-            }
+          // Only calculate trend if we have at least 2 points
+          if (windowSize >= 2) {
+            final trend = _calculateTrend(
+                signalForTrigger.sublist(i - windowSize + 1, i + 1));
+            validTrigger =
+                (config.triggerEdge == TriggerEdge.positive && trend > 0) ||
+                    (config.triggerEdge == TriggerEdge.negative && trend < 0);
+          } else {
+            // For single point, use simple threshold comparison
+            validTrigger = config.triggerEdge == TriggerEdge.positive
+                ? currentY > prevY
+                : currentY < prevY;
           }
         }
 
-        if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
-          if (config.triggerEdge == TriggerEdge.positive) {
-            // Reset only when signal goes below trigger level by sensitivity margin
-            if (currentY < (config.triggerLevel - triggerSensitivity)) {
-              waitingForNextTrigger = false;
+        if (validTrigger) {
+          DataPoint triggerPoint;
+
+          // If we have an exact match, mark the existing point as trigger instead of interpolating
+          if (exactMatch) {
+            // Use the original point that matches the trigger level
+            if (prevY == config.triggerLevel) {
+              result[i - 1] =
+                  DataPoint(prevPoint.x, prevPoint.y, isTrigger: true);
+              triggerPoint = result[i - 1];
+            } else {
+              // currentY == config.triggerLevel
+              result[i] =
+                  DataPoint(currentPoint.x, currentPoint.y, isTrigger: true);
+              triggerPoint = result[i];
             }
           } else {
-            // Reset only when signal goes above trigger level by sensitivity margin
-            if (currentY > (config.triggerLevel + triggerSensitivity)) {
-              waitingForNextTrigger = false;
-            }
+            // Interpolate to find exact trigger point
+            triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
+                currentPoint.x, currentY, config.triggerLevel);
+
+            // Replace the previous point with the interpolated trigger point
+            result[i - 1] = triggerPoint;
+          }
+
+          if (!foundFirstTrigger) {
+            firstTriggerX = triggerPoint.x;
+            foundFirstTrigger = true;
+          }
+
+          if (config.triggerMode == TriggerMode.normal) {
+            waitingForNextTrigger = true;
+          } else if (config.triggerMode == TriggerMode.single) {
+            waitingForNextTrigger = false;
           }
         }
       }
-      result.add(point);
+
+      // Handle waitingForNextTrigger reset conditions
+      if (waitingForNextTrigger && config.triggerMode == TriggerMode.normal) {
+        if (config.triggerEdge == TriggerEdge.positive) {
+          // Reset only when signal goes below trigger level by sensitivity margin
+          if (currentY < (config.triggerLevel - triggerSensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        } else {
+          // Reset only when signal goes above trigger level by sensitivity margin
+          if (currentY > (config.triggerLevel + triggerSensitivity)) {
+            waitingForNextTrigger = false;
+          }
+        }
+      }
     }
 
     final adjustedPoints = foundFirstTrigger
@@ -861,6 +957,27 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return (adjustedPoints, maxValue, minValue);
   }
 
+  /// Interpolates to find the exact point where signal crosses trigger level
+  static DataPoint _interpolateTriggerPoint(
+      double x1, double y1, double x2, double y2, double triggerLevel) {
+    // If the points are identical or already at trigger level
+    if (y1 == y2 || y1 == triggerLevel) {
+      return DataPoint(x1, triggerLevel, isTrigger: true, isInterpolated: true);
+    }
+    if (y2 == triggerLevel) {
+      return DataPoint(x2, triggerLevel, isTrigger: true, isInterpolated: true);
+    }
+
+    // Calculate the ratio for linear interpolation
+    final ratio = (triggerLevel - y1) / (y2 - y1);
+
+    // Calculate the x coordinate where the line crosses the trigger level
+    final xTrigger = x1 + ratio * (x2 - x1);
+
+    return DataPoint(xTrigger, triggerLevel,
+        isTrigger: true, isInterpolated: true);
+  }
+
   @override
   void clearQueues() {
     _configSendPort?.send('clear_queue');
@@ -869,14 +986,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   /// Updates the metrics (frequency, max value, min value) based on the processed data.
   void _updateMetrics(
       List<DataPoint> points, double maxValue, double minValue) {
-    if (points.isEmpty) return;
+    if (points.isEmpty || _disposed) return;
 
     _currentFrequency = _calculateFrequency(points);
     _currentMaxValue = maxValue;
     _currentMinValue = minValue;
 
-    _frequencyController.add(_currentFrequency);
-    _maxValueController.add(_currentMaxValue);
+    _ensureControllersExist();
+    _frequencyController!.add(_currentFrequency);
+    _maxValueController!.add(_currentMaxValue);
   }
 
   /// Calculates the frequency of the signal based on the trigger points.
@@ -898,44 +1016,110 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   /// Handles connection errors by attempting to reconnect or navigating to the setup screen.
   Future<void> _handleConnectionError() async {
-    if (_isReconnecting) return;
+    if (_isReconnecting) {
+      if (kDebugMode) {
+        print('Already handling reconnection, ignoring duplicate call');
+      }
+      return;
+    }
     _isReconnecting = true;
 
+    if (kDebugMode) {
+      print('Handling connection error. Attempting to reconnect first...');
+    }
+
     try {
+      // Check if we're already on the setup screen
+      final currentRoute = Get.currentRoute;
+      if (currentRoute == '/' || currentRoute.contains('SetupScreen')) {
+        if (kDebugMode) {
+          print('Already on setup screen, stopping reconnection attempts');
+        }
+        _isReconnecting = false;
+        return;
+      }
+      // First notify the user we're attempting to reconnect
       Get.snackbar(
-        'Conexión perdida',
-        'Intentando reconectar...',
-        duration: const Duration(seconds: 5),
+        'Connection issue detected',
+        'Attempting to reconnect...',
+        duration: const Duration(seconds: 3),
       );
 
-      // Try to get new connection params from server
+      // Try to get new connection parameters without cleaning up first
       final response = await httpService.get('/reset').timeout(
             const Duration(seconds: 5),
             onTimeout: () => throw TimeoutException('Server not responding'),
           );
 
+      // If we got here, the server is still reachable - try to reconnect
       final newIp = response['ip'] as String;
       final newPort = response['port'] as int;
 
-      // Stop current connections
+      // Only minimal cleanup before attempting new connection
       await stopData();
 
-      // Restart with new params
-      await fetchData(newIp, newPort);
-
+      // Reset reconnecting flag before attempting new connection
       _isReconnecting = false;
-      Get.snackbar(
-        'Conexión restaurada',
-        'La conexión se ha restablecido correctamente',
-        duration: const Duration(seconds: 3),
-      );
+
+      // Update the socket connection in the provider
+      try {
+        final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
+        dataAcquisitionProvider.socketConnection
+            .updateConnection(newIp, newPort);
+
+        // The provider will automatically restart acquisition due to the socket connection changes
+        // but we'll add a message to confirm reconnection
+        Get.snackbar(
+          'Connection restored',
+          'Reconnected to $newIp:$newPort',
+          duration: const Duration(seconds: 3),
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error updating socket connection in provider: $e');
+        }
+        // If we can't update the provider, try direct reconnection
+        await fetchData(newIp, newPort);
+
+        Get.snackbar(
+          'Connection restored',
+          'The connection has been successfully restored',
+          duration: const Duration(seconds: 3),
+        );
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Failed to reset connection: $e');
+        print('Failed to reconnect: $e - Now cleaning up resources...');
       }
-      _isReconnecting = false;
-      await dispose();
-      Get.offAll(() => const SetupScreen());
+
+      // Only clean up resources if reconnection failed
+      try {
+        // Make sure all resources are released
+        await stopData();
+
+        // Ensure we're really disconnected
+        _processingIsolate = null;
+        _socketIsolate = null;
+        _processingReceivePort = null;
+        _socketToProcessingSendPort = null;
+        _configSendPort = null;
+
+        _isReconnecting = false;
+
+        // Navigate to setup screen since reconnection failed
+        final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
+        dataAcquisitionProvider.handleCriticalError('Connection lost: $e');
+      } catch (cleanupError) {
+        if (kDebugMode) {
+          print('Error during cleanup: $cleanupError');
+        }
+        _isReconnecting = false;
+
+        // Even if cleanup fails, try to navigate back to setup
+        final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
+        dataAcquisitionProvider.handleCriticalError(
+            'Connection lost: $e (Cleanup error: $cleanupError)');
+      }
     }
   }
 
@@ -943,6 +1127,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   Future<void> fetchData(String ip, int port) async {
     await stopData();
     await initialize();
+
+    _ensureControllersExist(); // Make sure controllers are created or recreated
 
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
@@ -960,7 +1146,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     );
 
     // Clear any previous data on start
-    _dataController.add([]);
+    _dataController?.add([]);
 
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
@@ -982,20 +1168,58 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _configSendPort = message;
         completer.complete(message);
       } else if (message is Map<String, dynamic>) {
+        // Check for critical connection errors first with highest priority
+        if (message['type'] == 'connection_error') {
+          final errorMsg =
+              message['error']?.toString() ?? 'Unknown socket error';
+          final isCritical = message['critical'] == true;
+
+          if (kDebugMode) {
+            print(
+                'Received ${isCritical ? "CRITICAL " : ""}connection error: $errorMsg');
+          }
+
+          // Check if we're already handling an error or already on the setup screen
+          if (_isReconnecting) {
+            if (kDebugMode) {
+              print('Already handling reconnection, ignoring duplicate error');
+            }
+            return;
+          }
+
+          // Only handle if critical
+          if (isCritical) {
+            // Run on next event loop iteration to avoid potential race conditions
+            Future.microtask(() => _handleConnectionError());
+          }
+          return; // Skip other processing for error messages
+        }
+
+        // Process normal messages
         if (message['type'] == 'data') {
+          if (_disposed) return; // Skip if disposed
+
           final points = message['points'] as List<DataPoint>;
           final maxValue = message['maxValue'] as double;
           final minValue = message['minValue'] as double;
 
-          _dataController.add(points);
+          _ensureControllersExist();
+          _dataController?.add(points);
           _updateMetrics(points, maxValue, minValue);
         } else if (message['type'] == 'pause_graph') {
           Get.find<DataAcquisitionProvider>().setPause(true);
-        } else if (message['type'] == 'connection_error') {
-          _handleConnectionError();
         }
       }
-    });
+    }, onError: (error) {
+      if (kDebugMode) {
+        print('Processing stream error: $error');
+      }
+
+      // Only handle error if not already reconnecting
+      if (!_isReconnecting) {
+        Future.microtask(() => _handleConnectionError());
+      }
+    }, cancelOnError: false);
 
     _socketToProcessingSendPort = await completer.future;
   }
@@ -1020,6 +1244,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       useLowPassFilter: useLowPassFilter,
       triggerMode: triggerMode,
       distance: distance,
+      deviceConfig: deviceConfig.config,
     ));
   }
 
@@ -1027,18 +1252,43 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   Future<void> stopData() async {
     try {
       _isReconnecting = false;
-      _configSendPort?.send('stop');
-      _socketToProcessingSendPort?.send('stop');
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      // 1. First attempt graceful shutdown
+      if (_configSendPort != null) {
+        try {
+          _configSendPort?.send('stop');
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error sending stop to config port: $e');
+          }
+        }
+      }
 
+      if (_socketToProcessingSendPort != null) {
+        try {
+          _socketToProcessingSendPort?.send('stop');
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error sending stop to socket port: $e');
+          }
+        }
+      }
+
+      // Give isolates time to process stop messages
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // 2. Create new tracking mechanism with ReceivePorts
       final processingDone = Completer<void>();
       final socketDone = Completer<void>();
 
+      // 3. Improved exit listener setup
       if (_processingIsolate != null) {
         final exitPort = ReceivePort();
         _processingIsolate!.addOnExitListener(exitPort.sendPort);
         exitPort.listen((_) {
+          if (kDebugMode) {
+            print('Processing isolate exited normally');
+          }
           exitPort.close();
           processingDone.complete();
         });
@@ -1050,6 +1300,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         final exitPort = ReceivePort();
         _socketIsolate!.addOnExitListener(exitPort.sendPort);
         exitPort.listen((_) {
+          if (kDebugMode) {
+            print('Socket isolate exited normally');
+          }
           exitPort.close();
           socketDone.complete();
         });
@@ -1057,42 +1310,113 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         socketDone.complete();
       }
 
-      _processingIsolate?.kill(priority: Isolate.immediate);
-      _socketIsolate?.kill(priority: Isolate.immediate);
+      // 4. Force kill the isolates with better error handling
+      if (_processingIsolate != null) {
+        try {
+          _processingIsolate!.kill(priority: Isolate.immediate);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error killing processing isolate: $e');
+          }
+          // Ensure completer is completed even on error
+          if (!processingDone.isCompleted) {
+            processingDone.complete();
+          }
+        }
+      }
 
-      await Future.wait([
-        processingDone.future.timeout(
-          const Duration(seconds: 2),
-          // ignore: avoid_print
-          onTimeout: () => print('Processing isolate kill timeout'),
-        ),
-        socketDone.future.timeout(
-          const Duration(seconds: 2),
-          // ignore: avoid_print
-          onTimeout: () => print('Socket isolate kill timeout'),
-        ),
-      ]);
+      if (_socketIsolate != null) {
+        try {
+          _socketIsolate!.kill(priority: Isolate.immediate);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error killing socket isolate: $e');
+          }
+          // Ensure completer is completed even on error
+          if (!socketDone.isCompleted) {
+            socketDone.complete();
+          }
+        }
+      }
 
+      // 5. Wait for isolates to terminate with improved timeout handling
+      try {
+        await Future.wait([
+          processingDone.future.timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {
+              if (kDebugMode) {
+                print(
+                    'WARNING: Processing isolate kill timeout - forcing termination');
+              }
+              return null;
+            },
+          ),
+          socketDone.future.timeout(
+            const Duration(seconds: 3),
+            onTimeout: () {
+              if (kDebugMode) {
+                print(
+                    'WARNING: Socket isolate kill timeout - forcing termination');
+              }
+              return null;
+            },
+          ),
+        ]);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error waiting for isolates to terminate: $e');
+        }
+        // Continue with cleanup even if there was an error
+      }
+
+      // 6. Clean up all resources, ensuring null checks
       _processingIsolate = null;
       _socketIsolate = null;
-      _processingReceivePort?.close();
-      _processingReceivePort = null;
+
+      if (_processingReceivePort != null) {
+        try {
+          _processingReceivePort!.close();
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error closing processing receive port: $e');
+          }
+        }
+        _processingReceivePort = null;
+      }
+
       _socketToProcessingSendPort = null;
       _configSendPort = null;
 
       _currentFrequency = 0.0;
       _currentMaxValue = 0.0;
 
-      // Only add final values if controllers are not closed
+      // Only add final values if controllers are not closed and we're not disposed
       if (!_disposed) {
-        _frequencyController.add(0.0);
-        _maxValueController.add(0.0);
-        _dataController.add([]);
+        try {
+          _ensureControllersExist();
+          _frequencyController?.add(0.0);
+          _maxValueController?.add(0.0);
+          _dataController?.add([]);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error updating controllers: $e');
+          }
+        }
       }
+
+      // 7. Final delay to help with resource cleanup
+      await Future.delayed(const Duration(milliseconds: 100));
     } catch (e) {
       if (kDebugMode) {
         print('Error stopping data: $e');
       }
+      // Even if there was an error, set all references to null to help GC
+      _processingIsolate = null;
+      _socketIsolate = null;
+      _processingReceivePort = null;
+      _socketToProcessingSendPort = null;
+      _configSendPort = null;
       rethrow;
     }
   }
@@ -1102,11 +1426,41 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _disposed = true;
     await stopData();
 
-    await Future.wait([
-      if (!_dataController.isClosed) _dataController.close(),
-      if (!_frequencyController.isClosed) _frequencyController.close(),
-      if (!_maxValueController.isClosed) _maxValueController.close(),
-    ]);
+    // Safely close controllers and set to null
+    try {
+      await Future.wait([
+        if (_dataController != null && !_dataController!.isClosed)
+          _dataController!.close().catchError((e) {
+            if (kDebugMode) {
+              print('Error closing data controller: $e');
+            }
+            return null;
+          }),
+        if (_frequencyController != null && !_frequencyController!.isClosed)
+          _frequencyController!.close().catchError((e) {
+            if (kDebugMode) {
+              print('Error closing frequency controller: $e');
+            }
+            return null;
+          }),
+        if (_maxValueController != null && !_maxValueController!.isClosed)
+          _maxValueController!.close().catchError((e) {
+            if (kDebugMode) {
+              print('Error closing max value controller: $e');
+            }
+            return null;
+          }),
+      ].whereType<Future>().toList());
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error during controller disposal: $e');
+      }
+    }
+
+    // Set controllers to null after closing
+    _dataController = null;
+    _frequencyController = null;
+    _maxValueController = null;
   }
 
   @override
