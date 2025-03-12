@@ -2,6 +2,7 @@ import 'package:arg_osci_app/features/graph/domain/models/filter_types.dart';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
 import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
+import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,8 @@ class UserSettings extends StatelessWidget {
 
   /// Builds the voltage scale selector dropdown.
   Widget _buildScaleSelector() {
+    final deviceConfig = Get.find<DeviceConfigProvider>();
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 16.0),
@@ -45,22 +48,49 @@ class UserSettings extends StatelessWidget {
           const Text('Voltage Scale',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          // Dropdown to select the voltage scale. Updates the graphProvider's currentVoltageScale.
-          Obx(() => DropdownButton<VoltageScale>(
-                value: graphProvider.currentVoltageScale.value,
-                isExpanded: true,
-                onChanged: (scale) {
-                  if (scale != null) {
-                    graphProvider.setVoltageScale(scale);
-                  }
-                },
-                items: VoltageScales.values.map((scale) {
-                  return DropdownMenuItem(
-                    value: scale,
-                    child: Text(scale.displayName),
-                  );
-                }).toList(),
-              )),
+          Obx(() {
+            // Get the current voltage scale and available scales
+            final currentScale = graphProvider.currentVoltageScale.value;
+            final availableScales = deviceConfig.voltageScales;
+
+            // Find a matching scale in the available scales
+            VoltageScale selectedScale = currentScale;
+            bool scaleFound = false;
+
+            // Try to find an exact match first
+            for (var scale in availableScales) {
+              if (scale.displayName == currentScale.displayName &&
+                  scale.baseRange == currentScale.baseRange) {
+                selectedScale = scale;
+                scaleFound = true;
+                break;
+              }
+            }
+
+            // If no match was found, use the first available scale
+            if (!scaleFound && availableScales.isNotEmpty) {
+              selectedScale = availableScales.first;
+              // Update the provider to use this scale
+              Future.microtask(
+                  () => graphProvider.setVoltageScale(selectedScale));
+            }
+
+            return DropdownButton<VoltageScale>(
+              value: selectedScale,
+              isExpanded: true,
+              onChanged: (scale) {
+                if (scale != null) {
+                  graphProvider.setVoltageScale(scale);
+                }
+              },
+              items: availableScales.map((scale) {
+                return DropdownMenuItem(
+                  value: scale,
+                  child: Text(scale.displayName),
+                );
+              }).toList(),
+            );
+          }),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
@@ -53,6 +54,8 @@ class FakeDeviceConfigProvider extends GetxController
 
   @override
   int get dataMask => 0x0FFF;
+  @override
+  List<VoltageScale> get voltageScales => VoltageScales.defaultScales;
 
   @override
   int get dataMaskTrailingZeros => 0;

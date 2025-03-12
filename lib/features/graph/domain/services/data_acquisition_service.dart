@@ -1477,11 +1477,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
 
     // Process signal briefly to get working frequency
-    await Future.delayed(const Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 1000));
 
     // Calculate timeScale and valueScale based on obtained frequency
     if (_currentFrequency <= 0) {
-      triggerLevel = 0;
+      triggerLevel = triggerLevel;
       final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
       final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
       return [100000, valueScale];

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:flutter/widgets.dart';
@@ -69,6 +70,9 @@ class FakeDeviceConfigProvider extends GetxController
   int get discardTrailer => 0;
   @override
   int get dividingFactor => 1;
+  @override
+  List<VoltageScale> get voltageScales => VoltageScales.defaultScales;
+
   @override
   dynamic get samplesPerPacket => 512;
   @override

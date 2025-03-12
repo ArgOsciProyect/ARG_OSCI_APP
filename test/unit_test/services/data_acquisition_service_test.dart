@@ -125,6 +125,8 @@ class MockDeviceConfigProvider extends GetxController
 
   @override
   int get bitsPerPacket => config?.bitsPerPacket ?? 16;
+  @override
+  List<VoltageScale> get voltageScales => VoltageScales.defaultScales;
 
   @override
   int get dataMask => config?.dataMask ?? 0x0FFF;
