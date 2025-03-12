@@ -116,6 +116,9 @@ class DataAcquisitionProvider extends GetxController {
   double getFrequency() => frequency.value;
   double getMaxValue() => maxValue.value;
 
+  // Agregar getter en DataAcquisitionProvider
+  double get currentMinValue => dataAcquisitionService.currentMinValue;
+
   /// Adds a list of data points to the data stream.
   void addPoints(List<DataPoint> points) {
     dataPoints.value = points;
@@ -315,22 +318,12 @@ class DataAcquisitionProvider extends GetxController {
       }
     }
   }
-
-  /// Automatically adjusts the time and value scales based on the data.
-  Future<List<double>> autoset(double chartHeight, double chartWidth) async {
-    final result =
-        await dataAcquisitionService.autoset(chartHeight, chartWidth);
-
-    // Update scales in line chart provider
-    final oscilloscopeChartProvider = Get.find<OscilloscopeChartProvider>();
-    oscilloscopeChartProvider.setTimeScale(result[0]);
-    oscilloscopeChartProvider.setValueScale(result[1]);
-
-    // Update trigger level
-    triggerLevel.value = dataAcquisitionService.triggerLevel;
-
-    return result;
-  }
+/// Automatically adjusts internal settings like trigger level based on the data.
+Future<void> autoset() async {
+  await dataAcquisitionService.autoset();
+  // Update trigger level in provider
+  triggerLevel.value = dataAcquisitionService.triggerLevel;
+}
 
   /// Applies the selected filter to the data points.
   List<DataPoint> _applyFilter(List<DataPoint> points) {

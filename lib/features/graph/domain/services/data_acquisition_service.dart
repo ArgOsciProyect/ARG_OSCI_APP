@@ -1464,41 +1464,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
-  Future<List<double>> autoset(double chartHeight, double chartWidth) async {
+  Future<void> autoset() async {
     // Update trigger level to middle between max and min
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
-
-    // Ensure trigger is within voltage range using new maxBits/midBits system
+  
+    // Ensure trigger is within voltage range using maxBits/midBits system
     final range = _currentVoltageScale.scale *
         (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
-
-    updateConfig();
-
+  
     // Process signal briefly to get working frequency
     await Future.delayed(const Duration(milliseconds: 1000));
-
-    // Calculate timeScale and valueScale based on obtained frequency
-    if (_currentFrequency <= 0) {
-      triggerLevel = triggerLevel;
-      final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
-      final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
-      return [100000, valueScale];
-    }
-
-    // Time scale calculation
-    final period = 1 / _currentFrequency;
-    final totalTime = 3 * period;
-    final timeScale = chartWidth / totalTime;
-
-    // Value scale calculation considering max absolute value
-    final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
-    final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
-
+    
+    // Just update internal configuration
     updateConfig();
-
-    return [timeScale, valueScale];
   }
 
   static double max(double a, double b) => a > b ? a : b;

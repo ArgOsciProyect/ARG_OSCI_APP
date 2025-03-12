@@ -95,11 +95,8 @@ abstract class DataAcquisitionRepository {
   /// [voltageScale] - New voltage scale to apply
   void setVoltageScale(VoltageScale voltageScale);
 
-  /// Automatically adjusts display settings based on signal
-  /// [chartHeight] - Available vertical display space
-  /// [chartWidth] - Available horizontal display space
-  /// Returns [timeScale, valueScale] for optimal display
-  Future<List<double>> autoset(double chartHeight, double chartWidth);
+  /// Automatically adjusts internal settings based on signal
+  Future<void> autoset();
 
   /// Sends trigger configuration to device
   /// Returns a Future that completes when settings are applied

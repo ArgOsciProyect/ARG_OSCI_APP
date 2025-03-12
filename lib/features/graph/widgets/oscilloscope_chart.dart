@@ -132,14 +132,14 @@ class _AutosetButton extends StatelessWidget {
   });
 
   @override
+  @override
   Widget build(BuildContext context) {
     return IconButton(
       icon: const Icon(Icons.autorenew),
       color: Theme.of(context).iconTheme.color,
       onPressed: () {
         final size = MediaQuery.of(context).size;
-        graphProvider.autoset(size.height, size.width);
-        oscilloscopeChartProvider.resetOffsets();
+        oscilloscopeChartProvider.autoset(size.height, size.width);
       },
     );
   }
