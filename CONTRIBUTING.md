@@ -138,17 +138,17 @@ The project follows a modular structure, separating concerns into distinct direc
 
 ### Key folders
 
--
+* 
 
 config
 
 : Contains configuration files, such as the app theme (`app_theme.dart`) and dependency injection setup (`initializer.dart`). The `Initializer` class is responsible for initializing all necessary dependencies for the app, ensuring that services and providers are correctly set up at startup.
-*
+* 
 
 features
 
 : Contains feature-specific modules, such as `graph`, `setup`, and `socket`.
-*
+* 
 
 test
 
