@@ -1,4 +1,4 @@
-# Contributing to ARG_OSCI
+# Contributing to ARG_OSCI_APP
 
 ## Introduction
 
