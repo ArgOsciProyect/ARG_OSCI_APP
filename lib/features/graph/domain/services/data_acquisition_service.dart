@@ -1467,16 +1467,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   Future<void> autoset() async {
     // Update trigger level to middle between max and min
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
-  
+
     // Ensure trigger is within voltage range using maxBits/midBits system
     final range = _currentVoltageScale.scale *
         (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
-  
+
     // Process signal briefly to get working frequency
     await Future.delayed(const Duration(milliseconds: 1000));
-    
+
     // Just update internal configuration
     updateConfig();
   }

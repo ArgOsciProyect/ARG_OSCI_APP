@@ -318,12 +318,13 @@ class DataAcquisitionProvider extends GetxController {
       }
     }
   }
-/// Automatically adjusts internal settings like trigger level based on the data.
-Future<void> autoset() async {
-  await dataAcquisitionService.autoset();
-  // Update trigger level in provider
-  triggerLevel.value = dataAcquisitionService.triggerLevel;
-}
+
+  /// Automatically adjusts internal settings like trigger level based on the data.
+  Future<void> autoset() async {
+    await dataAcquisitionService.autoset();
+    // Update trigger level in provider
+    triggerLevel.value = dataAcquisitionService.triggerLevel;
+  }
 
   /// Applies the selected filter to the data points.
   List<DataPoint> _applyFilter(List<DataPoint> points) {

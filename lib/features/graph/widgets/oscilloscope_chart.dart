@@ -551,56 +551,45 @@ class OscilloscopeChartPainter extends CustomPainter {
     );
   }
 
-  /// Draws the Y-axis grid lines and labels.
   void _drawYAxisGridAndLabels(Canvas canvas, Size size) {
-    try {
-      final yDomainTop = _screenToDomainY(_offsetY);
-      final yDomainBottom = _screenToDomainY(size.height - _sqrOffsetBot);
-      final yMin = min(yDomainTop, yDomainBottom);
-      final yMax = max(yDomainTop, yDomainBottom);
+    final factor = 9;
+    final suggestedStep = (1 / valueScale) / factor;
+    if (suggestedStep <= 0) return;
 
-      if (yMin.isInfinite || yMax.isInfinite) return;
-
-      const rangeExtensionFactor = 2.0;
-      final yRange = yMax - yMin;
-      if (yRange == 0) return;
-
-      final extendedYMin = yMin - (yRange * (rangeExtensionFactor - 1) / 2);
-      final extendedYMax = yMax + (yRange * (rangeExtensionFactor - 1) / 2);
-
-      const linesCountY = 20;
-      final stepY = (extendedYMax - extendedYMin) / linesCountY;
-      if (stepY == 0) return;
-
-      for (int i = 0; i <= linesCountY; i++) {
-        final domainVal = extendedYMin + i * stepY;
-        final y = _domainToScreenY(domainVal);
-
-        if (y >= _offsetY && y <= size.height - _sqrOffsetBot) {
-          canvas.drawLine(
-            Offset(_offsetX, y),
-            Offset(size.width, y),
-            _gridPaint,
-          );
-
-          final formattedValue = UnitFormat.formatWithUnit(domainVal, 'V');
-          _textPainter.text = TextSpan(
-            text: formattedValue,
-            style: TextStyle(
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-                fontSize: 10),
-          );
-          _textPainter.layout();
-          _textPainter.paint(
-            canvas,
-            Offset(5, y - _textPainter.height / 2),
-          );
-        }
+    double baseVal = 0.0;
+    double valUp = baseVal;
+    while (true) {
+      final y = _domainToScreenY(valUp);
+      if (y < _offsetY) break;
+      if (y <= size.height - _sqrOffsetBot) {
+        _drawHorizontalLineAndLabel(canvas, size, valUp, y);
       }
-    } catch (e) {
-      // Handle or log error if needed
-      return;
+      valUp += suggestedStep;
     }
+
+    double valDown = baseVal - suggestedStep;
+    while (true) {
+      final y = _domainToScreenY(valDown);
+      if (y > size.height - _sqrOffsetBot) break;
+      if (y >= _offsetY) {
+        _drawHorizontalLineAndLabel(canvas, size, valDown, y);
+      }
+      valDown -= suggestedStep;
+    }
+  }
+
+  void _drawHorizontalLineAndLabel(
+      Canvas canvas, Size size, double val, double y) {
+    canvas.drawLine(Offset(_offsetX, y), Offset(size.width, y), _gridPaint);
+    _textPainter.text = TextSpan(
+      text: UnitFormat.formatWithUnit(val, 'V'),
+      style: TextStyle(
+        color: Theme.of(context).textTheme.bodyLarge?.color,
+        fontSize: 10,
+      ),
+    );
+    _textPainter.layout();
+    _textPainter.paint(canvas, Offset(5, y - _textPainter.height / 2));
   }
 
   /// Draws the X-axis grid lines and labels.

@@ -228,14 +228,32 @@ class OscilloscopeChartProvider extends GetxController {
     setTimeScale(timeScale * unzoomFactor);
   }
 
-  /// Increments the value scale (zoom in).
+  /// Increases the value scale (vertical zoom in)
   void incrementValueScale() {
-    setValueScale(valueScale * zoomFactor);
+    // 1. Record the original scale
+    final oldScale = valueScale;
+
+    // 2. Apply zoom
+    final newScale = valueScale * zoomFactor;
+    setValueScale(newScale);
+
+    // 3. Adjust offset to maintain centered view
+    // When increasing scale (zooming in), offset must increase proportionally
+    setVerticalOffset(verticalOffset * (newScale / oldScale));
   }
 
-  /// Decrements the value scale (zoom out).
+  /// Decreases the value scale (vertical zoom out)
   void decrementValueScale() {
-    setValueScale(valueScale * unzoomFactor);
+    // 1. Record the original scale
+    final oldScale = valueScale;
+
+    // 2. Apply zoom
+    final newScale = valueScale * unzoomFactor;
+    setValueScale(newScale);
+
+    // 3. Adjust offset to maintain centered view
+    // When decreasing scale (zooming out), offset must decrease proportionally
+    setVerticalOffset(verticalOffset * (newScale / oldScale));
   }
 
   /// Increments the horizontal offset.
@@ -297,68 +315,71 @@ class OscilloscopeChartProvider extends GetxController {
     }
   }
 
-    /// Automatically scales the chart based on the current signal parameters
-    /// Adds a 15% margin above and below the signal's extremes for better visualization
-    Future<void> autoset(double chartHeight, double chartWidth) async {
-      final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
-      
-      // First, let the data acquisition service adjust its trigger level
-      await dataAcquisitionProvider.autoset();
-      
-      // Calculate appropriate scales based on signal information
-      final frequency = dataAcquisitionProvider.frequency.value;
-      final maxValue = dataAcquisitionProvider.maxValue.value;
-      final minValue = dataAcquisitionProvider.currentMinValue;
-      
-      // Add 15% margin to min and max values
-      const marginFactor = 1.15; 
-      final adjustedMaxValue = maxValue > 0 ? maxValue * marginFactor : maxValue / marginFactor;
-      final adjustedMinValue = minValue < 0 ? minValue * marginFactor : minValue / marginFactor;
-      
-      // Calculate the total range with margins
-      final totalRange = adjustedMaxValue - adjustedMinValue;
-      
-      if (frequency <= 0) {
-        // No frequency detected, use default scales
-        setTimeScale(100000);
-        
-        // Use the adjusted range for value scale
-        if (totalRange != 0) {
-          // Scale to fit the total range in the chart height
-          setValueScale(1.0 / totalRange);
-        } else {
-          // Fallback for zero or very small range
-          setValueScale(1.0);
-        }
+  /// Automatically scales the chart based on the current signal parameters
+  /// Adds a 15% margin above and below the signal's extremes for better visualization
+  Future<void> autoset(double chartHeight, double chartWidth) async {
+    final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
+
+    // First, let the data acquisition service adjust its trigger level
+    await dataAcquisitionProvider.autoset();
+
+    // Calculate appropriate scales based on signal information
+    final frequency = dataAcquisitionProvider.frequency.value;
+    final maxValue = dataAcquisitionProvider.maxValue.value;
+    final minValue = dataAcquisitionProvider.currentMinValue;
+
+    // Add 15% margin to min and max values
+    const marginFactor = 1.15;
+    final adjustedMaxValue =
+        maxValue > 0 ? maxValue * marginFactor : maxValue / marginFactor;
+    final adjustedMinValue =
+        minValue < 0 ? minValue * marginFactor : minValue / marginFactor;
+
+    // Calculate the total range with margins
+    final totalRange = adjustedMaxValue - adjustedMinValue;
+
+    if (frequency <= 0) {
+      // No frequency detected, use default scales
+      setTimeScale(100000);
+
+      // Use the adjusted range for value scale
+      if (totalRange != 0) {
+        // Scale to fit the total range in the chart height
+        setValueScale(1.0 / totalRange);
       } else {
-        // Calculate time scale to show 3 periods
-        final period = 1 / frequency;
-        final totalTime = 3 * period;
-        final timeScale = chartWidth / totalTime;
-        
-        // Calculate value scale to fit the expanded signal range vertically
-        if (totalRange != 0) {
-          // Scale to fit the total range in the chart height
-          setValueScale(1.0 / totalRange);
-        } else {
-          // Fallback using max absolute value
-          final maxAbsValue = max(maxValue.abs(), minValue.abs());
-          final expandedAbsValue = maxAbsValue * marginFactor;
-          setValueScale(expandedAbsValue != 0 ? 1.0 / (expandedAbsValue * 2) : 1.0);
-        }
-        
-        setTimeScale(timeScale);
+        // Fallback for zero or very small range
+        setValueScale(1.0);
       }
-      
-      // Set vertical offset to center the signal
-      // This ensures the signal is centered even with asymmetric min/max values
-      final verticalCenter = (adjustedMaxValue + adjustedMinValue) / 2;
-      setVerticalOffset(-verticalCenter * valueScale);
-      
-      // Reset horizontal offset
-      setHorizontalOffset(0.0);
+    } else {
+      // Calculate time scale to show 3 periods
+      final period = 1 / frequency;
+      final totalTime = 3 * period;
+      final timeScale = chartWidth / totalTime;
+
+      // Calculate value scale to fit the expanded signal range vertically
+      if (totalRange != 0) {
+        // Scale to fit the total range in the chart height
+        setValueScale(1.0 / totalRange);
+      } else {
+        // Fallback using max absolute value
+        final maxAbsValue = max(maxValue.abs(), minValue.abs());
+        final expandedAbsValue = maxAbsValue * marginFactor;
+        setValueScale(
+            expandedAbsValue != 0 ? 1.0 / (expandedAbsValue * 2) : 1.0);
+      }
+
+      setTimeScale(timeScale);
     }
-    
+
+    // Set vertical offset to center the signal
+    // This ensures the signal is centered even with asymmetric min/max values
+    final verticalCenter = (adjustedMaxValue + adjustedMinValue) / 2;
+    setVerticalOffset(-verticalCenter * valueScale);
+
+    // Reset horizontal offset
+    setHorizontalOffset(0.0);
+  }
+
   @override
   void onClose() {
     _incrementTimer?.cancel();
