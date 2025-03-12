@@ -170,6 +170,8 @@ class FakeDeviceConfigProvider extends GetxController
 
   @override
   int get midBits => 250;
+  @override
+  List<VoltageScale> get voltageScales => VoltageScales.defaultScales;
 
   @override
   int get minBits => 0;
@@ -333,6 +335,22 @@ class FakeUserSettingsProvider extends GetxController
   Stream<String> get modeStream => mode.stream;
   @override
   void navigateToMode(String mode) {}
+
+  @override
+  VoltageScale findMatchingScale(
+      VoltageScale currentScale, List<VoltageScale> availableScales) {
+    // Try to find exact match
+    for (var scale in availableScales) {
+      if (scale.displayName == currentScale.displayName &&
+          scale.baseRange == currentScale.baseRange) {
+        return scale;
+      }
+    }
+
+    // If no match found, return first available scale
+    return availableScales.isNotEmpty ? availableScales.first : currentScale;
+  }
+
   @override
   bool get showTriggerControls => false;
   @override
@@ -406,7 +424,7 @@ void main() {
     test('should get current values', () {
       expect(provider.getDistance(), 1 / 1650000);
       // Ajustamos a la escala real que configuramos en FakeDataAcquisitionService
-      expect(provider.getScale(), 0.004);
+      expect(provider.getScale(), 1.6);
       expect(provider.getFrequency(), 1.0);
       expect(provider.getMaxValue(), 1.0);
     });

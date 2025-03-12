@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/graph_mode.dart'; // Import the graph mode models
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/domain/services/fft_chart_service.dart';
 import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/data_acquisition_provider.dart';
@@ -117,6 +118,21 @@ class UserSettingsProvider extends GetxController {
   void onClose() {
     _frequencyUpdateTimer?.cancel();
     super.onClose();
+  }
+
+  // In user_settings.dart
+  VoltageScale findMatchingScale(
+      VoltageScale currentScale, List<VoltageScale> availableScales) {
+    // Try to find exact match
+    for (var scale in availableScales) {
+      if (scale.displayName == currentScale.displayName &&
+          scale.baseRange == currentScale.baseRange) {
+        return scale;
+      }
+    }
+
+    // If no match found, return first available scale
+    return availableScales.isNotEmpty ? availableScales.first : currentScale;
   }
 
   /// Returns whether to show trigger controls based on the selected mode.

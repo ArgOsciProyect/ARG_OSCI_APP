@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use_from_same_package, provide_deprecation_message
 
 import 'package:arg_osci_app/features/graph/domain/models/device_config.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
@@ -56,6 +57,24 @@ class DeviceConfigProvider extends GetxController {
   /// Returns the number of samples to discard from the end
   int get discardTrailer => _config.value?.discardTrailer ?? 0;
 
+  List<VoltageScale> get voltageScales {
+    if (_config.value == null) return VoltageScales.defaultScales;
+
+    try {
+      return _config.value!.voltageScales.map((scale) {
+        final baseRange = double.parse(scale['baseRange'].toString());
+        final displayName = scale['displayName'].toString();
+        return VoltageScale(baseRange, displayName);
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print("Error parsing voltage scales: $e");
+        print("Raw voltage scales: ${_config.value!.voltageScales}");
+      }
+      return VoltageScales.defaultScales;
+    }
+  }
+
   /// Returns the channel mask.
   dynamic get channelMask => _config.value?.channelMask ?? 0xF000;
 
@@ -90,6 +109,14 @@ class DeviceConfigProvider extends GetxController {
       print("Samples per Packet: $samplesPerPacket");
       print("Discard Head: $discardHead");
       print("Discard Trailer: $discardTrailer");
+
+      // Print voltage scales
+      print("Voltage Scales: [");
+      for (var scale in config.voltageScales) {
+        print(
+            "  {baseRange: ${scale['baseRange']}, displayName: '${scale['displayName']}'}");
+      }
+      print("]");
     }
   }
 }

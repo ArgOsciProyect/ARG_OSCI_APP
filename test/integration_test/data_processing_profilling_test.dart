@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:async';
 import 'package:arg_osci_app/features/graph/domain/models/trigger_data.dart';
+import 'package:arg_osci_app/features/graph/domain/models/voltage_scale.dart';
 import 'package:arg_osci_app/features/graph/domain/services/oscilloscope_chart_service.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
@@ -86,6 +87,21 @@ class MockUserSettingsProvider extends GetxController
 
   @override
   void navigateToMode(String selectedMode) {}
+
+  @override
+  VoltageScale findMatchingScale(
+      VoltageScale currentScale, List<VoltageScale> availableScales) {
+    // Try to find exact match
+    for (var scale in availableScales) {
+      if (scale.displayName == currentScale.displayName &&
+          scale.baseRange == currentScale.baseRange) {
+        return scale;
+      }
+    }
+
+    // If no match found, return first available scale
+    return availableScales.isNotEmpty ? availableScales.first : currentScale;
+  }
 
   @override
   bool get showFFTControls => false;

@@ -10,7 +10,6 @@ import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:simple_kalman/simple_kalman.dart'; // Importar la librería
 import 'dart:async';
 
 /// [DataAcquisitionProvider] manages the acquisition, processing, and filtering of data for the oscilloscope and FFT charts.
@@ -43,10 +42,6 @@ class DataAcquisitionProvider extends GetxController {
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
   final isReconnecting = false.obs;
 
-  // Kalman filter instance
-  final SimpleKalman kalman =
-      SimpleKalman(errorMeasure: 256, errorEstimate: 150, q: 0.9);
-
   DataAcquisitionProvider(this.dataAcquisitionService, this.socketConnection) {
     // Update sampling frequency from device config
     samplingFrequency.value = deviceConfig.samplingFrequency;
@@ -55,16 +50,40 @@ class DataAcquisitionProvider extends GetxController {
     // Set up initial stream subscriptions
     _setupStreamSubscriptions();
 
+    // Select an appropriate initial voltage scale
+    if (deviceConfig.voltageScales.isNotEmpty) {
+      // Start with the first scale from the device
+      currentVoltageScale.value = deviceConfig.voltageScales.first;
+
+      // Also update the service's voltage scale
+      dataAcquisitionService.setVoltageScale(deviceConfig.voltageScales.first);
+    } else {
+      // Fallback to default scale if no scales are provided
+      currentVoltageScale.value = VoltageScales.volt_1;
+    }
+
     deviceConfig.listen((config) {
       if (config != null) {
         // Re-apply current voltage scale when config changes
         samplingFrequency.value = deviceConfig.config!.samplingFrequency;
         distance.value = 1 / deviceConfig.config!.samplingFrequency;
         setCutoffFrequency(deviceConfig.config!.samplingFrequency / 2);
-        setVoltageScale(currentVoltageScale.value);
+
+        // Check if current scale exists in new config scales
+        final newScales = deviceConfig.voltageScales;
+        bool scaleExists = newScales.any((scale) =>
+            scale.baseRange == currentVoltageScale.value.baseRange &&
+            scale.displayName == currentVoltageScale.value.displayName);
+
+        // If current scale doesn't exist in new scales, select the first one
+        if (!scaleExists && newScales.isNotEmpty) {
+          setVoltageScale(newScales.first);
+        } else if (scaleExists) {
+          // If it exists, reapply it to ensure consistency
+          setVoltageScale(currentVoltageScale.value);
+        }
       }
     });
-
     // Observe changes in socket connection
     ever(socketConnection.ip, (_) => restartDataAcquisition());
     ever(socketConnection.port, (_) => restartDataAcquisition());

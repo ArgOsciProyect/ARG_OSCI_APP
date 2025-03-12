@@ -47,6 +47,8 @@ class DeviceConfig {
   // Add getter for minBits
   int get minBits => (midBits * 2) - maxBits;
 
+  final List<Map<String, dynamic>> voltageScales;
+
   DeviceConfig({
     required double samplingFrequency,
     required this.bitsPerPacket,
@@ -59,6 +61,7 @@ class DeviceConfig {
     this.discardTrailer = 0,
     int? maxBits,
     int? midBits,
+    List<Map<String, dynamic>>? voltageScales,
   })  : _baseSamplingFrequency = samplingFrequency,
         dataMaskTrailingZeros = dataMask
             .toRadixString(2)
@@ -73,10 +76,33 @@ class DeviceConfig {
             .takeWhile((c) => c == '0')
             .length,
         maxBits = maxBits ?? (1 << (usefulBits)),
-        midBits = midBits ?? ((1 << (usefulBits)) ~/ 2);
+        midBits = midBits ?? ((1 << (usefulBits)) ~/ 2),
+        // Default voltage scales if not provided
+        voltageScales = voltageScales ??
+            [
+              {'baseRange': 800.0, 'displayName': '400V, -400V'},
+              {'baseRange': 4.0, 'displayName': '2V, -2V'},
+              {'baseRange': 2.0, 'displayName': '1V, -1V'},
+              {'baseRange': 1.0, 'displayName': '500mV, -500mV'},
+              {'baseRange': 0.4, 'displayName': '200mV, -200mV'},
+              {'baseRange': 0.2, 'displayName': '100mV, -100mV'},
+            ];
 
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {
     try {
+      // Parse voltage scales if available
+      List<Map<String, dynamic>>? voltageScales;
+      if (json['voltage_scales'] != null) {
+        voltageScales = List<Map<String, dynamic>>.from(
+          (json['voltage_scales'] as List).map(
+            (scale) => {
+              'baseRange': double.parse(scale['baseRange'].toString()),
+              'displayName': scale['displayName'].toString(),
+            },
+          ),
+        );
+      }
+
       return DeviceConfig(
         samplingFrequency: double.parse(json['sampling_frequency'].toString()),
         bitsPerPacket: int.parse(json['bits_per_packet'].toString()),
@@ -93,6 +119,7 @@ class DeviceConfig {
         midBits: json['mid_bits'] != null
             ? int.parse(json['mid_bits'].toString())
             : null,
+        voltageScales: voltageScales,
       );
     } catch (e) {
       throw FormatException(
@@ -112,6 +139,7 @@ class DeviceConfig {
         'discard_trailer': discardTrailer,
         'max_bits': maxBits,
         'mid_bits': midBits,
+        'voltage_scales': voltageScales,
       };
 
   DeviceConfig copyWith({
@@ -126,6 +154,7 @@ class DeviceConfig {
     int? discardTrailer,
     int? maxBits,
     int? midBits,
+    List<Map<String, dynamic>>? voltageScales,
   }) {
     return DeviceConfig(
       samplingFrequency: samplingFrequency ?? _baseSamplingFrequency,
@@ -139,6 +168,7 @@ class DeviceConfig {
       discardTrailer: discardTrailer ?? this.discardTrailer,
       maxBits: maxBits ?? this.maxBits,
       midBits: midBits ?? this.midBits,
+      voltageScales: voltageScales ?? this.voltageScales,
     );
   }
 }

@@ -54,16 +54,23 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
     final args = Get.arguments;
     if (args != null && args['showErrorPopup'] == true) {
       final errorMessage = args['errorMessage'] ?? 'Connection failed';
+      final errorCode = args['errorCode'] ?? _extractErrorCode(errorMessage);
 
       // Ensure all services are properly cleaned up first
       _cleanupAfterError();
+
+      // Log detailed error in debug mode
+      if (kDebugMode) {
+        print('Connection error details: $errorMessage');
+      }
 
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
           title: const Text('Connection Error'),
-          content: Text(errorMessage),
+          // Show simplified message with error code to users
+          content: Text('Connection error: $errorCode'),
           actions: [
             TextButton(
               onPressed: () {
@@ -90,8 +97,11 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
       if (Get.isRegistered<DataAcquisitionService>()) {
         final service = Get.find<DataAcquisitionService>();
         service.dispose().catchError((e) {
+          final errorCode = _extractErrorCode(e.toString());
           if (kDebugMode) {
             print('Error during service disposal: $e');
+          } else {
+            print('Service disposal error: $errorCode');
           }
         });
       }
@@ -103,10 +113,25 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
         }
       });
     } catch (e) {
+      final errorCode = _extractErrorCode(e.toString());
       if (kDebugMode) {
         print('Error during cleanup: $e');
+      } else {
+        print('Cleanup error: $errorCode');
       }
     }
+  }
+
+  /// Extracts a simple error code from an error message
+  String _extractErrorCode(String errorMessage) {
+    // Try to find numeric codes like E1234 or just use a short prefix
+    final codeMatch = RegExp(r'[A-Z][0-9]{2,4}').firstMatch(errorMessage);
+    if (codeMatch != null) {
+      return codeMatch.group(0) ?? 'ERR';
+    }
+
+    // If no standard code found, return first 10 chars or generic code
+    return errorMessage.length > 10 ? errorMessage.substring(0, 10) : 'ERR001';
   }
 
   @override
