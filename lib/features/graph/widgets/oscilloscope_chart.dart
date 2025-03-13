@@ -296,9 +296,9 @@ class _ChartPainter extends StatelessWidget {
           dataPoints,
           oscilloscopeChartProvider.timeScale,
           oscilloscopeChartProvider.valueScale,
-          graphProvider.getMaxValue(),
-          graphProvider.getDistance(),
-          graphProvider.getScale(),
+          graphProvider.maxValue.value,
+          graphProvider.distance.value,
+          graphProvider.scale.value,
           Theme.of(context).scaffoldBackgroundColor,
           oscilloscopeChartProvider.horizontalOffset,
           oscilloscopeChartProvider.verticalOffset,
@@ -514,12 +514,6 @@ class OscilloscopeChartPainter extends CustomPainter {
         ((domainVal * valueScale + verticalOffset) * _drawingHeight / 2);
   }
 
-  /// Converts a screen Y value to a domain Y value.
-  double _screenToDomainY(double screenVal) {
-    return -((screenVal - _centerY) / (_drawingHeight / 2)) / valueScale -
-        verticalOffset;
-  }
-
   /// Converts a domain X value to a screen X value.
   double _domainToScreenX(double domainVal) {
     if (domainVal.isNaN || domainVal.isInfinite) return _offsetX;
@@ -552,7 +546,7 @@ class OscilloscopeChartPainter extends CustomPainter {
   }
 
   void _drawYAxisGridAndLabels(Canvas canvas, Size size) {
-    final factor = 9;
+    const factor = 9;
     final suggestedStep = (1 / valueScale) / factor;
     if (suggestedStep <= 0) return;
 

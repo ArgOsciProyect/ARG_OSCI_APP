@@ -271,12 +271,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> postTriggerStatus() async {
     try {
-      // Convert voltage trigger to raw value considering the new scaling
+      // Calculate raw trigger value considering the current scale
       final range = deviceConfig.maxBits - deviceConfig.minBits;
-      final rawTrigger = (_triggerLevel / scale) + deviceConfig.midBits;
+      final rawTrigger = (_triggerLevel / _scale) + deviceConfig.midBits;
 
-      // Calculate percentage based on the full range
+      // Calculate percentage for the device API
       final percentage = ((rawTrigger - deviceConfig.minBits) / range) * 100;
+
+      if (kDebugMode) {
+        print("Posting trigger:");
+        print("  Trigger level: $_triggerLevel V");
+        print("  Scale: $_scale V/bit");
+        print("  Raw trigger: $rawTrigger bits");
+        print("  Percentage: ${percentage.clamp(0, 100)}%");
+      }
 
       await httpService.post(
           '/trigger',
@@ -299,16 +307,28 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   set triggerLevel(double value) {
-    // Calculate voltage range based on current scale and bits
+    // Calculate current voltage range based on scale
     final range = _currentVoltageScale.scale *
         (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
 
-    // Clamp the trigger level to the valid voltage range
-    _triggerLevel = value.clamp(-halfRange, halfRange);
+    // Clamp the trigger level to valid voltage range
+    final newValue = value.clamp(-halfRange, halfRange);
 
-    postTriggerStatus();
-    updateConfig();
+    // Only update if there's a significant change
+    if (_triggerLevel != newValue) {
+      _triggerLevel = newValue;
+
+      if (kDebugMode) {
+        print("Set trigger level to: $_triggerLevel (clamped from $value)");
+        print("  Current scale: ${_currentVoltageScale.scale}");
+        print("  Valid range: -$halfRange to $halfRange");
+      }
+
+      // Update device with new trigger level
+      postTriggerStatus();
+      updateConfig();
+    }
   }
 
   @override
@@ -364,20 +384,39 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (kDebugMode) {
       print('Setting voltage scale to: ${voltageScale.scale}');
     }
+
+    // Save the old scale for trigger level adjustment
     final oldScale = _currentVoltageScale.scale;
+
+    // Update the voltage scale
     _currentVoltageScale = voltageScale;
-    scale = voltageScale.scale;
+    _scale = voltageScale.scale;
 
-    // Adjust trigger level proportionally to new scale
+    // Calculate the adjustment ratio for trigger level
     final ratio = voltageScale.scale / oldScale;
-    triggerLevel *= ratio;
 
-    // Clamp trigger level to new voltage range
+    // Adjust trigger level proportionally to maintain relative position
+    final oldTriggerLevel = _triggerLevel;
+    _triggerLevel *= ratio;
+
+    // Calculate safe range based on new scale
     final range =
         voltageScale.scale * (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
-    triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
+    // Clamp trigger level to valid range
+    _triggerLevel = _triggerLevel.clamp(-halfRange, halfRange);
+
+    if (kDebugMode) {
+      print("Voltage scale changed:");
+      print("  Old scale: $oldScale, New scale: ${voltageScale.scale}");
+      print("  Ratio: $ratio");
+      print(
+          "  Old trigger level: $oldTriggerLevel, New trigger level: $_triggerLevel");
+    }
+
+    // Post trigger status and update configuration
+    postTriggerStatus();
     updateConfig();
   }
 

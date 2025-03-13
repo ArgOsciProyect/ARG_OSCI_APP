@@ -541,11 +541,11 @@ void main() {
     });
   });
   group('Enhanced Autoset', () {
-    test('should calculate new scales based on signal metrics', () async {
+    test('should adjust trigger level to middle of signal range', () async {
       // Set voltage scale to ensure voltageRange >= 1.0
-      service.setVoltageScale(VoltageScales.millivolts_500); // Adjust as needed
+      service.setVoltageScale(VoltageScales.millivolts_500);
 
-      // Simulate signal with adjusted characteristics
+      // Simulate signal with known min/max values
       final points = [
         DataPoint(0.0, 0.0, isTrigger: true), // 0.0V (min)
         DataPoint(1e-6, 1.0), // 1.0V (max)
@@ -557,49 +557,29 @@ void main() {
       service.updateMetrics(points, 1, 0);
 
       if (kDebugMode) {
-        print("Trigger Level: ${service.triggerLevel}");
-        print("Max Value: ${service.currentMaxValue}");
-        print("Min Value: ${service.currentMinValue}");
-        print("Voltage Scale: ${service.currentVoltageScale.scale}");
+        print("Before autoset - Trigger Level: ${service.triggerLevel}");
+        print("Before autoset - Max Value: ${service.currentMaxValue}");
+        print("Before autoset - Min Value: ${service.currentMinValue}");
       }
 
-      final result = await service.autoset(300.0, 400.0); // Usar await aquí
+      // Set trigger level to something different from the expected middle
+      service.triggerLevel = -0.2;
+
+      // Call autoset (now returns void)
+      await service.autoset();
 
       if (kDebugMode) {
-        print("Trigger Level: ${service.triggerLevel}");
-        print("Max Value: ${service.currentMaxValue}");
-        print("Min Value: ${service.currentMinValue}");
-        print("Voltage Scale: ${service.currentVoltageScale.scale}");
+        print("After autoset - Trigger Level: ${service.triggerLevel}");
+        print("After autoset - Max Value: ${service.currentMaxValue}");
+        print("After autoset - Min Value: ${service.currentMinValue}");
       }
-      // Verify time scale (3 periods should fit in chart width)
-      expect(result[0], closeTo(400.0 / (3 / 500000), 1000)); // 500kHz signal
-
-      // Verify value scale (should accommodate max value)
-      expect(result[1], closeTo(1.0 / 1.0, 0.1)); // Max value is 1.0V
 
       // Verify trigger level is set to middle between max and min values
       expect(
           service.triggerLevel, closeTo(0.5, 0.1)); // (1.0V + 0.0V) / 2 = 0.5V
     });
 
-    test('autoset should return default scales if frequency <= 0', () async {
-      final result = await service.autoset(300, 400); // Add await here
-      expect(result, equals([100000.0, 1.0]));
-    });
-
-    test('autoset should compute correct scales if frequency > 0', () async {
-      final points = [
-        DataPoint(0.0, -1.0, isTrigger: true),
-        DataPoint(5e-6, 1.0, isTrigger: true),
-      ];
-
-      service.updateMetrics(points, -1, 1);
-      final result = await service.autoset(300, 400);
-      expect(result[0], closeTo(2.66e7, 1e5));
-      expect(result[1], equals(1.0));
-    });
-
-    test('autoset should clamp trigger level within voltage range', () {
+    test('autoset should clamp trigger level within voltage range', () async {
       service.setVoltageScale(VoltageScales.millivolts_500);
 
       final points = [
@@ -610,32 +590,52 @@ void main() {
 
       service.updateMetrics(points, 0.6, -0.6);
 
+      // Call autoset which will set trigger level to 0
+      await service.autoset();
+
       // Verify trigger level is clamped to voltage range
-      final maxVoltage = (VoltageScales.millivolts_500.scale * 512) / 2;
+      final maxVoltage = (VoltageScales.millivolts_500.scale *
+              (service.deviceConfig.maxBits - service.deviceConfig.minBits)) /
+          2;
+
       expect(service.triggerLevel.abs(), lessThanOrEqualTo(maxVoltage));
     });
 
-    test('autoset should handle zero signal correctly', () async {
-      service.triggerLevel = 1.65;
+    test('autoset should handle signals with non-zero min and max', () async {
+      service.setVoltageScale(VoltageScales.volt_1);
 
+      // Signal with both values positive
       final points = [
-        DataPoint(0.0, 0.0),
-        DataPoint(1e-6, 0.0),
-        DataPoint(2e-6, 0.0),
+        DataPoint(0.0, 0.3), // Min
+        DataPoint(1e-6, 0.7), // Max
       ];
 
-      service.updateMetrics(points, 0, 0);
-      if (kDebugMode) {
-        print(service.currentMaxValue);
-      }
-      if (kDebugMode) {
-        print(service.currentMinValue);
-      }
-      final result = await service.autoset(300.0, 400.0); // Add await here
+      service.updateMetrics(points, 0.7, 0.3);
 
-      expect(result, equals([100000.0, 1.0]));
-      expect(service.triggerLevel, equals(0.0),
-          reason: 'Trigger level should be 0 for zero signal');
+      // Call autoset which will set trigger level to the middle
+      await service.autoset();
+
+      // Verify trigger level is set to middle between max and min
+      expect(service.triggerLevel, closeTo(0.5, 0.1)); // (0.7 + 0.3) / 2 = 0.5V
+    });
+
+    test('autoset should handle signals with negative values', () async {
+      service.setVoltageScale(VoltageScales.volt_1);
+
+      // Signal with negative min value
+      final points = [
+        DataPoint(0.0, -0.5), // Min
+        DataPoint(1e-6, 1.0), // Max
+      ];
+
+      service.updateMetrics(points, 1.0, -0.5);
+
+      // Call autoset which will set trigger level to the middle
+      await service.autoset();
+
+      // Verify trigger level is set to middle between max and min
+      expect(service.triggerLevel,
+          closeTo(0.25, 0.1)); // (1.0 + (-0.5)) / 2 = 0.25V
     });
   });
 

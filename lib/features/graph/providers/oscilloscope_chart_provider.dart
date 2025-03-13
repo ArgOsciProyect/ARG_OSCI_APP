@@ -323,58 +323,21 @@ class OscilloscopeChartProvider extends GetxController {
     // First, let the data acquisition service adjust its trigger level
     await dataAcquisitionProvider.autoset();
 
-    // Calculate appropriate scales based on signal information
+    // Get signal parameters
     final frequency = dataAcquisitionProvider.frequency.value;
     final maxValue = dataAcquisitionProvider.maxValue.value;
     final minValue = dataAcquisitionProvider.currentMinValue;
 
-    // Add 15% margin to min and max values
-    const marginFactor = 1.15;
-    final adjustedMaxValue =
-        maxValue > 0 ? maxValue * marginFactor : maxValue / marginFactor;
-    final adjustedMinValue =
-        minValue < 0 ? minValue * marginFactor : minValue / marginFactor;
+    // Use the service to calculate optimal scales
+    final scales = _oscilloscopeChartService.calculateAutosetScales(
+        chartWidth, frequency, maxValue, minValue);
 
-    // Calculate the total range with margins
-    final totalRange = adjustedMaxValue - adjustedMinValue;
-
-    if (frequency <= 0) {
-      // No frequency detected, use default scales
-      setTimeScale(100000);
-
-      // Use the adjusted range for value scale
-      if (totalRange != 0) {
-        // Scale to fit the total range in the chart height
-        setValueScale(1.0 / totalRange);
-      } else {
-        // Fallback for zero or very small range
-        setValueScale(1.0);
-      }
-    } else {
-      // Calculate time scale to show 3 periods
-      final period = 1 / frequency;
-      final totalTime = 3 * period;
-      final timeScale = chartWidth / totalTime;
-
-      // Calculate value scale to fit the expanded signal range vertically
-      if (totalRange != 0) {
-        // Scale to fit the total range in the chart height
-        setValueScale(1.0 / totalRange);
-      } else {
-        // Fallback using max absolute value
-        final maxAbsValue = max(maxValue.abs(), minValue.abs());
-        final expandedAbsValue = maxAbsValue * marginFactor;
-        setValueScale(
-            expandedAbsValue != 0 ? 1.0 / (expandedAbsValue * 2) : 1.0);
-      }
-
-      setTimeScale(timeScale);
-    }
+    // Apply calculated scales
+    setTimeScale(scales['timeScale']!);
+    setValueScale(scales['valueScale']!);
 
     // Set vertical offset to center the signal
-    // This ensures the signal is centered even with asymmetric min/max values
-    final verticalCenter = (adjustedMaxValue + adjustedMinValue) / 2;
-    setVerticalOffset(-verticalCenter * valueScale);
+    setVerticalOffset(-scales['verticalCenter']! * valueScale);
 
     // Reset horizontal offset
     setHorizontalOffset(0.0);

@@ -101,7 +101,9 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
           if (kDebugMode) {
             print('Error during service disposal: $e');
           } else {
-            print('Service disposal error: $errorCode');
+            if (kDebugMode) {
+              print('Service disposal error: $errorCode');
+            }
           }
         });
       }
@@ -117,7 +119,9 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
       if (kDebugMode) {
         print('Error during cleanup: $e');
       } else {
-        print('Cleanup error: $errorCode');
+        if (kDebugMode) {
+          print('Cleanup error: $errorCode');
+        }
       }
     }
   }

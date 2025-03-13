@@ -23,8 +23,6 @@ import 'package:arg_osci_app/features/graph/providers/oscilloscope_chart_provide
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
 import 'package:arg_osci_app/features/graph/providers/device_config_provider.dart';
 
-// Removed import 'package:mockito/mockito.dart'; since it’s unused.
-
 class FakeOscilloscopeChartProvider extends GetxController
     implements OscilloscopeChartProvider {
   final _dataPoints = <DataPoint>[].obs;
@@ -42,6 +40,7 @@ class FakeOscilloscopeChartProvider extends GetxController
   bool resumed = false;
   bool offsetsReset = false;
   bool scalesReset = false;
+  bool autosetCalled = false; // Flag to track autoset calls
 
   @override
   List<DataPoint> get dataPoints => _dataPoints;
@@ -121,6 +120,17 @@ class FakeOscilloscopeChartProvider extends GetxController
   double domainToScreenX(double domainX, Size size, double offsetX) => 0.0;
   @override
   double domainToScreenY(double domainY, Size size, double offsetX) => 0.0;
+
+  @override
+  Future<void> autoset(double chartHeight, double chartWidth) async {
+    autosetCalled = true;
+
+    // Instead of using Get.find, use graphProvider directly
+    // This avoids the dependency injection issue in tests
+    await graphProvider.autoset();
+
+    resetOffsets();
+  }
 }
 
 class FakeDeviceConfigProvider extends GetxController
@@ -201,6 +211,8 @@ class FakeDataAcquisitionService extends DataAcquisitionService {
   bool _useHysteresis = true;
   bool _useLowPassFilter = true;
   double _scale = 0.00048828125;
+  double _currentMaxValue = 1.0;
+  double _currentMinValue = 0.0;
   VoltageScale _currentVoltageScale = VoltageScales.volt_1;
   final DeviceConfigProvider _deviceConfig;
 
@@ -210,6 +222,11 @@ class FakeDataAcquisitionService extends DataAcquisitionService {
   // Sobreescribimos getters/setters para usar variables internas
   @override
   DeviceConfigProvider get deviceConfig => _deviceConfig;
+  @override
+  double get currentMaxValue => _currentMaxValue;
+
+  @override
+  double get currentMinValue => _currentMinValue;
 
   @override
   TriggerMode get triggerMode => _triggerMode;
@@ -280,8 +297,15 @@ class FakeDataAcquisitionService extends DataAcquisitionService {
   @override
   Future<void> fetchData(String ip, int port) async {}
   @override
-  Future<List<double>> autoset(double height, double width) async {
-    return mockAutosetResponse;
+  Future<void> autoset() async {
+    // Update trigger level to middle between max and min
+    triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
+
+    // Ensure trigger is within voltage range for the current voltage scale
+    final range = currentVoltageScale.scale *
+        (_deviceConfig.maxBits - _deviceConfig.minBits);
+    final halfRange = range / 2;
+    triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
   }
 
   @override
@@ -422,11 +446,11 @@ void main() {
     });
 
     test('should get current values', () {
-      expect(provider.getDistance(), 1 / 1650000);
+      expect(provider.distance.value, 1 / 1650000);
       // Ajustamos a la escala real que configuramos en FakeDataAcquisitionService
-      expect(provider.getScale(), 1.6);
-      expect(provider.getFrequency(), 1.0);
-      expect(provider.getMaxValue(), 1.0);
+      expect(provider.scale.value, 1.6);
+      expect(provider.frequency.value, 1.0);
+      expect(provider.maxValue.value, 1.0);
     });
   });
 
@@ -538,12 +562,19 @@ void main() {
   });
 
   group('Auto Configuration', () {
-    test('should handle autoset', () async {
-      fakeService.mockAutosetResponse = [1234.0, 3.5];
-      final result = await provider.autoset(100, 200);
-      expect(result, [1234.0, 3.5]);
-      expect(fakeChartProvider.timeScale, 1234.0);
-      expect(fakeChartProvider.valueScale, 3.5);
+    test('should handle autoset by updating trigger level', () async {
+      // Configure test mock to update trigger level
+      fakeService.triggerLevel = 0.0; // Reset to known value
+      fakeService._currentMaxValue = 1.0; // Mock max value
+      fakeService._currentMinValue = -0.5; // Mock min value
+
+      // Call autoset on provider
+      await provider.autoset();
+
+      // Verify that autoset was called on the service and trigger level was updated
+      expect(provider.triggerLevel.value,
+          0.25); // Should be average of min and max values
+      expect(fakeService.triggerLevel, 0.25); // Should update service too
     });
   });
 
