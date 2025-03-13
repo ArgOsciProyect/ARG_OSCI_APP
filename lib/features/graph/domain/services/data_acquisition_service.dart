@@ -146,6 +146,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
   bool _useHysteresis = false;
   bool _useLowPassFilter = false;
+  bool _pendingConfigUpdate = false;
+  Timer? _configUpdateTimer;
+  Completer<void>? _configUpdateCompleter;
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -709,12 +712,26 @@ class DataAcquisitionService implements DataAcquisitionRepository {
               queue, processingChunkSize, config, setup.sendPort);
         }
       } else if (message is UpdateConfigMessage) {
+        // Log receipt of config update
+        if (kDebugMode) {
+          print('📱 Processing isolate received config update:');
+          print('  - Scale: ${message.scale}');
+          print('  - Trigger level: ${message.triggerLevel}');
+          print('  - Trigger edge: ${message.triggerEdge}');
+          print('  - Use hysteresis: ${message.useHysteresis}');
+          print('  - Use low pass filter: ${message.useLowPassFilter}');
+          print('  - Trigger mode: ${message.triggerMode}');
+        }
+
         config = _updateConfig(config, message);
         if (config.triggerMode == TriggerMode.normal) {
           processingEnabled = true;
         }
         queue.clear();
         singleModeQueue.clear();
+
+        // Send confirmation back to main isolate
+        //setup.sendPort.send({'type': 'config_received'});
       }
     });
   }
@@ -724,6 +741,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     DataProcessingConfig currentConfig,
     UpdateConfigMessage message,
   ) {
+    if (kDebugMode) {
+      print('🔄 Processing isolate updating config:');
+      print('  - From scale: ${currentConfig.scale} to ${message.scale}');
+      print(
+          '  - From trigger level: ${currentConfig.triggerLevel} to ${message.triggerLevel}');
+    }
+
     return currentConfig.copyWith(
       scale: message.scale,
       triggerLevel: message.triggerLevel,
@@ -1162,16 +1186,27 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  /// Fetches data from the data acquisition service.
   @override
   Future<void> fetchData(String ip, int port) async {
+    if (kDebugMode) {
+      print('🔄 Starting data acquisition for $ip:$port');
+    }
+
+    // Ensure clean state by stopping any existing acquisition
     await stopData();
+
+    // Initialize base configuration
     await initialize();
 
-    _ensureControllersExist(); // Make sure controllers are created or recreated
+    // Make sure controllers are created or recreated
+    _ensureControllersExist();
 
+    // Create a new receive port
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
 
+    // Prepare initial configuration
     final config = DataProcessingConfig(
       scale: scale,
       distance: distance,
@@ -1187,14 +1222,26 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     // Clear any previous data on start
     _dataController?.add([]);
 
+    if (kDebugMode) {
+      print('📊 Spawning processing isolate...');
+    }
+
+    // Create processing isolate with fresh configuration
     _processingIsolate = await Isolate.spawn(
       _processingIsolateFunction,
       ProcessingIsolateSetup(
           _processingReceivePort!.sendPort, config, deviceConfig.config!),
     );
 
+    // Wait for processing isolate setup to complete
     await _setupProcessingIsolate(processingStream);
+
+    // Once processing is ready, create socket isolate
     await _setupSocketIsolate(ip, port);
+
+    if (kDebugMode) {
+      print('✅ Data acquisition started successfully');
+    }
   }
 
   /// Sets up the processing isolate to receive data and send it to the main isolate.
@@ -1205,9 +1252,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       if (message is SendPort) {
         _socketToProcessingSendPort = message;
         _configSendPort = message;
-        completer.complete(message);
+
+        if (kDebugMode) {
+          print('✅ Processing isolate send port established');
+        }
+
+        if (!completer.isCompleted) {
+          completer.complete(message);
+        }
       } else if (message is Map<String, dynamic>) {
-        // Check for critical connection errors first with highest priority
+        // Handle existing message types...
         if (message['type'] == 'connection_error') {
           final errorMsg =
               message['error']?.toString() ?? 'Unknown socket error';
@@ -1218,7 +1272,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
                 'Received ${isCritical ? "CRITICAL " : ""}connection error: $errorMsg');
           }
 
-          // Check if we're already handling an error or already on the setup screen
           if (_isReconnecting) {
             if (kDebugMode) {
               print('Already handling reconnection, ignoring duplicate error');
@@ -1226,17 +1279,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             return;
           }
 
-          // Only handle if critical
           if (isCritical) {
-            // Run on next event loop iteration to avoid potential race conditions
             Future.microtask(() => _handleConnectionError());
           }
-          return; // Skip other processing for error messages
-        }
-
-        // Process normal messages
-        if (message['type'] == 'data') {
-          if (_disposed) return; // Skip if disposed
+          return;
+        } else if (message['type'] == 'data') {
+          if (_disposed) return;
 
           final points = message['points'] as List<DataPoint>;
           final maxValue = message['maxValue'] as double;
@@ -1247,20 +1295,51 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           _updateMetrics(points, maxValue, minValue);
         } else if (message['type'] == 'pause_graph') {
           Get.find<DataAcquisitionProvider>().setPause(true);
+        } else if (message['type'] == 'config_received') {
+          // Confirmation that config was received
+          if (kDebugMode) {
+            print(
+                '📥 Config update confirmation received from processing isolate');
+          }
         }
       }
     }, onError: (error) {
       if (kDebugMode) {
-        print('Processing stream error: $error');
+        print('⚠️ Processing stream error: $error');
       }
 
-      // Only handle error if not already reconnecting
       if (!_isReconnecting) {
         Future.microtask(() => _handleConnectionError());
       }
     }, cancelOnError: false);
 
-    _socketToProcessingSendPort = await completer.future;
+    try {
+      _socketToProcessingSendPort = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          if (kDebugMode) {
+            print('⚠️ Timeout waiting for processing isolate port');
+          }
+          throw TimeoutException('Timeout waiting for processing isolate port');
+        },
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error establishing communication with processing isolate: $e');
+      }
+      throw Exception(
+          'Failed to establish communication with processing isolate: $e');
+    }
+
+    if (kDebugMode) {
+      print('🛠️ Processing isolate is now ready, sending updated config...');
+    }
+
+    // Add a slight delay before sending initial config
+    await Future.delayed(const Duration(milliseconds: 100));
+    updateConfig();
+    await Future.delayed(const Duration(milliseconds: 100));
+    postTriggerStatus();
   }
 
   /// Sets up the socket isolate to receive data from the socket and send it to the processing isolate.
@@ -1275,16 +1354,52 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   void updateConfig() {
-    _configSendPort?.send(UpdateConfigMessage(
-      scale: scale,
-      triggerLevel: triggerLevel,
-      triggerEdge: triggerEdge,
-      useHysteresis: useHysteresis,
-      useLowPassFilter: useLowPassFilter,
-      triggerMode: triggerMode,
-      distance: distance,
-      deviceConfig: deviceConfig.config,
-    ));
+    if (_configSendPort == null) {
+      if (kDebugMode) {
+        print('⚠️ Config send port is null, cannot update configuration');
+      }
+      return;
+    }
+
+    try {
+      if (kDebugMode) {
+        print('📤 Sending config update to processing isolate:');
+        print('  - Scale: $scale');
+        print('  - Trigger level: $triggerLevel');
+        print('  - Trigger edge: $_triggerEdge');
+        print('  - Use hysteresis: $_useHysteresis');
+        print('  - Use low pass filter: $_useLowPassFilter');
+        print('  - Trigger mode: $_triggerMode');
+        print('  - Distance: $distance');
+      }
+
+      final message = UpdateConfigMessage(
+        scale: scale,
+        triggerLevel: triggerLevel,
+        triggerEdge: triggerEdge,
+        useHysteresis: useHysteresis,
+        useLowPassFilter: useLowPassFilter,
+        triggerMode: triggerMode,
+        distance: distance,
+        deviceConfig: deviceConfig.config,
+      );
+
+      _configSendPort?.send(message);
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error sending config update: $e');
+      }
+    }
+  }
+
+  /// Waits for a config update to complete
+  Future<void> waitForConfigUpdate() {
+    if (!_pendingConfigUpdate) {
+      return Future.value();
+    }
+
+    _configUpdateCompleter ??= Completer<void>();
+    return _configUpdateCompleter!.future;
   }
 
   @override
@@ -1292,9 +1407,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     try {
       _isReconnecting = false;
 
-      // 1. First attempt graceful shutdown
+      if (kDebugMode) {
+        print('🛑 Stopping data acquisition...');
+      }
+
+      // Cancel any ongoing operations first
+      _pendingConfigUpdate = false;
+      if (_configUpdateTimer != null) {
+        _configUpdateTimer?.cancel();
+        _configUpdateTimer = null;
+      }
+
+      // Clear any pending completers
+      if (_configUpdateCompleter != null &&
+          !_configUpdateCompleter!.isCompleted) {
+        _configUpdateCompleter!.complete();
+        _configUpdateCompleter = null;
+      }
+
+      // Send stop signals to isolates
       if (_configSendPort != null) {
         try {
+          if (kDebugMode) {
+            print('Sending stop signal to processing isolate...');
+          }
           _configSendPort?.send('stop');
         } catch (e) {
           if (kDebugMode) {
@@ -1305,6 +1441,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       if (_socketToProcessingSendPort != null) {
         try {
+          if (kDebugMode) {
+            print('Sending stop signal to socket isolate...');
+          }
           _socketToProcessingSendPort?.send('stop');
         } catch (e) {
           if (kDebugMode) {
@@ -1316,42 +1455,81 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Give isolates time to process stop messages
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // 2. Create new tracking mechanism with ReceivePorts
+      // Create tracking mechanism with ReceivePorts
       final processingDone = Completer<void>();
       final socketDone = Completer<void>();
 
-      // 3. Improved exit listener setup
+      // Set up exit listeners for isolates
       if (_processingIsolate != null) {
         final exitPort = ReceivePort();
-        _processingIsolate!.addOnExitListener(exitPort.sendPort);
-        exitPort.listen((_) {
+        try {
+          _processingIsolate!.addOnExitListener(exitPort.sendPort);
+          exitPort.listen((_) {
+            if (kDebugMode) {
+              print('✓ Processing isolate exited normally');
+            }
+            exitPort.close();
+            processingDone.complete();
+          }, onDone: () {
+            if (!processingDone.isCompleted) {
+              processingDone.complete();
+            }
+          }, onError: (e) {
+            if (kDebugMode) {
+              print('Error in processing isolate exit listener: $e');
+            }
+            if (!processingDone.isCompleted) {
+              processingDone.complete();
+            }
+          });
+        } catch (e) {
           if (kDebugMode) {
-            print('Processing isolate exited normally');
+            print('Error setting up processing isolate exit listener: $e');
           }
-          exitPort.close();
-          processingDone.complete();
-        });
+          processingDone.complete(); // Complete anyway to avoid hanging
+        }
       } else {
         processingDone.complete();
       }
 
       if (_socketIsolate != null) {
         final exitPort = ReceivePort();
-        _socketIsolate!.addOnExitListener(exitPort.sendPort);
-        exitPort.listen((_) {
+        try {
+          _socketIsolate!.addOnExitListener(exitPort.sendPort);
+          exitPort.listen((_) {
+            if (kDebugMode) {
+              print('✓ Socket isolate exited normally');
+            }
+            exitPort.close();
+            socketDone.complete();
+          }, onDone: () {
+            if (!socketDone.isCompleted) {
+              socketDone.complete();
+            }
+          }, onError: (e) {
+            if (kDebugMode) {
+              print('Error in socket isolate exit listener: $e');
+            }
+            if (!socketDone.isCompleted) {
+              socketDone.complete();
+            }
+          });
+        } catch (e) {
           if (kDebugMode) {
-            print('Socket isolate exited normally');
+            print('Error setting up socket isolate exit listener: $e');
           }
-          exitPort.close();
-          socketDone.complete();
-        });
+          socketDone.complete(); // Complete anyway to avoid hanging
+        }
       } else {
         socketDone.complete();
       }
 
-      // 4. Force kill the isolates with better error handling
+      // Kill the isolates with better error handling
       if (_processingIsolate != null) {
         try {
+          if (kDebugMode) {
+            print('Killing processing isolate...');
+          }
           _processingIsolate!.kill(priority: Isolate.immediate);
         } catch (e) {
           if (kDebugMode) {
@@ -1366,6 +1544,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       if (_socketIsolate != null) {
         try {
+          if (kDebugMode) {
+            print('Killing socket isolate...');
+          }
           _socketIsolate!.kill(priority: Isolate.immediate);
         } catch (e) {
           if (kDebugMode) {
@@ -1378,25 +1559,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         }
       }
 
-      // 5. Wait for isolates to terminate with improved timeout handling
+      // Wait for isolates to terminate with improved timeout handling
       try {
         await Future.wait([
           processingDone.future.timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 2),
             onTimeout: () {
               if (kDebugMode) {
                 print(
-                    'WARNING: Processing isolate kill timeout - forcing termination');
+                    '⚠️ Processing isolate kill timeout - forcing termination');
               }
               return null;
             },
           ),
           socketDone.future.timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 2),
             onTimeout: () {
               if (kDebugMode) {
-                print(
-                    'WARNING: Socket isolate kill timeout - forcing termination');
+                print('⚠️ Socket isolate kill timeout - forcing termination');
               }
               return null;
             },
@@ -1409,10 +1589,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         // Continue with cleanup even if there was an error
       }
 
-      // 6. Clean up all resources, ensuring null checks
-      _processingIsolate = null;
-      _socketIsolate = null;
+      // Explicitly nullify all isolate references
+      final hadProcessingIsolate = _processingIsolate != null;
+      final hadSocketIsolate = _socketIsolate != null;
 
+      // Close receive port first before nullifying isolates
       if (_processingReceivePort != null) {
         try {
           _processingReceivePort!.close();
@@ -1424,13 +1605,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _processingReceivePort = null;
       }
 
+      // Nullify isolates AFTER closing the ports
+      _processingIsolate = null;
+      _socketIsolate = null;
+
+      // Explicitly nullify all port references
       _socketToProcessingSendPort = null;
       _configSendPort = null;
 
+      // Reset state variables
       _currentFrequency = 0.0;
       _currentMaxValue = 0.0;
+      _currentMinValue = 0.0;
 
-      // Only add final values if controllers are not closed and we're not disposed
+      // Only add final values if controllers exist and we're not disposed
       if (!_disposed) {
         try {
           _ensureControllersExist();
@@ -1444,11 +1632,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         }
       }
 
-      // 7. Final delay to help with resource cleanup
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Final delay to help with resource cleanup
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (kDebugMode) {
+        if (hadProcessingIsolate || hadSocketIsolate) {
+          print('✅ Data acquisition stopped successfully');
+        } else {
+          print('ℹ️ No active isolates to stop');
+        }
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error stopping data: $e');
+        print('❌ Error stopping data: $e');
       }
       // Even if there was an error, set all references to null to help GC
       _processingIsolate = null;
