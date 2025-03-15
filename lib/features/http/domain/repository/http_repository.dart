@@ -1,4 +1,7 @@
 /// Repository interface for making HTTP requests to the oscilloscope API
+///
+/// Defines standardized methods for HTTP operations (GET, POST, PUT, DELETE)
+/// with navigation control for error handling.
 abstract class HttpRepository {
   /// Performs a GET request.
   /// [endpoint] - API endpoint to call

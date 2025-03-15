@@ -50,6 +50,10 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
     _isDarkMode.value = Get.isDarkMode;
   }
 
+  /// [_checkAndShowErrorDialog] displays an error dialog if error arguments are passed.
+  ///
+  /// Processes error information from navigation arguments, performs cleanup of services,
+  /// and presents a simplified error message to the user with a code for support reference.
   void _checkAndShowErrorDialog() {
     final args = Get.arguments;
     if (args != null && args['showErrorPopup'] == true) {
@@ -91,6 +95,10 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// [_cleanupAfterError] ensures all resources are properly released after an error.
+  ///
+  /// Disposes services and connections to prevent resource leaks,
+  /// with appropriate error handling for the cleanup process itself.
   void _cleanupAfterError() {
     try {
       // Force cleanup of any remaining connections
@@ -126,7 +134,13 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Extracts a simple error code from an error message
+  /// Extracts a simple error code from an error message for user-friendly display.
+  ///
+  /// Attempts to find standard error code patterns or creates a shortened version
+  /// of the error message suitable for user display.
+  ///
+  /// [errorMessage] The full error message to process
+  /// Returns a simplified error code string
   String _extractErrorCode(String errorMessage) {
     // Try to find numeric codes like E1234 or just use a short prefix
     final codeMatch = RegExp(r'[A-Z][0-9]{2,4}').firstMatch(errorMessage);

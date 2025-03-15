@@ -29,6 +29,9 @@ enum SetupStatus {
 }
 
 /// Immutable state class for tracking setup progress and data
+///
+/// Tracks the current status of the device setup process, any error messages,
+/// whether retry is possible, and the list of available WiFi networks.
 class SetupState {
   /// Current status of setup process
   final SetupStatus status;
@@ -57,7 +60,8 @@ class SetupState {
 
   /// Creates a copy with optional new values
   ///
-  /// Returns new SetupState instance
+  /// Allows creating a new state instance while preserving unchanged values.
+  /// Returns new SetupState instance with applied changes.
   SetupState copyWith({
     SetupStatus? status,
     String? error,

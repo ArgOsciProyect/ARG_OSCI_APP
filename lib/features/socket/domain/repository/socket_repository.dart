@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:arg_osci_app/features/socket/domain/models/socket_connection.dart';
 
 /// Repository interface for socket communication with oscilloscope device
+///
+/// Defines operations for establishing connections, sending and receiving data,
+/// and managing the lifecycle of socket communications with the device.
 abstract class SocketRepository {
   /// Connects to a socket with the given connection parameters
   ///

@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// [showWiFiNetworkDialog] displays a dialog to scan and select available WiFi networks.
+///
+/// Initiates WiFi network scanning and presents results in a selectable list.
+/// Handles different states including scanning, selection, and error conditions.
 Future<void> showWiFiNetworkDialog() async {
   final controller = Get.find<SetupProvider>();
 
@@ -97,7 +100,12 @@ Future<void> showWiFiNetworkDialog() async {
   }
 }
 
-/// [askForPassword] displays a dialog to prompt the user for the password of a selected WiFi network.
+/// [askForPassword] prompts the user for the password of a selected WiFi network.
+///
+/// Shows a password input dialog and attempts to connect to the selected network.
+/// Displays connection progress and handles success/failure states.
+///
+/// [ssid] The name of the selected WiFi network
 Future<void> askForPassword(String ssid) async {
   final passwordController = TextEditingController();
   final controller = Get.find<SetupProvider>();

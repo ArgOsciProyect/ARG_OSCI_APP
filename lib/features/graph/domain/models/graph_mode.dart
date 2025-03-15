@@ -4,7 +4,11 @@ import 'package:arg_osci_app/features/graph/widgets/fft_chart.dart';
 import 'package:arg_osci_app/features/graph/widgets/oscilloscope_chart.dart';
 import 'package:flutter/material.dart';
 
-/// Base class defining display modes for the oscilloscope
+/// Base class defining display modes for the oscilloscope application
+///
+/// Provides common interface for different visualization modes such as
+/// time domain (oscilloscope) and frequency domain (FFT spectrum analyzer).
+/// Each mode has its own UI controls and visualization preferences.
 abstract class GraphMode {
   /// Short name identifier for this mode
   String get name;
@@ -32,6 +36,9 @@ abstract class GraphMode {
 }
 
 /// Time domain oscilloscope display mode
+///
+/// Shows signal amplitude over time, with support for triggering and
+/// timebase controls. This is the traditional oscilloscope view.
 class OscilloscopeMode extends GraphMode {
   final OscilloscopeChartService lineChartService;
 
@@ -63,6 +70,10 @@ class OscilloscopeMode extends GraphMode {
 }
 
 /// Frequency domain FFT display mode
+///
+/// Shows signal frequency spectrum using Fast Fourier Transform,
+/// displaying amplitude vs frequency. Useful for analyzing signal
+/// frequency components and harmonic content.
 class FFTMode extends GraphMode {
   final FFTChartService fftChartService;
 

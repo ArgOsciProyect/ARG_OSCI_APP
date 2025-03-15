@@ -11,18 +11,35 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 /// [HttpService] implements the [HttpRepository] to provide HTTP request functionality.
+///
+/// Manages HTTP communication with the oscilloscope device with built-in
+/// retry mechanisms and error handling, including automatic navigation to setup
+/// screen on connection failures.
 class HttpService implements HttpRepository {
   final HttpConfig config;
+
+  /// Maximum number of retry attempts for failed requests
   static const int _maxRetries = 5;
 
-  // Add this function parameter with default implementation
+  /// Function to handle navigation to setup screen on connection errors
+  ///
+  /// Can be injected for custom navigation behavior or testing
   final void Function(String) navigateToSetupScreen;
 
+  /// Creates a new HTTP service with the specified configuration
+  ///
+  /// [config] HTTP configuration containing base URL and client
+  /// [navigateToSetupScreen] Optional custom navigation handler for errors
   HttpService(this.config, {void Function(String)? navigateToSetupScreen})
       : navigateToSetupScreen =
             navigateToSetupScreen ?? _defaultNavigateToSetupScreen;
 
-  // Default implementation as a static method
+  /// Default implementation of navigation to setup screen on connection errors
+  ///
+  /// Handles stopping data acquisition, showing error dialogs, and navigating
+  /// to setup screen with appropriate error information.
+  ///
+  /// [errorMessage] Error message to display to the user
   static void _defaultNavigateToSetupScreen(String errorMessage) async {
     try {
       // Check if we're already on the setup screen to prevent navigation loops
@@ -108,7 +125,10 @@ class HttpService implements HttpRepository {
     }
   }
 
-  // Helper method to check if we're on the setup screen
+  /// Checks if the current screen is the setup screen
+  ///
+  /// Prevents navigation loops by detecting if we're already on setup screen
+  /// Returns true if current route is root or contains "setup"
   static bool _isOnSetupScreen() {
     return Get.currentRoute == '/' || Get.currentRoute.contains('setup');
   }
@@ -116,8 +136,14 @@ class HttpService implements HttpRepository {
   @override
   String get baseUrl => config.baseUrl;
 
-  /// Retry mechanism for HTTP requests
-  /// [skipNavigation] - if true, won't navigate to setup screen on error (default: false)
+  /// Retry mechanism for HTTP requests with exponential backoff
+  ///
+  /// Attempts the request up to [_maxRetries] times before failing
+  ///
+  /// [requestFunc] The actual HTTP request function to execute
+  /// [skipNavigation] If true, won't navigate to setup screen on error (default: false)
+  /// Returns the response from the successful request
+  /// Throws [HttpException] if all retries fail
   Future<dynamic> _retryRequest(
     Future<dynamic> Function() requestFunc, {
     bool skipNavigation = false,
@@ -212,7 +238,12 @@ class HttpService implements HttpRepository {
     );
   }
 
-  /// Handles the HTTP response and parses the JSON body.
+  /// Handles HTTP response and parses JSON body
+  ///
+  /// [response] The HTTP response to process
+  /// Returns parsed JSON body on success
+  /// Throws [FormatException] for invalid JSON
+  /// Throws [HttpException] for non-200 status codes
   dynamic _handleResponse(dynamic response) {
     if (response.statusCode == 200) {
       try {

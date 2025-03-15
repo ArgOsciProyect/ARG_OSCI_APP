@@ -13,6 +13,9 @@ import 'package:get/get.dart';
 import 'dart:async';
 
 /// [DataAcquisitionProvider] manages the acquisition, processing, and filtering of data for the oscilloscope and FFT charts.
+///
+/// Coordinates between UI components and the DataAcquisitionService, handling state management,
+/// user settings for filtering, triggering, and scaling, and providing reactive values for display.
 class DataAcquisitionProvider extends GetxController {
   final DataAcquisitionService dataAcquisitionService;
   final SocketConnection socketConnection;
@@ -92,9 +95,10 @@ class DataAcquisitionProvider extends GetxController {
     _initialized = true;
   }
 
-  // MARK: - Initialization Methods
-
   /// Sets up the value change listeners to update service when provider values change
+  ///
+  /// Establishes bidirectional bindings between the provider's reactive values and the underlying service.
+  /// Prevents circular updates by tracking when changes are initiated from service updates.
   void _setupValueChangeListeners() {
     // When provider values change, update service
     ever(triggerLevel, (_) {
@@ -160,6 +164,12 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Sets up the stream subscriptions to the data acquisition service
+  ///
+  /// Subscribes to service data streams for:
+  /// - Waveform data points (applies filter before distribution)
+  /// - Frequency measurements
+  /// - Maximum amplitude values
+  /// Includes error handling for stream errors.
   void _setupStreamSubscriptions() {
     // Listen for data points
     dataAcquisitionService.dataStream.listen((points) {
@@ -196,6 +206,12 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Set up config change listeners
+  ///
+  /// Monitors device configuration changes to update dependent values:
+  /// - Sampling frequency
+  /// - Distance between samples
+  /// - Filter cutoff frequency
+  /// - Voltage scale validation
   void _setupConfigListeners() {
     deviceConfig.listen((config) {
       if (config != null) {
@@ -216,6 +232,9 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Set up socket connection listeners
+  ///
+  /// Monitors changes to socket connection parameters (IP and port)
+  /// and triggers data acquisition restart when they change.
   void _setupConnectionListeners() {
     ever(socketConnection.ip, (_) {
       if (kDebugMode) {
@@ -232,6 +251,10 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Sync values from service to provider
+  ///
+  /// Initializes all reactive values in the provider from the current service state.
+  /// Prevents circular updates by setting the _updatingFromService flag during synchronization.
+  /// Sets up initial filter configuration.
   void _syncValuesFromService() {
     _updatingFromService = true;
 
@@ -276,6 +299,9 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Set up mode change listener
+  ///
+  /// Monitors changes to application mode (e.g., oscilloscope to FFT)
+  /// and adjusts trigger settings appropriately for the new mode.
   void _setupModeChangeListener() {
     try {
       ever(Get.find<UserSettingsProvider>().mode, (mode) {
@@ -291,6 +317,10 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Validate current voltage scale against available scales and update if needed
+  ///
+  /// Compares the current voltage scale against available scales from the device config.
+  /// If the current scale is no longer available, selects the first available scale.
+  /// Ensures consistency by reapplying matching scales from the new config.
   void _validateAndUpdateVoltageScale() {
     final newScales = deviceConfig.voltageScales;
     bool scaleExists = newScales.any((scale) =>
@@ -316,9 +346,12 @@ class DataAcquisitionProvider extends GetxController {
     }
   }
 
-  // MARK: - Public Methods
-
   /// Adds a list of data points to the data stream.
+  ///
+  /// Updates the reactive dataPoints value and broadcasts the points
+  /// to all subscribers of the data controller.
+  ///
+  /// [points] The data points to add to the stream
   void addPoints(List<DataPoint> points) {
     dataPoints.value = points;
     _dataPointsController.add(points);
@@ -342,6 +375,11 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Handles critical errors by navigating to the setup screen.
+  ///
+  /// Stops data acquisition, prevents duplicate navigation attempts,
+  /// and navigates to the setup screen with error information.
+  ///
+  /// [errorMessage] Description of the error to display to the user
   void handleCriticalError(String errorMessage) {
     if (isReconnecting.value) return;
     isReconnecting.value = true;
@@ -532,9 +570,9 @@ class DataAcquisitionProvider extends GetxController {
     this.scale.value = scale;
   }
 
-  // MARK: - Private Helper Methods
-
   /// Sends a single trigger request to the data acquisition service.
+  ///
+  /// Includes error handling with debug logging.
   Future<void> _sendSingleTriggerRequest() async {
     try {
       await dataAcquisitionService.sendSingleTriggerRequest();
@@ -546,6 +584,8 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Sends a normal trigger request to the data acquisition service.
+  ///
+  /// Includes error handling with debug logging.
   Future<void> _sendNormalTriggerRequest() async {
     try {
       await dataAcquisitionService.sendNormalTriggerRequest();
@@ -557,6 +597,12 @@ class DataAcquisitionProvider extends GetxController {
   }
 
   /// Applies the selected filter to the data points.
+  ///
+  /// Configures filter parameters based on current settings and
+  /// applies the selected filter algorithm to the data points.
+  ///
+  /// [points] Raw data points to be filtered
+  /// Returns filtered data points
   List<DataPoint> _applyFilter(List<DataPoint> points) {
     final params = {
       'windowSize': windowSize.value,
