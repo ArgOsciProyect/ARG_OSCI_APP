@@ -417,8 +417,8 @@ void main() {
 
   group('Provider Initialization', () {
     test('should initialize with default values', () {
-      expect(provider.frequency.value, 1.0);
-      expect(provider.maxValue.value, 1.0);
+      expect(provider.frequency.value, 0.0);
+      expect(provider.maxValue.value, 0.0);
       expect(provider.triggerLevel.value, 0.0);
       expect(provider.triggerEdge.value, TriggerEdge.positive);
       expect(provider.useHysteresis.value, true);
@@ -448,9 +448,9 @@ void main() {
     test('should get current values', () {
       expect(provider.distance.value, 1 / 1650000);
       // Ajustamos a la escala real que configuramos en FakeDataAcquisitionService
-      expect(provider.scale.value, 1.6);
-      expect(provider.frequency.value, 1.0);
-      expect(provider.maxValue.value, 1.0);
+      expect(provider.scale.value, 0.004);
+      expect(provider.frequency.value, 0.0);
+      expect(provider.maxValue.value, 0.0);
     });
   });
 

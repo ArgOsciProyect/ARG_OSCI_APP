@@ -674,6 +674,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final maxSingleModeQueueSize = processingChunkSize;
     bool processingEnabled = true;
 
+    if (kDebugMode) {
+      print(
+          '💡 Processing isolate initialized with scale: ${config.scale}, trigger: ${config.triggerLevel}');
+    }
+
     receivePort.listen((message) {
       // First check if it's an error message from socket - give it highest priority
       if (message is Map<String, dynamic> &&
@@ -685,10 +690,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       // Process normal messages as before
       if (message == 'stop') {
+        if (kDebugMode) {
+          print('🛑 Processing isolate received stop command');
+        }
         processingEnabled = false;
         queue.clear();
         singleModeQueue.clear();
       } else if (message == 'clear_queue') {
+        if (kDebugMode) {
+          print('🧹 Processing isolate clearing queues');
+        }
         queue.clear();
         singleModeQueue.clear();
         processingEnabled = true;
@@ -715,12 +726,17 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         // Log receipt of config update
         if (kDebugMode) {
           print('📱 Processing isolate received config update:');
-          print('  - Scale: ${message.scale}');
-          print('  - Trigger level: ${message.triggerLevel}');
-          print('  - Trigger edge: ${message.triggerEdge}');
-          print('  - Use hysteresis: ${message.useHysteresis}');
-          print('  - Use low pass filter: ${message.useLowPassFilter}');
-          print('  - Trigger mode: ${message.triggerMode}');
+          print('  - Scale: ${message.scale} (current: ${config.scale})');
+          print(
+              '  - Trigger level: ${message.triggerLevel} (current: ${config.triggerLevel})');
+          print(
+              '  - Trigger edge: ${message.triggerEdge} (current: ${config.triggerEdge})');
+          print(
+              '  - Use hysteresis: ${message.useHysteresis} (current: ${config.useHysteresis})');
+          print(
+              '  - Use low pass filter: ${message.useLowPassFilter} (current: ${config.useLowPassFilter})');
+          print(
+              '  - Trigger mode: ${message.triggerMode} (current: ${config.triggerMode})');
         }
 
         config = _updateConfig(config, message);
@@ -731,8 +747,23 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         singleModeQueue.clear();
 
         // Send confirmation back to main isolate
-        //setup.sendPort.send({'type': 'config_received'});
+        setup.sendPort.send({'type': 'config_received'});
+      } else if (message == 'ping') {
+        // Add a simple ping-pong mechanism to verify isolate is responsive
+        setup.sendPort.send({'type': 'pong'});
       }
+    }, onError: (e, stack) {
+      if (kDebugMode) {
+        print('❌ Processing isolate encountered error: $e');
+        print('Stack trace: $stack');
+      }
+
+      // Try to notify main isolate
+      setup.sendPort.send({
+        'type': 'connection_error',
+        'error': 'Processing isolate error: $e',
+        'critical': true
+      });
     });
   }
 
@@ -1118,9 +1149,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final newIp = response['ip'] as String;
       final newPort = response['port'] as int;
 
-      // Only minimal cleanup before attempting new connection
-      await stopData();
-
       // Reset reconnecting flag before attempting new connection
       _isReconnecting = false;
 
@@ -1186,7 +1214,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  /// Fetches data from the data acquisition service.
   @override
   Future<void> fetchData(String ip, int port) async {
     if (kDebugMode) {
@@ -1226,15 +1253,69 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       print('📊 Spawning processing isolate...');
     }
 
-    // Create processing isolate with fresh configuration
-    _processingIsolate = await Isolate.spawn(
-      _processingIsolateFunction,
-      ProcessingIsolateSetup(
-          _processingReceivePort!.sendPort, config, deviceConfig.config!),
-    );
+    // Try spawning the processing isolate (with retry)
+    int retryCount = 0;
+    const maxRetries = 2;
+    while (retryCount <= maxRetries) {
+      try {
+        _processingIsolate = await Isolate.spawn(
+          _processingIsolateFunction,
+          ProcessingIsolateSetup(
+              _processingReceivePort!.sendPort, config, deviceConfig.config!),
+          debugName: 'processing_isolate',
+          errorsAreFatal: true,
+        );
+
+        // If we get here, the spawn was successful
+        break;
+      } catch (e) {
+        retryCount++;
+        if (kDebugMode) {
+          print(
+              '❌ Error spawning processing isolate (attempt $retryCount): $e');
+        }
+
+        if (retryCount > maxRetries) {
+          throw Exception(
+              'Failed to spawn processing isolate after $maxRetries attempts: $e');
+        }
+
+        // Short delay before retry
+        await Future.delayed(Duration(milliseconds: 500));
+      }
+    }
 
     // Wait for processing isolate setup to complete
-    await _setupProcessingIsolate(processingStream);
+    try {
+      await _setupProcessingIsolate(processingStream);
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up processing isolate: $e');
+      }
+
+      // Kill the existing isolate if it exists
+      _processingIsolate?.kill(priority: Isolate.immediate);
+      _processingIsolate = null;
+
+      // Create new receive port
+      _processingReceivePort?.close();
+      _processingReceivePort = ReceivePort();
+      final newProcessingStream = _processingReceivePort!.asBroadcastStream();
+
+      if (kDebugMode) {
+        print('🔄 Retrying processing isolate setup...');
+      }
+
+      // Try once more
+      _processingIsolate = await Isolate.spawn(
+        _processingIsolateFunction,
+        ProcessingIsolateSetup(
+            _processingReceivePort!.sendPort, config, deviceConfig.config!),
+        debugName: 'processing_isolate_retry',
+      );
+
+      await _setupProcessingIsolate(newProcessingStream);
+    }
 
     // Once processing is ready, create socket isolate
     await _setupSocketIsolate(ip, port);
@@ -1247,11 +1328,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   /// Sets up the processing isolate to receive data and send it to the main isolate.
   Future<void> _setupProcessingIsolate(Stream processingStream) async {
     final completer = Completer<SendPort>();
+    bool isSendPortReceived = false;
 
     processingStream.listen((message) {
       if (message is SendPort) {
         _socketToProcessingSendPort = message;
         _configSendPort = message;
+        isSendPortReceived = true;
 
         if (kDebugMode) {
           print('✅ Processing isolate send port established');
@@ -1301,6 +1384,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             print(
                 '📥 Config update confirmation received from processing isolate');
           }
+        } else if (message['type'] == 'pong') {
+          if (kDebugMode) {
+            print('🏓 Pong received from processing isolate');
+          }
         }
       }
     }, onError: (error) {
@@ -1314,15 +1401,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }, cancelOnError: false);
 
     try {
+      // Send a ping every second until we get the port or timeout
+      final pingTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
+        if (isSendPortReceived) {
+          timer.cancel();
+        } else if (_processingReceivePort != null) {
+          if (kDebugMode) {
+            print('🏓 Waiting for processing isolate, sending ping...');
+          }
+          // Can't ping directly since we don't have the port yet
+        }
+      });
+
       _socketToProcessingSendPort = await completer.future.timeout(
         const Duration(seconds: 5),
         onTimeout: () {
+          pingTimer.cancel();
           if (kDebugMode) {
             print('⚠️ Timeout waiting for processing isolate port');
           }
           throw TimeoutException('Timeout waiting for processing isolate port');
         },
       );
+
+      pingTimer.cancel();
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error establishing communication with processing isolate: $e');
@@ -1336,10 +1438,59 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
 
     // Add a slight delay before sending initial config
-    await Future.delayed(const Duration(milliseconds: 100));
-    updateConfig();
-    await Future.delayed(const Duration(milliseconds: 100));
-    postTriggerStatus();
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Verify the isolate is still responsive before sending config
+    try {
+      final pongCompleter = Completer<bool>();
+      final timeout = Timer(Duration(milliseconds: 500), () {
+        if (!pongCompleter.isCompleted) {
+          pongCompleter.complete(false);
+        }
+      });
+
+      processingStream.listen(
+        (message) {
+          if (message is Map<String, dynamic> &&
+              message['type'] == 'pong' &&
+              !pongCompleter.isCompleted) {
+            pongCompleter.complete(true);
+          }
+        },
+        onError: (_) {
+          if (!pongCompleter.isCompleted) pongCompleter.complete(false);
+        },
+      );
+
+      _configSendPort?.send('ping');
+      final isPongReceived = await pongCompleter.future;
+      timeout.cancel();
+
+      if (isPongReceived) {
+        if (kDebugMode) {
+          print('✅ Processing isolate verified responsive, sending config');
+        }
+        updateConfig();
+        await Future.delayed(const Duration(milliseconds: 200));
+        postTriggerStatus();
+      } else {
+        if (kDebugMode) {
+          print(
+              '⚠️ Processing isolate not responding to ping, restarting setup process');
+        }
+        // Restart the process
+        throw Exception('Processing isolate not responding');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error verifying processing isolate: $e');
+      }
+
+      // Try sending the config anyway as last resort
+      updateConfig();
+      await Future.delayed(const Duration(milliseconds: 200));
+      postTriggerStatus();
+    }
   }
 
   /// Sets up the socket isolate to receive data from the socket and send it to the processing isolate.
