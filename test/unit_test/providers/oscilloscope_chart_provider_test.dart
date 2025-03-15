@@ -19,6 +19,20 @@ class FakeOscilloscopeChartService implements OscilloscopeChartService {
   bool resumeAndWaitCalled = false;
   bool disposeCalled = false;
 
+  // Track if calculateAutosetScales was called with these parameters
+  double? lastChartWidth;
+  double? lastFrequency;
+  double? lastMaxValue;
+  double? lastMinValue;
+  double? lastMarginFactor;
+
+  // Default values for autoset scales test
+  Map<String, double> autosetScalesResult = {
+    'timeScale': 5000.0,
+    'valueScale': 0.5,
+    'verticalCenter': 0.3
+  };
+
   // Add deviceConfig implementation
   @override
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
@@ -60,12 +74,33 @@ class FakeOscilloscopeChartService implements OscilloscopeChartService {
     disposeCalled = true;
     await _dataController.close();
   }
+
+  @override
+  Map<String, double> calculateAutosetScales(
+      double chartWidth, double frequency, double maxValue, double minValue,
+      {double marginFactor = 1.15}) {
+    // Record the parameters for testing
+    lastChartWidth = chartWidth;
+    lastFrequency = frequency;
+    lastMaxValue = maxValue;
+    lastMinValue = minValue;
+    lastMarginFactor = marginFactor;
+
+    // Return the test values
+    return autosetScalesResult;
+  }
 }
 
 class FakeDataAcquisitionProvider extends GetxController
     implements DataAcquisitionProvider {
   @override
   final triggerMode = TriggerMode.normal.obs;
+  @override
+  final frequency = RxDouble(1.0);
+  @override
+  final maxValue = RxDouble(1.0);
+  double _currentMinValue = 0.0;
+  bool _autosetCalled = false;
 
   @override
   void setPause(bool paused) {}
@@ -74,6 +109,25 @@ class FakeDataAcquisitionProvider extends GetxController
   void setTriggerMode(TriggerMode mode) {
     triggerMode.value = mode;
   }
+
+  // Add missing getters/methods needed for tests
+  @override
+  double get currentMinValue => _currentMinValue;
+
+  // Create setter for test purposes
+  void setCurrentMinValue(double value) {
+    _currentMinValue = value;
+  }
+
+  // Implement autoset as a method, not a property
+  @override
+  Future<void> autoset() async {
+    _autosetCalled = true;
+    return Future.value();
+  }
+
+  // Getter to check if autoset was called (for test verification)
+  bool get wasAutosetCalled => _autosetCalled;
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -133,6 +187,125 @@ void main() {
       expect(provider.verticalOffset, 0.0);
       expect(provider.initialTimeScale, 1.0);
       expect(provider.initialValueScale, 1.0);
+    });
+  });
+
+  group('Autoset', () {
+    test(
+        'should call DataAcquisitionProvider.autoset and apply calculated scales',
+        () async {
+      // Define test signal values
+      const frequency = 100.0;
+      const maxValue = 1.0;
+      const minValue = -0.5;
+
+      // Setup mock data
+      fakeDataAcquisitionProvider.frequency.value = frequency;
+      fakeDataAcquisitionProvider.maxValue.value = maxValue;
+      fakeDataAcquisitionProvider.setCurrentMinValue(minValue);
+
+      // Set expected scale values that will be returned from the service
+      fakeService.autosetScalesResult = {
+        'timeScale': 5000.0,
+        'valueScale': 0.5,
+        'verticalCenter': 0.3
+      };
+
+      // Call autoset
+      const chartHeight = 600.0;
+      const chartWidth = 800.0;
+      await provider.autoset(chartHeight, chartWidth);
+
+      // Verify autoset was called on DAP
+      expect(fakeDataAcquisitionProvider.wasAutosetCalled, isTrue);
+
+      // Verify service was called with correct parameters
+      expect(fakeService.lastChartWidth, equals(chartWidth));
+      expect(fakeService.lastFrequency, equals(frequency));
+      expect(fakeService.lastMaxValue, equals(maxValue));
+      expect(fakeService.lastMinValue, equals(minValue));
+      expect(fakeService.lastMarginFactor, equals(1.15)); // Default margin
+
+      // Verify scales were applied
+      expect(provider.timeScale,
+          equals(fakeService.autosetScalesResult['timeScale']));
+      expect(provider.valueScale,
+          equals(fakeService.autosetScalesResult['valueScale']));
+
+      // Verify vertical offset was applied correctly
+      final expectedVerticalOffset =
+          -fakeService.autosetScalesResult['verticalCenter']! *
+              fakeService.autosetScalesResult['valueScale']!;
+      expect(provider.verticalOffset, equals(expectedVerticalOffset));
+
+      // Verify horizontal offset was reset
+      expect(provider.horizontalOffset, equals(0.0));
+    });
+
+    test('should handle edge case with zero frequency', () async {
+      // Define test signal values
+      const frequency = 0.0; // Zero frequency edge case
+      const maxValue = 1.0;
+      const minValue = -0.5;
+
+      // Setup mock data
+      fakeDataAcquisitionProvider.frequency.value = frequency;
+      fakeDataAcquisitionProvider.maxValue.value = maxValue;
+      fakeDataAcquisitionProvider.setCurrentMinValue(minValue);
+
+      // Set expected scale values for zero frequency
+      fakeService.autosetScalesResult = {
+        'timeScale': 100000.0, // Default for zero frequency
+        'valueScale': 0.5,
+        'verticalCenter': 0.3
+      };
+
+      // Call autoset
+      const chartHeight = 600.0;
+      const chartWidth = 800.0;
+      await provider.autoset(chartHeight, chartWidth);
+
+      // Verify service was called with zero frequency
+      expect(fakeService.lastFrequency, equals(0.0));
+
+      // Verify scales were applied
+      expect(provider.timeScale,
+          equals(fakeService.autosetScalesResult['timeScale']));
+      expect(provider.valueScale,
+          equals(fakeService.autosetScalesResult['valueScale']));
+    });
+
+    test('should handle edge case with zero range signal', () async {
+      // Define test signal values for zero range (min=max)
+      const frequency = 100.0;
+      const maxValue = 0.5;
+      const minValue = 0.5; // Same as max -> zero range
+
+      // Setup mock data
+      fakeDataAcquisitionProvider.frequency.value = frequency;
+      fakeDataAcquisitionProvider.maxValue.value = maxValue;
+      fakeDataAcquisitionProvider.setCurrentMinValue(minValue);
+
+      // Set expected scale values for zero range
+      fakeService.autosetScalesResult = {
+        'timeScale': 5000.0,
+        'valueScale': 0.8, // Some arbitrary value service would calculate
+        'verticalCenter': 0.5 // Should be equal to maxValue/minValue
+      };
+
+      // Call autoset
+      const chartHeight = 600.0;
+      const chartWidth = 800.0;
+      await provider.autoset(chartHeight, chartWidth);
+
+      // Verify service was called with zero range
+      expect(fakeService.lastMaxValue, equals(fakeService.lastMinValue));
+
+      // Verify scales were applied
+      expect(provider.timeScale,
+          equals(fakeService.autosetScalesResult['timeScale']));
+      expect(provider.valueScale,
+          equals(fakeService.autosetScalesResult['valueScale']));
     });
   });
 

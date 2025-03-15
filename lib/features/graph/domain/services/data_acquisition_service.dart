@@ -146,6 +146,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   VoltageScale _currentVoltageScale = VoltageScales.volts_2;
   bool _useHysteresis = false;
   bool _useLowPassFilter = false;
+  bool _pendingConfigUpdate = false;
+  Timer? _configUpdateTimer;
+  Completer<void>? _configUpdateCompleter;
 
   // Metrics
   double _currentFrequency = 0.0;
@@ -271,12 +274,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> postTriggerStatus() async {
     try {
-      // Convert voltage trigger to raw value considering the new scaling
+      // Calculate raw trigger value considering the current scale
       final range = deviceConfig.maxBits - deviceConfig.minBits;
-      final rawTrigger = (_triggerLevel / scale) + deviceConfig.midBits;
+      final rawTrigger = (_triggerLevel / _scale) + deviceConfig.midBits;
 
-      // Calculate percentage based on the full range
+      // Calculate percentage for the device API
       final percentage = ((rawTrigger - deviceConfig.minBits) / range) * 100;
+
+      if (kDebugMode) {
+        print("Posting trigger:");
+        print("  Trigger level: $_triggerLevel V");
+        print("  Scale: $_scale V/bit");
+        print("  Raw trigger: $rawTrigger bits");
+        print("  Percentage: ${percentage.clamp(0, 100)}%");
+      }
 
       await httpService.post(
           '/trigger',
@@ -299,16 +310,28 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   set triggerLevel(double value) {
-    // Calculate voltage range based on current scale and bits
+    // Calculate current voltage range based on scale
     final range = _currentVoltageScale.scale *
         (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
 
-    // Clamp the trigger level to the valid voltage range
-    _triggerLevel = value.clamp(-halfRange, halfRange);
+    // Clamp the trigger level to valid voltage range
+    final newValue = value.clamp(-halfRange, halfRange);
 
-    postTriggerStatus();
-    updateConfig();
+    // Only update if there's a significant change
+    if (_triggerLevel != newValue) {
+      _triggerLevel = newValue;
+
+      if (kDebugMode) {
+        print("Set trigger level to: $_triggerLevel (clamped from $value)");
+        print("  Current scale: ${_currentVoltageScale.scale}");
+        print("  Valid range: -$halfRange to $halfRange");
+      }
+
+      // Update device with new trigger level
+      postTriggerStatus();
+      updateConfig();
+    }
   }
 
   @override
@@ -364,20 +387,39 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     if (kDebugMode) {
       print('Setting voltage scale to: ${voltageScale.scale}');
     }
+
+    // Save the old scale for trigger level adjustment
     final oldScale = _currentVoltageScale.scale;
+
+    // Update the voltage scale
     _currentVoltageScale = voltageScale;
-    scale = voltageScale.scale;
+    _scale = voltageScale.scale;
 
-    // Adjust trigger level proportionally to new scale
+    // Calculate the adjustment ratio for trigger level
     final ratio = voltageScale.scale / oldScale;
-    triggerLevel *= ratio;
 
-    // Clamp trigger level to new voltage range
+    // Adjust trigger level proportionally to maintain relative position
+    final oldTriggerLevel = _triggerLevel;
+    _triggerLevel *= ratio;
+
+    // Calculate safe range based on new scale
     final range =
         voltageScale.scale * (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
-    triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
+    // Clamp trigger level to valid range
+    _triggerLevel = _triggerLevel.clamp(-halfRange, halfRange);
+
+    if (kDebugMode) {
+      print("Voltage scale changed:");
+      print("  Old scale: $oldScale, New scale: ${voltageScale.scale}");
+      print("  Ratio: $ratio");
+      print(
+          "  Old trigger level: $oldTriggerLevel, New trigger level: $_triggerLevel");
+    }
+
+    // Post trigger status and update configuration
+    postTriggerStatus();
     updateConfig();
   }
 
@@ -632,6 +674,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     final maxSingleModeQueueSize = processingChunkSize;
     bool processingEnabled = true;
 
+    if (kDebugMode) {
+      print(
+          '💡 Processing isolate initialized with scale: ${config.scale}, trigger: ${config.triggerLevel}');
+    }
+
     receivePort.listen((message) {
       // First check if it's an error message from socket - give it highest priority
       if (message is Map<String, dynamic> &&
@@ -643,10 +690,16 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       // Process normal messages as before
       if (message == 'stop') {
+        if (kDebugMode) {
+          print('🛑 Processing isolate received stop command');
+        }
         processingEnabled = false;
         queue.clear();
         singleModeQueue.clear();
       } else if (message == 'clear_queue') {
+        if (kDebugMode) {
+          print('🧹 Processing isolate clearing queues');
+        }
         queue.clear();
         singleModeQueue.clear();
         processingEnabled = true;
@@ -670,13 +723,47 @@ class DataAcquisitionService implements DataAcquisitionRepository {
               queue, processingChunkSize, config, setup.sendPort);
         }
       } else if (message is UpdateConfigMessage) {
+        // Log receipt of config update
+        if (kDebugMode) {
+          print('📱 Processing isolate received config update:');
+          print('  - Scale: ${message.scale} (current: ${config.scale})');
+          print(
+              '  - Trigger level: ${message.triggerLevel} (current: ${config.triggerLevel})');
+          print(
+              '  - Trigger edge: ${message.triggerEdge} (current: ${config.triggerEdge})');
+          print(
+              '  - Use hysteresis: ${message.useHysteresis} (current: ${config.useHysteresis})');
+          print(
+              '  - Use low pass filter: ${message.useLowPassFilter} (current: ${config.useLowPassFilter})');
+          print(
+              '  - Trigger mode: ${message.triggerMode} (current: ${config.triggerMode})');
+        }
+
         config = _updateConfig(config, message);
         if (config.triggerMode == TriggerMode.normal) {
           processingEnabled = true;
         }
         queue.clear();
         singleModeQueue.clear();
+
+        // Send confirmation back to main isolate
+        setup.sendPort.send({'type': 'config_received'});
+      } else if (message == 'ping') {
+        // Add a simple ping-pong mechanism to verify isolate is responsive
+        setup.sendPort.send({'type': 'pong'});
       }
+    }, onError: (e, stack) {
+      if (kDebugMode) {
+        print('❌ Processing isolate encountered error: $e');
+        print('Stack trace: $stack');
+      }
+
+      // Try to notify main isolate
+      setup.sendPort.send({
+        'type': 'connection_error',
+        'error': 'Processing isolate error: $e',
+        'critical': true
+      });
     });
   }
 
@@ -685,6 +772,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     DataProcessingConfig currentConfig,
     UpdateConfigMessage message,
   ) {
+    if (kDebugMode) {
+      print('🔄 Processing isolate updating config:');
+      print('  - From scale: ${currentConfig.scale} to ${message.scale}');
+      print(
+          '  - From trigger level: ${currentConfig.triggerLevel} to ${message.triggerLevel}');
+    }
+
     return currentConfig.copyWith(
       scale: message.scale,
       triggerLevel: message.triggerLevel,
@@ -1055,9 +1149,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       final newIp = response['ip'] as String;
       final newPort = response['port'] as int;
 
-      // Only minimal cleanup before attempting new connection
-      await stopData();
-
       // Reset reconnecting flag before attempting new connection
       _isReconnecting = false;
 
@@ -1125,14 +1216,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   Future<void> fetchData(String ip, int port) async {
+    if (kDebugMode) {
+      print('🔄 Starting data acquisition for $ip:$port');
+    }
+
+    // Ensure clean state by stopping any existing acquisition
     await stopData();
+
+    // Initialize base configuration
     await initialize();
 
-    _ensureControllersExist(); // Make sure controllers are created or recreated
+    // Make sure controllers are created or recreated
+    _ensureControllersExist();
 
+    // Create a new receive port
     _processingReceivePort = ReceivePort();
     final processingStream = _processingReceivePort!.asBroadcastStream();
 
+    // Prepare initial configuration
     final config = DataProcessingConfig(
       scale: scale,
       distance: distance,
@@ -1148,27 +1249,102 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     // Clear any previous data on start
     _dataController?.add([]);
 
-    _processingIsolate = await Isolate.spawn(
-      _processingIsolateFunction,
-      ProcessingIsolateSetup(
-          _processingReceivePort!.sendPort, config, deviceConfig.config!),
-    );
+    if (kDebugMode) {
+      print('📊 Spawning processing isolate...');
+    }
 
-    await _setupProcessingIsolate(processingStream);
+    // Try spawning the processing isolate (with retry)
+    int retryCount = 0;
+    const maxRetries = 2;
+    while (retryCount <= maxRetries) {
+      try {
+        _processingIsolate = await Isolate.spawn(
+          _processingIsolateFunction,
+          ProcessingIsolateSetup(
+              _processingReceivePort!.sendPort, config, deviceConfig.config!),
+          debugName: 'processing_isolate',
+          errorsAreFatal: true,
+        );
+
+        // If we get here, the spawn was successful
+        break;
+      } catch (e) {
+        retryCount++;
+        if (kDebugMode) {
+          print(
+              '❌ Error spawning processing isolate (attempt $retryCount): $e');
+        }
+
+        if (retryCount > maxRetries) {
+          throw Exception(
+              'Failed to spawn processing isolate after $maxRetries attempts: $e');
+        }
+
+        // Short delay before retry
+        await Future.delayed(Duration(milliseconds: 500));
+      }
+    }
+
+    // Wait for processing isolate setup to complete
+    try {
+      await _setupProcessingIsolate(processingStream);
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error setting up processing isolate: $e');
+      }
+
+      // Kill the existing isolate if it exists
+      _processingIsolate?.kill(priority: Isolate.immediate);
+      _processingIsolate = null;
+
+      // Create new receive port
+      _processingReceivePort?.close();
+      _processingReceivePort = ReceivePort();
+      final newProcessingStream = _processingReceivePort!.asBroadcastStream();
+
+      if (kDebugMode) {
+        print('🔄 Retrying processing isolate setup...');
+      }
+
+      // Try once more
+      _processingIsolate = await Isolate.spawn(
+        _processingIsolateFunction,
+        ProcessingIsolateSetup(
+            _processingReceivePort!.sendPort, config, deviceConfig.config!),
+        debugName: 'processing_isolate_retry',
+      );
+
+      await _setupProcessingIsolate(newProcessingStream);
+    }
+
+    // Once processing is ready, create socket isolate
     await _setupSocketIsolate(ip, port);
+
+    if (kDebugMode) {
+      print('✅ Data acquisition started successfully');
+    }
   }
 
   /// Sets up the processing isolate to receive data and send it to the main isolate.
   Future<void> _setupProcessingIsolate(Stream processingStream) async {
     final completer = Completer<SendPort>();
+    bool isSendPortReceived = false;
 
     processingStream.listen((message) {
       if (message is SendPort) {
         _socketToProcessingSendPort = message;
         _configSendPort = message;
-        completer.complete(message);
+        isSendPortReceived = true;
+
+        if (kDebugMode) {
+          print('✅ Processing isolate send port established');
+        }
+
+        if (!completer.isCompleted) {
+          completer.complete(message);
+        }
       } else if (message is Map<String, dynamic>) {
-        // Check for critical connection errors first with highest priority
+        // Handle existing message types...
         if (message['type'] == 'connection_error') {
           final errorMsg =
               message['error']?.toString() ?? 'Unknown socket error';
@@ -1179,7 +1355,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
                 'Received ${isCritical ? "CRITICAL " : ""}connection error: $errorMsg');
           }
 
-          // Check if we're already handling an error or already on the setup screen
           if (_isReconnecting) {
             if (kDebugMode) {
               print('Already handling reconnection, ignoring duplicate error');
@@ -1187,17 +1362,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
             return;
           }
 
-          // Only handle if critical
           if (isCritical) {
-            // Run on next event loop iteration to avoid potential race conditions
             Future.microtask(() => _handleConnectionError());
           }
-          return; // Skip other processing for error messages
-        }
-
-        // Process normal messages
-        if (message['type'] == 'data') {
-          if (_disposed) return; // Skip if disposed
+          return;
+        } else if (message['type'] == 'data') {
+          if (_disposed) return;
 
           final points = message['points'] as List<DataPoint>;
           final maxValue = message['maxValue'] as double;
@@ -1208,20 +1378,119 @@ class DataAcquisitionService implements DataAcquisitionRepository {
           _updateMetrics(points, maxValue, minValue);
         } else if (message['type'] == 'pause_graph') {
           Get.find<DataAcquisitionProvider>().setPause(true);
+        } else if (message['type'] == 'config_received') {
+          // Confirmation that config was received
+          if (kDebugMode) {
+            print(
+                '📥 Config update confirmation received from processing isolate');
+          }
+        } else if (message['type'] == 'pong') {
+          if (kDebugMode) {
+            print('🏓 Pong received from processing isolate');
+          }
         }
       }
     }, onError: (error) {
       if (kDebugMode) {
-        print('Processing stream error: $error');
+        print('⚠️ Processing stream error: $error');
       }
 
-      // Only handle error if not already reconnecting
       if (!_isReconnecting) {
         Future.microtask(() => _handleConnectionError());
       }
     }, cancelOnError: false);
 
-    _socketToProcessingSendPort = await completer.future;
+    try {
+      // Send a ping every second until we get the port or timeout
+      final pingTimer = Timer.periodic(Duration(milliseconds: 500), (timer) {
+        if (isSendPortReceived) {
+          timer.cancel();
+        } else if (_processingReceivePort != null) {
+          if (kDebugMode) {
+            print('🏓 Waiting for processing isolate, sending ping...');
+          }
+          // Can't ping directly since we don't have the port yet
+        }
+      });
+
+      _socketToProcessingSendPort = await completer.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          pingTimer.cancel();
+          if (kDebugMode) {
+            print('⚠️ Timeout waiting for processing isolate port');
+          }
+          throw TimeoutException('Timeout waiting for processing isolate port');
+        },
+      );
+
+      pingTimer.cancel();
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error establishing communication with processing isolate: $e');
+      }
+      throw Exception(
+          'Failed to establish communication with processing isolate: $e');
+    }
+
+    if (kDebugMode) {
+      print('🛠️ Processing isolate is now ready, sending updated config...');
+    }
+
+    // Add a slight delay before sending initial config
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Verify the isolate is still responsive before sending config
+    try {
+      final pongCompleter = Completer<bool>();
+      final timeout = Timer(Duration(milliseconds: 500), () {
+        if (!pongCompleter.isCompleted) {
+          pongCompleter.complete(false);
+        }
+      });
+
+      processingStream.listen(
+        (message) {
+          if (message is Map<String, dynamic> &&
+              message['type'] == 'pong' &&
+              !pongCompleter.isCompleted) {
+            pongCompleter.complete(true);
+          }
+        },
+        onError: (_) {
+          if (!pongCompleter.isCompleted) pongCompleter.complete(false);
+        },
+      );
+
+      _configSendPort?.send('ping');
+      final isPongReceived = await pongCompleter.future;
+      timeout.cancel();
+
+      if (isPongReceived) {
+        if (kDebugMode) {
+          print('✅ Processing isolate verified responsive, sending config');
+        }
+        updateConfig();
+        await Future.delayed(const Duration(milliseconds: 200));
+        postTriggerStatus();
+      } else {
+        if (kDebugMode) {
+          print(
+              '⚠️ Processing isolate not responding to ping, restarting setup process');
+        }
+        // Restart the process
+        throw Exception('Processing isolate not responding');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error verifying processing isolate: $e');
+      }
+
+      // Try sending the config anyway as last resort
+      updateConfig();
+      await Future.delayed(const Duration(milliseconds: 200));
+      postTriggerStatus();
+    }
   }
 
   /// Sets up the socket isolate to receive data from the socket and send it to the processing isolate.
@@ -1236,16 +1505,52 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
   @override
   void updateConfig() {
-    _configSendPort?.send(UpdateConfigMessage(
-      scale: scale,
-      triggerLevel: triggerLevel,
-      triggerEdge: triggerEdge,
-      useHysteresis: useHysteresis,
-      useLowPassFilter: useLowPassFilter,
-      triggerMode: triggerMode,
-      distance: distance,
-      deviceConfig: deviceConfig.config,
-    ));
+    if (_configSendPort == null) {
+      if (kDebugMode) {
+        print('⚠️ Config send port is null, cannot update configuration');
+      }
+      return;
+    }
+
+    try {
+      if (kDebugMode) {
+        print('📤 Sending config update to processing isolate:');
+        print('  - Scale: $scale');
+        print('  - Trigger level: $triggerLevel');
+        print('  - Trigger edge: $_triggerEdge');
+        print('  - Use hysteresis: $_useHysteresis');
+        print('  - Use low pass filter: $_useLowPassFilter');
+        print('  - Trigger mode: $_triggerMode');
+        print('  - Distance: $distance');
+      }
+
+      final message = UpdateConfigMessage(
+        scale: scale,
+        triggerLevel: triggerLevel,
+        triggerEdge: triggerEdge,
+        useHysteresis: useHysteresis,
+        useLowPassFilter: useLowPassFilter,
+        triggerMode: triggerMode,
+        distance: distance,
+        deviceConfig: deviceConfig.config,
+      );
+
+      _configSendPort?.send(message);
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Error sending config update: $e');
+      }
+    }
+  }
+
+  /// Waits for a config update to complete
+  Future<void> waitForConfigUpdate() {
+    if (!_pendingConfigUpdate) {
+      return Future.value();
+    }
+
+    _configUpdateCompleter ??= Completer<void>();
+    return _configUpdateCompleter!.future;
   }
 
   @override
@@ -1253,9 +1558,30 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     try {
       _isReconnecting = false;
 
-      // 1. First attempt graceful shutdown
+      if (kDebugMode) {
+        print('🛑 Stopping data acquisition...');
+      }
+
+      // Cancel any ongoing operations first
+      _pendingConfigUpdate = false;
+      if (_configUpdateTimer != null) {
+        _configUpdateTimer?.cancel();
+        _configUpdateTimer = null;
+      }
+
+      // Clear any pending completers
+      if (_configUpdateCompleter != null &&
+          !_configUpdateCompleter!.isCompleted) {
+        _configUpdateCompleter!.complete();
+        _configUpdateCompleter = null;
+      }
+
+      // Send stop signals to isolates
       if (_configSendPort != null) {
         try {
+          if (kDebugMode) {
+            print('Sending stop signal to processing isolate...');
+          }
           _configSendPort?.send('stop');
         } catch (e) {
           if (kDebugMode) {
@@ -1266,6 +1592,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       if (_socketToProcessingSendPort != null) {
         try {
+          if (kDebugMode) {
+            print('Sending stop signal to socket isolate...');
+          }
           _socketToProcessingSendPort?.send('stop');
         } catch (e) {
           if (kDebugMode) {
@@ -1277,42 +1606,81 @@ class DataAcquisitionService implements DataAcquisitionRepository {
       // Give isolates time to process stop messages
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // 2. Create new tracking mechanism with ReceivePorts
+      // Create tracking mechanism with ReceivePorts
       final processingDone = Completer<void>();
       final socketDone = Completer<void>();
 
-      // 3. Improved exit listener setup
+      // Set up exit listeners for isolates
       if (_processingIsolate != null) {
         final exitPort = ReceivePort();
-        _processingIsolate!.addOnExitListener(exitPort.sendPort);
-        exitPort.listen((_) {
+        try {
+          _processingIsolate!.addOnExitListener(exitPort.sendPort);
+          exitPort.listen((_) {
+            if (kDebugMode) {
+              print('✓ Processing isolate exited normally');
+            }
+            exitPort.close();
+            processingDone.complete();
+          }, onDone: () {
+            if (!processingDone.isCompleted) {
+              processingDone.complete();
+            }
+          }, onError: (e) {
+            if (kDebugMode) {
+              print('Error in processing isolate exit listener: $e');
+            }
+            if (!processingDone.isCompleted) {
+              processingDone.complete();
+            }
+          });
+        } catch (e) {
           if (kDebugMode) {
-            print('Processing isolate exited normally');
+            print('Error setting up processing isolate exit listener: $e');
           }
-          exitPort.close();
-          processingDone.complete();
-        });
+          processingDone.complete(); // Complete anyway to avoid hanging
+        }
       } else {
         processingDone.complete();
       }
 
       if (_socketIsolate != null) {
         final exitPort = ReceivePort();
-        _socketIsolate!.addOnExitListener(exitPort.sendPort);
-        exitPort.listen((_) {
+        try {
+          _socketIsolate!.addOnExitListener(exitPort.sendPort);
+          exitPort.listen((_) {
+            if (kDebugMode) {
+              print('✓ Socket isolate exited normally');
+            }
+            exitPort.close();
+            socketDone.complete();
+          }, onDone: () {
+            if (!socketDone.isCompleted) {
+              socketDone.complete();
+            }
+          }, onError: (e) {
+            if (kDebugMode) {
+              print('Error in socket isolate exit listener: $e');
+            }
+            if (!socketDone.isCompleted) {
+              socketDone.complete();
+            }
+          });
+        } catch (e) {
           if (kDebugMode) {
-            print('Socket isolate exited normally');
+            print('Error setting up socket isolate exit listener: $e');
           }
-          exitPort.close();
-          socketDone.complete();
-        });
+          socketDone.complete(); // Complete anyway to avoid hanging
+        }
       } else {
         socketDone.complete();
       }
 
-      // 4. Force kill the isolates with better error handling
+      // Kill the isolates with better error handling
       if (_processingIsolate != null) {
         try {
+          if (kDebugMode) {
+            print('Killing processing isolate...');
+          }
           _processingIsolate!.kill(priority: Isolate.immediate);
         } catch (e) {
           if (kDebugMode) {
@@ -1327,6 +1695,9 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
       if (_socketIsolate != null) {
         try {
+          if (kDebugMode) {
+            print('Killing socket isolate...');
+          }
           _socketIsolate!.kill(priority: Isolate.immediate);
         } catch (e) {
           if (kDebugMode) {
@@ -1339,25 +1710,24 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         }
       }
 
-      // 5. Wait for isolates to terminate with improved timeout handling
+      // Wait for isolates to terminate with improved timeout handling
       try {
         await Future.wait([
           processingDone.future.timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 2),
             onTimeout: () {
               if (kDebugMode) {
                 print(
-                    'WARNING: Processing isolate kill timeout - forcing termination');
+                    '⚠️ Processing isolate kill timeout - forcing termination');
               }
               return null;
             },
           ),
           socketDone.future.timeout(
-            const Duration(seconds: 3),
+            const Duration(seconds: 2),
             onTimeout: () {
               if (kDebugMode) {
-                print(
-                    'WARNING: Socket isolate kill timeout - forcing termination');
+                print('⚠️ Socket isolate kill timeout - forcing termination');
               }
               return null;
             },
@@ -1370,10 +1740,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         // Continue with cleanup even if there was an error
       }
 
-      // 6. Clean up all resources, ensuring null checks
-      _processingIsolate = null;
-      _socketIsolate = null;
+      // Explicitly nullify all isolate references
+      final hadProcessingIsolate = _processingIsolate != null;
+      final hadSocketIsolate = _socketIsolate != null;
 
+      // Close receive port first before nullifying isolates
       if (_processingReceivePort != null) {
         try {
           _processingReceivePort!.close();
@@ -1385,13 +1756,20 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         _processingReceivePort = null;
       }
 
+      // Nullify isolates AFTER closing the ports
+      _processingIsolate = null;
+      _socketIsolate = null;
+
+      // Explicitly nullify all port references
       _socketToProcessingSendPort = null;
       _configSendPort = null;
 
+      // Reset state variables
       _currentFrequency = 0.0;
       _currentMaxValue = 0.0;
+      _currentMinValue = 0.0;
 
-      // Only add final values if controllers are not closed and we're not disposed
+      // Only add final values if controllers exist and we're not disposed
       if (!_disposed) {
         try {
           _ensureControllersExist();
@@ -1405,11 +1783,19 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         }
       }
 
-      // 7. Final delay to help with resource cleanup
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Final delay to help with resource cleanup
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      if (kDebugMode) {
+        if (hadProcessingIsolate || hadSocketIsolate) {
+          print('✅ Data acquisition stopped successfully');
+        } else {
+          print('ℹ️ No active isolates to stop');
+        }
+      }
     } catch (e) {
       if (kDebugMode) {
-        print('Error stopping data: $e');
+        print('❌ Error stopping data: $e');
       }
       // Even if there was an error, set all references to null to help GC
       _processingIsolate = null;
@@ -1464,41 +1850,21 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   @override
-  Future<List<double>> autoset(double chartHeight, double chartWidth) async {
+  Future<void> autoset() async {
     // Update trigger level to middle between max and min
     triggerLevel = (_currentMaxValue + _currentMinValue) / 2;
 
-    // Ensure trigger is within voltage range using new maxBits/midBits system
+    // Ensure trigger is within voltage range using maxBits/midBits system
     final range = _currentVoltageScale.scale *
         (deviceConfig.maxBits - deviceConfig.minBits);
     final halfRange = range / 2;
     triggerLevel = triggerLevel.clamp(-halfRange, halfRange);
 
-    updateConfig();
-
     // Process signal briefly to get working frequency
     await Future.delayed(const Duration(milliseconds: 1000));
 
-    // Calculate timeScale and valueScale based on obtained frequency
-    if (_currentFrequency <= 0) {
-      triggerLevel = triggerLevel;
-      final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
-      final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
-      return [100000, valueScale];
-    }
-
-    // Time scale calculation
-    final period = 1 / _currentFrequency;
-    final totalTime = 3 * period;
-    final timeScale = chartWidth / totalTime;
-
-    // Value scale calculation considering max absolute value
-    final maxAbsValue = max(_currentMaxValue.abs(), _currentMinValue.abs());
-    final valueScale = maxAbsValue != 0 ? 1.0 / maxAbsValue : 1.0;
-
+    // Just update internal configuration
     updateConfig();
-
-    return [timeScale, valueScale];
   }
 
   static double max(double a, double b) => a > b ? a : b;

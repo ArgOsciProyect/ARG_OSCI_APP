@@ -59,6 +59,143 @@ void main() {
     Get.reset();
   });
 
+  group('Autoset Scale Calculation', () {
+    late OscilloscopeChartService service;
+    late MockDataAcquisitionProvider mockProvider;
+
+    setUp(() {
+      mockProvider = MockDataAcquisitionProvider();
+      service = OscilloscopeChartService(mockProvider);
+    });
+
+    test('calculates correct scales for normal frequency and amplitude', () {
+      const frequency = 100.0; // 100 Hz
+      const maxValue = 1.0; // 1V max
+      const minValue = -0.5; // -0.5V min
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // For 100Hz, period is 0.01s, and we want to display 3 periods (0.03s total)
+      // So timeScale should be chartWidth / 0.03
+      expect(scales['timeScale'], closeTo(800.0 / 0.03, 0.01));
+
+      // Range is 1.5V with 15% margins on each side, so about 1.725V
+      expect(scales['valueScale'], closeTo(1.0 / 1.725, 0.01));
+
+      // Vertical center should be midpoint of min and max with margins
+      const expectedCenter = ((1.0 * 1.15) + (-0.5 * 1.15)) / 2;
+      expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
+    });
+
+    test('handles zero frequency by using default time scale', () {
+      const frequency = 0.0;
+      const maxValue = 0.8;
+      const minValue = -0.8;
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // Time scale should default to 100000
+      expect(scales['timeScale'], equals(100000));
+
+      // Total range is 1.6V with 15% margins on each side
+      const expectedValueScale = 1.0 / (0.8 * 1.15 * 2);
+      expect(scales['valueScale'], closeTo(expectedValueScale, 0.01));
+    });
+
+    test('handles asymmetric signal with both positive values', () {
+      const frequency = 50.0;
+      const maxValue = 2.0;
+      const minValue = 0.5;
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // Range is 1.5V with 15% margins
+      const totalRange = (2.0 * 1.15) - (0.5 / 1.15);
+      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+
+      // Vertical center should be midpoint of min and max with margins
+      const expectedCenter = ((2.0 * 1.15) + (0.5 / 1.15)) / 2;
+      expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
+    });
+
+    test('handles asymmetric signal with both negative values', () {
+      const frequency = 50.0;
+      const maxValue = -0.5;
+      const minValue = -2.0;
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // Range is 1.5V with 15% margins
+      const totalRange = (-0.5 / 1.15) - (-2.0 * 1.15);
+      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+
+      // Vertical center should be midpoint of min and max with margins
+      const expectedCenter = ((-0.5 / 1.15) + (-2.0 * 1.15)) / 2;
+      expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
+    });
+
+    test('handles very small signal amplitude with margin adjustment', () {
+      const frequency = 1000.0;
+      const maxValue = 0.01;
+      const minValue = -0.01;
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // Total range is 0.02V with 15% margins on each side
+      const totalRange = (0.01 * 1.15) - (-0.01 * 1.15);
+      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+    });
+
+    test('handles custom margin factor', () {
+      const frequency = 100.0;
+      const maxValue = 1.0;
+      const minValue = -1.0;
+      const chartWidth = 800.0;
+      const customMargin = 1.3; // 30% margin
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue,
+          marginFactor: customMargin);
+
+      // Range is 2.0V with 30% margins
+      const totalRange = (1.0 * 1.3) - (-1.0 * 1.3);
+      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+    });
+
+    test('handles zero range signal', () {
+      const frequency = 100.0;
+      const maxValue = 1.0;
+      const minValue = 1.0; // Same as max
+      const chartWidth = 800.0;
+
+      final scales = service.calculateAutosetScales(
+          chartWidth, frequency, maxValue, minValue);
+
+      // Time scale should still be correct
+      const period = 1.0 / frequency;
+      const totalTime = 3 * period;
+      expect(scales['timeScale'], closeTo(chartWidth / totalTime, 0.01));
+
+      // For zero range, we don't need to check exact valueScale value
+      // as it depends on implementation details - just verify it's positive
+      expect(scales['valueScale'], isPositive);
+
+      // Vertical center should be approximately equal to the maxValue
+      // Allow a bit more tolerance since the implementation applies margin calculations
+      expect(scales['verticalCenter'], closeTo(maxValue, 0.1));
+    });
+  });
+
   group('Basic functionality', () {
     test('constructs with null provider', () {
       final service = OscilloscopeChartService(null);

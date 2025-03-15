@@ -228,14 +228,32 @@ class OscilloscopeChartProvider extends GetxController {
     setTimeScale(timeScale * unzoomFactor);
   }
 
-  /// Increments the value scale (zoom in).
+  /// Increases the value scale (vertical zoom in)
   void incrementValueScale() {
-    setValueScale(valueScale * zoomFactor);
+    // 1. Record the original scale
+    final oldScale = valueScale;
+
+    // 2. Apply zoom
+    final newScale = valueScale * zoomFactor;
+    setValueScale(newScale);
+
+    // 3. Adjust offset to maintain centered view
+    // When increasing scale (zooming in), offset must increase proportionally
+    setVerticalOffset(verticalOffset * (newScale / oldScale));
   }
 
-  /// Decrements the value scale (zoom out).
+  /// Decreases the value scale (vertical zoom out)
   void decrementValueScale() {
-    setValueScale(valueScale * unzoomFactor);
+    // 1. Record the original scale
+    final oldScale = valueScale;
+
+    // 2. Apply zoom
+    final newScale = valueScale * unzoomFactor;
+    setValueScale(newScale);
+
+    // 3. Adjust offset to maintain centered view
+    // When decreasing scale (zooming out), offset must decrease proportionally
+    setVerticalOffset(verticalOffset * (newScale / oldScale));
   }
 
   /// Increments the horizontal offset.
@@ -295,6 +313,34 @@ class OscilloscopeChartProvider extends GetxController {
         graphProvider.setPause(false); // Esto enviará GET /single
       }
     }
+  }
+
+  /// Automatically scales the chart based on the current signal parameters
+  /// Adds a 15% margin above and below the signal's extremes for better visualization
+  Future<void> autoset(double chartHeight, double chartWidth) async {
+    final dataAcquisitionProvider = Get.find<DataAcquisitionProvider>();
+
+    // First, let the data acquisition service adjust its trigger level
+    await dataAcquisitionProvider.autoset();
+
+    // Get signal parameters
+    final frequency = dataAcquisitionProvider.frequency.value;
+    final maxValue = dataAcquisitionProvider.maxValue.value;
+    final minValue = dataAcquisitionProvider.currentMinValue;
+
+    // Use the service to calculate optimal scales
+    final scales = _oscilloscopeChartService.calculateAutosetScales(
+        chartWidth, frequency, maxValue, minValue);
+
+    // Apply calculated scales
+    setTimeScale(scales['timeScale']!);
+    setValueScale(scales['valueScale']!);
+
+    // Set vertical offset to center the signal
+    setVerticalOffset(-scales['verticalCenter']! * valueScale);
+
+    // Reset horizontal offset
+    setHorizontalOffset(0.0);
   }
 
   @override

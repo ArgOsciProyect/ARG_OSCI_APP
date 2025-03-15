@@ -33,4 +33,20 @@ abstract class OscilloscopeChartRepository {
   /// Releases all resources used by chart
   /// Should be called when chart is no longer needed
   Future<void> dispose();
+
+  /// Calculates optimal chart scaling values based on signal parameters
+  ///
+  /// [chartWidth] - Width of the chart in pixels
+  /// [frequency] - Detected signal frequency in Hz
+  /// [maxValue] - Maximum signal value
+  /// [minValue] - Minimum signal value
+  /// [marginFactor] - Factor for adding margin above/below the signal (default: 1.15 = 15%)
+  ///
+  /// Returns a Map containing calculated scales and offsets:
+  /// - timeScale: Suggested time scale factor
+  /// - valueScale: Suggested value scale factor
+  /// - verticalCenter: Suggested vertical center position
+  Map<String, double> calculateAutosetScales(
+      double chartWidth, double frequency, double maxValue, double minValue,
+      {double marginFactor = 1.15});
 }

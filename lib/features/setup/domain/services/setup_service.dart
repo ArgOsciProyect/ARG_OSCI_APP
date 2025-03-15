@@ -66,10 +66,10 @@ class NetworkInfoService {
     return false;
   }
 
-  /// Tests the connection to the ESP32 by making a GET request.
+  /// Tests the connection to the ESP32 by making a GET request with improved error handling.
   Future<bool> testConnection() async {
     try {
-      await _httpService.get('/testConnect', skipNavigation: false).timeout(
+      await _httpService.get('/testConnect', skipNavigation: true).timeout(
             const Duration(seconds: 5),
             onTimeout: () => throw TimeoutException('Connection timed out'),
           );
@@ -87,12 +87,12 @@ class NetworkInfoService {
     }
   }
 
-  /// Attempts to connect to the ESP32 access point using WiFiForIoTPlugin and traditional SSID verification.
+  /// Attempts to connect to the ESP32 access point with improved null handling.
   Future<bool> connectToESP32() async {
     if (!Platform.isAndroid) return false;
 
     try {
-      // First attempt: WiFiForIoTPlugin with 5 retries
+      // First attempt: WiFiForIoTPlugin with retries
       const pluginRetries = 5;
       const pluginInterval = Duration(seconds: 1);
 
@@ -117,13 +117,23 @@ class NetworkInfoService {
             }
             await Future.delayed(const Duration(seconds: 2));
 
-            if (await WiFiForIoTPlugin.forceWifiUsage(true)
-                .timeout(const Duration(seconds: 5))) {
-              if (await testConnection().timeout(const Duration(seconds: 5))) {
-                if (kDebugMode) {
-                  print("Connection verified successfully via IoT plugin");
+            // Force WiFi usage safely
+            try {
+              final forceResult = await WiFiForIoTPlugin.forceWifiUsage(true)
+                  .timeout(const Duration(seconds: 5));
+
+              if (forceResult) {
+                final testResult = await testConnection();
+                if (testResult) {
+                  if (kDebugMode) {
+                    print("Connection verified successfully via IoT plugin");
+                  }
+                  return true;
                 }
-                return true;
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('Error forcing WiFi usage: $e');
               }
             }
           }
@@ -144,11 +154,11 @@ class NetworkInfoService {
         }
       }
 
-      // Fallback: Traditional SSID verification with 30 retries
+      // Fallback: Traditional SSID verification
       if (kDebugMode) {
         print("IoT plugin connection failed, trying traditional method...");
       }
-      // Show Snackbar (this should be handled by the UI component)
+
       const traditionalRetries = 30;
       const checkInterval = Duration(seconds: 1);
 
@@ -163,6 +173,7 @@ class NetworkInfoService {
                 print("Connected to $_apSsid via traditional method");
               }
 
+              // Test connection with proper error handling
               if (await testConnection()) {
                 if (kDebugMode) {
                   print(
@@ -203,7 +214,16 @@ class NetworkInfoService {
 
   /// Gets the current WiFi network name.
   Future<String?> getWifiName() async {
-    return _networkInfo.getWifiName();
+    try {
+      final name = await _networkInfo.getWifiName();
+      // Return empty string instead of null to avoid null checks
+      return name?.isNotEmpty == true ? name : null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting WiFi name: $e');
+      }
+      return null;
+    }
   }
 
   /// Gets the current WiFi IP address.
@@ -248,7 +268,8 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> fetchDeviceConfig() async {
-    final response = await HttpService(globalHttpConfig).get('/config');
+    final response = await HttpService(globalHttpConfig)
+        .get('/config', skipNavigation: true);
     final config = DeviceConfig.fromJson(response);
     Get.find<DeviceConfigProvider>().updateConfig(config);
   }
@@ -273,7 +294,7 @@ class SetupService implements SetupRepository {
     try {
       final response = await localHttpService
           .post('/connect_wifi', credentials.toJson(), true) // Skip navigation
-          .timeout(Duration(seconds: 15));
+          .timeout(Duration(seconds: 20));
 
       if (response['Success'] == "false") {
         return false;
@@ -337,7 +358,8 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> selectMode(String mode, {http.Client? client}) async {
-    final response = await localHttpService.get('/internal_mode');
+    final response =
+        await localHttpService.get('/internal_mode', skipNavigation: true);
     if (mode == 'Internal AP') {
       final ip = response['IP'];
       final port = response['Port'];
@@ -355,8 +377,10 @@ class SetupService implements SetupRepository {
     }
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
-    await WiFiForIoTPlugin.forceWifiUsage(false)
-        .timeout(const Duration(seconds: 5));
+    if (Platform.isAndroid) {
+      await WiFiForIoTPlugin.forceWifiUsage(false)
+          .timeout(const Duration(seconds: 5));
+    }
 
     int maxTestRetries = 50;
     String testWord = _generateRandomWord();
@@ -464,14 +488,21 @@ class SetupService implements SetupRepository {
               'Connection timeout: Please connect to $targetSsid network');
         }
 
-        // Check if connected to the target network
+        // Check if connected to the target network with careful null handling
         String? currentSSID = await _networkInfo.getWifiName();
-        if (Platform.isIOS && currentSSID != null) {
+
+        // Break early on null to avoid null checks
+        if (currentSSID == null) {
+          await Future.delayed(const Duration(seconds: 1));
+          continue;
+        }
+
+        if (Platform.isIOS) {
           // On iOS, remove quotes that might be around SSID
           currentSSID = currentSSID.replaceAll('"', '');
         }
 
-        if (currentSSID!.startsWith(targetSsid)) {
+        if (currentSSID.startsWith(targetSsid)) {
           if (kDebugMode) {
             print("Successfully connected to $targetSsid");
           }
@@ -487,9 +518,20 @@ class SetupService implements SetupRepository {
     }
 
     await Future.delayed(const Duration(seconds: 2));
-    if (kDebugMode) {
-      print('Connected to WiFi: ${await _networkInfo.getWifiName()}');
-      print('IP address: ${await _networkInfo.getWifiIP()}');
+
+    // Safely log WiFi connection details
+    try {
+      final wifiName = await _networkInfo.getWifiName() ?? "Unknown";
+      final wifiIP = await _networkInfo.getWifiIP() ?? "Unknown";
+
+      if (kDebugMode) {
+        print('Connected to WiFi: $wifiName');
+        print('IP address: $wifiIP');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting WiFi information: $e');
+      }
     }
 
     await initializeGlobalHttpConfig('http://192.168.4.1:81', client: client);
@@ -497,22 +539,52 @@ class SetupService implements SetupRepository {
 
   @override
   Future<void> waitForNetworkChange(String ssid) async {
-    String? wifiName = await _networkInfo.getWifiName();
-    if (Platform.isAndroid && wifiName != null) {
-      wifiName = wifiName.replaceAll('"', '');
+    const maxAttempts = 60; // 1 minute timeout
+    int attempts = 0;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+
+      try {
+        String? wifiName = await _networkInfo.getWifiName();
+
+        // Skip iteration if wifi name is null
+        if (wifiName == null) {
+          await Future.delayed(Duration(seconds: 1));
+          continue;
+        }
+
+        if (Platform.isAndroid) {
+          wifiName = wifiName.replaceAll('"', '');
+        }
+
+        // Wait until the WiFi name starts with the expected SSID
+        if (wifiName.startsWith(ssid)) {
+          if (kDebugMode) {
+            print("Successfully connected to $ssid network");
+          }
+          return;
+        }
+
+        if (kDebugMode && attempts % 5 == 0) {
+          // Log only every 5 attempts to reduce spam
+          if (kDebugMode) {
+            print(
+                "Current WiFi: $wifiName, Expected WiFi: $ssid (attempt $attempts/$maxAttempts)");
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error checking WiFi network: $e");
+        }
+      }
+
+      await Future.delayed(Duration(seconds: 1));
     }
 
-    // Wait until the WiFi name starts with the expected SSID
-    while (wifiName?.startsWith(ssid) == false) {
-      await Future.delayed(Duration(seconds: 1));
-      wifiName = await _networkInfo.getWifiName();
-      if (Platform.isAndroid && wifiName != null) {
-        wifiName = wifiName.replaceAll('"', '');
-      }
-      if (kDebugMode) {
-        print("Current WiFi: $wifiName, Expected WiFi: $ssid");
-      }
-    }
+    // If we get here, we've timed out
+    throw TimeoutException(
+        'Failed to detect network change to $ssid after $maxAttempts seconds');
   }
 }
 

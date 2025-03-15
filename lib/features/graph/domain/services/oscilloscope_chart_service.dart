@@ -52,6 +52,60 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
     }
   }
 
+  /// Calculates optimal chart scaling values based on signal parameters
+  @override
+  Map<String, double> calculateAutosetScales(
+      double chartWidth, double frequency, double maxValue, double minValue,
+      {double marginFactor = 1.15}) {
+    // Add margin to min and max values
+    final adjustedMaxValue =
+        maxValue > 0 ? maxValue * marginFactor : maxValue / marginFactor;
+    final adjustedMinValue =
+        minValue < 0 ? minValue * marginFactor : minValue / marginFactor;
+
+    // Calculate the total range with margins
+    final totalRange = adjustedMaxValue - adjustedMinValue;
+    final verticalCenter = (adjustedMaxValue + adjustedMinValue) / 2;
+
+    double timeScale;
+    double valueScale;
+
+    if (frequency <= 0) {
+      // No frequency detected, use default time scale
+      timeScale = 100000;
+
+      // Calculate value scale based on adjusted range
+      if (totalRange > 0) {
+        valueScale = 1.0 / totalRange;
+      } else {
+        // Fallback for zero or very small range
+        valueScale = 1.0;
+      }
+    } else {
+      // Calculate time scale to show 3 periods
+      final period = 1 / frequency;
+      final totalTime = 3 * period;
+      timeScale = chartWidth / totalTime;
+
+      // Calculate value scale based on adjusted range
+      if (totalRange > 0) {
+        valueScale = 1.0 / totalRange;
+      } else {
+        // Fallback using max absolute value
+        final maxAbsValue =
+            maxValue.abs() > minValue.abs() ? maxValue.abs() : minValue.abs();
+        final expandedAbsValue = maxAbsValue * marginFactor;
+        valueScale = expandedAbsValue > 0 ? 1.0 / (expandedAbsValue * 2) : 1.0;
+      }
+    }
+
+    return {
+      'timeScale': timeScale,
+      'valueScale': valueScale,
+      'verticalCenter': verticalCenter
+    };
+  }
+
   @override
   void resumeAndWaitForTrigger() {
     _isPaused = false;
