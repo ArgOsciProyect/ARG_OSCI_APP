@@ -294,7 +294,7 @@ class SetupService implements SetupRepository {
     try {
       final response = await localHttpService
           .post('/connect_wifi', credentials.toJson(), true) // Skip navigation
-          .timeout(Duration(seconds: 15));
+          .timeout(Duration(seconds: 20));
 
       if (response['Success'] == "false") {
         return false;
@@ -377,8 +377,10 @@ class SetupService implements SetupRepository {
     }
 
     await initializeGlobalHttpConfig('http://$extIp:80', client: client);
-    await WiFiForIoTPlugin.forceWifiUsage(false)
-        .timeout(const Duration(seconds: 5));
+    if (Platform.isAndroid) {
+      await WiFiForIoTPlugin.forceWifiUsage(false)
+          .timeout(const Duration(seconds: 5));
+    }
 
     int maxTestRetries = 50;
     String testWord = _generateRandomWord();
@@ -568,7 +570,7 @@ class SetupService implements SetupRepository {
           // Log only every 5 attempts to reduce spam
           if (kDebugMode) {
             print(
-              "Current WiFi: $wifiName, Expected WiFi: $ssid (attempt $attempts/$maxAttempts)");
+                "Current WiFi: $wifiName, Expected WiFi: $ssid (attempt $attempts/$maxAttempts)");
           }
         }
       } catch (e) {

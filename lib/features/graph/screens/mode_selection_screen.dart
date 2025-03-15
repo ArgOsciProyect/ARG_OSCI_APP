@@ -1,4 +1,6 @@
 import 'package:arg_osci_app/features/graph/providers/user_settings_provider.dart';
+import 'package:arg_osci_app/features/setup/providers/setup_provider.dart';
+import 'package:arg_osci_app/features/setup/screens/setup_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -33,6 +35,24 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     super.dispose();
   }
 
+  // Función para manejar la navegación de regreso a Setup
+  void _navigateBackToSetup() async {
+    // Limpia el estado relevante antes de navegar
+    try {
+      final setupProvider = Get.find<SetupProvider>();
+      final dataProvider = Get.find<DataAcquisitionProvider>();
+      await dataProvider.stopData();
+      setupProvider.reset();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error al resetear estado: $e');
+      }
+    }
+
+    // Navegación explícita
+    Get.offAll(() => const SetupScreen());
+  }
+
   @override
   Widget build(BuildContext context) {
     final modeProvider = Get.find<UserSettingsProvider>();
@@ -43,13 +63,11 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Get.back(),
+          onPressed: _navigateBackToSetup, // Usa la función de navegación aquí
         ),
       ),
       body: SafeArea(
-        // Add SafeArea to respect system UI
         child: SingleChildScrollView(
-          // Add SingleChildScrollView to handle overflow
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -85,14 +103,8 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
                           ),
                         ),
                       )),
-                  // Back button at the bottom
-                  const SizedBox(height: 40),
-                  TextButton.icon(
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Return to Setup'),
-                    onPressed: () => Get.back(),
-                  ),
-                  const SizedBox(height: 16), // Add bottom padding
+                  // Botón de retorno eliminado, ahora está en la AppBar
+                  const SizedBox(height: 16), // Mantener espacio inferior
                 ],
               ),
             ),
