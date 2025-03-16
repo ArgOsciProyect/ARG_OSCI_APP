@@ -7,6 +7,9 @@ import 'package:get/get.dart';
 import 'dart:math' as math;
 
 /// [FFTChartService] manages the FFT (Fast Fourier Transform) data processing for the FFT chart.
+///
+/// Receives time-domain data from the data acquisition system, performs FFT analysis,
+/// and provides frequency domain data through a stream for visualization.
 class FFTChartService {
   DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
@@ -22,8 +25,12 @@ class FFTChartService {
   final List<DataPoint> _dataBuffer = [];
   List<DataPoint> _lastFFTPoints = [];
 
+  /// Stream of FFT data points for frequency domain display
   Stream<List<DataPoint>> get fftStream => _fftController.stream;
 
+  /// Creates a new FFT chart service with the specified data provider
+  ///
+  /// [_graphProvider] The data acquisition provider that supplies time-domain data
   FFTChartService(this._graphProvider) {
     if (kDebugMode) {
       print("Starting FFT Service");
@@ -32,6 +39,10 @@ class FFTChartService {
     _setupSubscriptions();
   }
 
+  /// Returns the fundamental frequency detected in the FFT data
+  ///
+  /// Analyzes the FFT data to find the most significant frequency peak
+  /// Returns 0.0 if no significant peak is found or signal is too weak
   double get frequency {
     if (_lastFFTPoints.isEmpty) return 0.0;
 
@@ -75,11 +86,15 @@ class FFTChartService {
     return maxIndex > 0 ? _lastFFTPoints[maxIndex].x : 0.0;
   }
 
+  /// Sets up data subscription to receive time-domain points for FFT processing
+  ///
+  /// Subscribes to the data acquisition provider's data stream and processes
+  /// incoming data points in blocks for FFT computation
   void _setupSubscriptions() {
     _dataPointsSubscription?.cancel();
 
     if (_graphProvider != null) {
-      // Listen to the stream of data points from the data acquisition provider.
+      // Listen to the stream of data points from the data acquisition provider
       _dataPointsSubscription = _graphProvider!.dataPointsStream.listen(
         (points) {
           if (_isProcessing || _isPaused) return;
@@ -92,14 +107,14 @@ class FFTChartService {
           _currentMaxValue = points.map((p) => p.y.abs()).reduce(math.max);
           _dataBuffer.addAll(points);
 
-          // Process data when the buffer is full.
+          // Process data when the buffer is full
           if (_dataBuffer.length >= blockSize) {
             _isProcessing = true;
             final dataToProcess = _dataBuffer.sublist(0, blockSize);
             _dataBuffer.clear();
 
             try {
-              // Compute FFT and add the resulting points to the stream.
+              // Compute FFT and add the resulting points to the stream
               final fftPoints = computeFFT(dataToProcess, _currentMaxValue);
               if (!_isPaused) {
                 _fftController.add(fftPoints);
@@ -118,12 +133,22 @@ class FFTChartService {
     }
   }
 
+  /// Updates the data provider used by this service
+  ///
+  /// [provider] The new data acquisition provider to use
   void updateProvider(DataAcquisitionProvider provider) {
     _graphProvider = provider;
     _setupSubscriptions();
   }
 
-  // Computes the FFT of the given data points.
+  /// Computes the Fast Fourier Transform of the given data points
+  ///
+  /// Converts time-domain data into frequency-domain representation
+  /// using the FFT algorithm
+  ///
+  /// [points] List of time-domain data points to transform
+  /// [maxValue] Maximum amplitude value in the input data for normalization
+  /// Returns list of frequency-domain data points
   List<DataPoint> computeFFT(List<DataPoint> points, double maxValue) {
     try {
       if (points.isEmpty) {
@@ -134,7 +159,7 @@ class FFTChartService {
       final real = Float32List(n);
       final imag = Float32List(n);
 
-      // Prepare real and imaginary components for FFT.
+      // Prepare real and imaginary components for FFT
       for (var i = 0; i < n; i++) {
         final value = points[i].y;
         if (value.isInfinite || value.isNaN) {
@@ -145,13 +170,13 @@ class FFTChartService {
       }
 
       try {
-        // Perform the FFT using the _fft method.
+        // Perform the FFT using the _fft method
         _fft(real, imag);
       } catch (e) {
         throw StateError('FFT computation failed: $e');
       }
 
-      // Normalize the FFT results.
+      // Normalize the FFT results
       for (var i = 0; i < n; i++) {
         if (n == 0) throw StateError('Division by zero in normalization');
         real[i] /= n;
@@ -162,7 +187,7 @@ class FFTChartService {
       final samplingRate = deviceConfig.samplingFrequency;
       final freqResolution = samplingRate / n;
 
-      // Convert the FFT results to DataPoint objects.
+      // Convert the FFT results to DataPoint objects
       _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
         final re = real[i];
         final im = imag[i];
@@ -182,12 +207,23 @@ class FFTChartService {
     }
   }
 
+  /// Converts a magnitude value to decibels
+  ///
+  /// [magnitude] The magnitude value to convert
+  /// [maxValue] Reference value for normalization
+  /// Returns the magnitude expressed in decibels
   static double _toDecibels(double magnitude, double maxValue) {
     if (magnitude == 0.0) return -160.0;
     return 20 * math.log(magnitude) / math.ln10;
   }
 
-  // Implements the FFT algorithm.
+  /// Implements the Fast Fourier Transform algorithm (in-place)
+  ///
+  /// Uses the Cooley-Tukey radix-2 decimation-in-time algorithm
+  /// with bit-reversal permutation
+  ///
+  /// [real] Real part of the input/output (modified in-place)
+  /// [imag] Imaginary part of the input/output (modified in-place)
   void _fft(Float32List real, Float32List imag) {
     final n = real.length;
 
@@ -238,15 +274,24 @@ class FFTChartService {
     }
   }
 
+  /// Pauses FFT processing
+  ///
+  /// Stops processing new data and clears the data buffer
   void pause() {
     _isPaused = true;
     _dataBuffer.clear();
   }
 
+  /// Resumes FFT processing
+  ///
+  /// Allows new data to be processed and output to the FFT stream
   void resume() {
     _isPaused = false;
   }
 
+  /// Releases resources used by the service
+  ///
+  /// Cancels subscriptions, closes streams, and clears buffers
   Future<void> dispose() async {
     _dataPointsSubscription?.cancel();
     await _fftController.close();

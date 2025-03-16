@@ -10,6 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 /// [FFTChart] is a Flutter [StatelessWidget] that displays the FFT chart and its controls.
+///
+/// Presents frequency spectrum data in graphical form with user interaction controls
+/// for adjusting the view and processing parameters.
 class FFTChart extends StatelessWidget {
   const FFTChart({super.key});
 
@@ -31,6 +34,8 @@ class FFTChart extends StatelessWidget {
 }
 
 /// [_ChartArea] is a [StatelessWidget] that defines the chart area.
+///
+/// Creates a container for the FFT chart display with appropriate sizing.
 class _ChartArea extends StatelessWidget {
   late final FFTChartProvider fftChartProvider;
 
@@ -56,6 +61,8 @@ class _ChartArea extends StatelessWidget {
 }
 
 /// [_ChartGestureHandler] handles user gestures such as scaling and panning on the chart.
+///
+/// Processes touch and mouse input to enable interactive zoom and pan operations.
 class _ChartGestureHandler extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final BoxConstraints constraints;
@@ -85,6 +92,13 @@ class _ChartGestureHandler extends StatelessWidget {
   }
 
   /// Handles mouse wheel events for zooming and panning.
+  ///
+  /// Processes scroll wheel input with modifier keys to perform different zoom operations:
+  /// - Ctrl+Scroll: Adjust horizontal (frequency) zoom
+  /// - Shift+Scroll: Adjust vertical (amplitude) zoom
+  /// - Scroll alone: Adjust both axes simultaneously
+  ///
+  /// [event] The pointer signal event containing scroll information
   void _handlePointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (event.kind != PointerDeviceKind.mouse) return;
@@ -108,6 +122,12 @@ class _ChartGestureHandler extends StatelessWidget {
   }
 
   /// Handles scale update events for panning.
+  ///
+  /// Processes touch drag gestures to pan the chart view:
+  /// - Horizontal movements adjust the frequency range displayed
+  /// - Vertical movements adjust the amplitude range displayed
+  ///
+  /// [details] Scale update details from the gesture detector
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     // Pan with one finger: use the horizontal delta to adjust horizontalOffset
     if (details.pointerCount == 1) {
@@ -124,6 +144,8 @@ class _ChartGestureHandler extends StatelessWidget {
 }
 
 /// [_ChartPainter] is a [StatelessWidget] that uses [CustomPaint] to draw the FFT chart.
+///
+/// Observes the FFT data stream and renders the appropriate visualization.
 class _ChartPainter extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -156,6 +178,8 @@ class _ChartPainter extends StatelessWidget {
 }
 
 /// [_PlayPauseButton] is a [StatelessWidget] that provides a play/pause toggle button for the FFT chart.
+///
+/// Toggles between data acquisition and pause states for the FFT analysis.
 class _PlayPauseButton extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -176,6 +200,8 @@ class _PlayPauseButton extends StatelessWidget {
 }
 
 /// [_ControlButton] is a reusable [StatelessWidget] for creating control buttons with tap and long press handling.
+///
+/// Provides consistent button behavior for immediate action on tap and continuous action on long press.
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -205,6 +231,8 @@ class _ControlButton extends StatelessWidget {
 }
 
 /// [_AutosetButton] is a [StatelessWidget] that provides a button to auto-adjust FFT scales based on data.
+///
+/// Automatically configures the display to optimally show the detected frequency components.
 class _AutosetButton extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -239,6 +267,8 @@ class _AutosetButton extends StatelessWidget {
 }
 
 /// [_OffsetControls] is a [StatelessWidget] that provides control buttons for adjusting the chart offset.
+///
+/// Presents navigation controls for panning the chart view in all directions.
 class _OffsetControls extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -278,6 +308,8 @@ class _OffsetControls extends StatelessWidget {
 }
 
 /// [_ControlPanel] is a [StatelessWidget] that groups all the control buttons for the FFT chart.
+///
+/// Provides a horizontal toolbar with all available chart controls in a scrollable container.
 class _ControlPanel extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -313,6 +345,8 @@ class _ControlPanel extends StatelessWidget {
 }
 
 /// [_ScaleButtons] is a [StatelessWidget] that provides scale adjustment buttons specific to the FFT chart.
+///
+/// Presents controls for adjusting both horizontal (frequency) and vertical (amplitude) scales.
 class _ScaleButtons extends StatelessWidget {
   final FFTChartProvider fftChartProvider;
 
@@ -352,6 +386,8 @@ class _ScaleButtons extends StatelessWidget {
 }
 
 /// [FFTChartPainter] is a [CustomPainter] that draws the FFT chart on the canvas.
+///
+/// Renders the frequency spectrum with grid lines, axes labels, and data visualization.
 class FFTChartPainter extends CustomPainter {
   final List<DataPoint> fftPoints;
   final double timeScale;
@@ -359,7 +395,7 @@ class FFTChartPainter extends CustomPainter {
   final double horizontalOffset;
   final double verticalOffset;
   final FFTChartProvider fftChartProvider;
-  final BuildContext context; // Add this line
+  final BuildContext context;
 
   FFTChartPainter({
     required this.fftPoints,
@@ -368,7 +404,7 @@ class FFTChartPainter extends CustomPainter {
     required this.horizontalOffset,
     required this.verticalOffset,
     required this.fftChartProvider,
-    required this.context, // Add this line
+    required this.context,
   });
 
   @override
@@ -426,7 +462,7 @@ class FFTChartPainter extends CustomPainter {
     final visibleEndFreq = visibleStartFreq + (nyquistFreq * timeScale);
     final freqStep = (visibleEndFreq - visibleStartFreq) / xDivisions;
 
-    // Draw vertical lines and labels
+    // Draw vertical grid lines and frequency labels
     for (int i = 0; i <= xDivisions; i++) {
       final freq = visibleStartFreq + (i * freqStep);
       if (freq < 0 || freq > nyquistFreq) continue;
@@ -460,7 +496,7 @@ class FFTChartPainter extends CustomPainter {
       }
     }
 
-    // Draw horizontal lines and labels
+    // Draw horizontal grid lines and amplitude labels
     const yDivisions = 10;
     final yRange = scaledMaxY - scaledMinY;
     for (int i = 0; i <= yDivisions; i++) {
@@ -494,10 +530,11 @@ class FFTChartPainter extends CustomPainter {
     for (final point in fftPoints) {
       if (point.x > nyquistFreq) break;
 
-      // The same mapping is used for the points
+      // Map frequency to x-coordinate in display space
       final xRatio = (point.x - visibleStartFreq) / (nyquistFreq * timeScale);
       final sx = offsetX + (xRatio * chartArea.width);
 
+      // Map amplitude to y-coordinate in display space
       final normalizedY = (point.y - scaledMinY) / (scaledMaxY - scaledMinY);
       final sy = offsetY + chartArea.height * (1 - normalizedY);
 

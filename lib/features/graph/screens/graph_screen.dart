@@ -38,11 +38,11 @@ class GraphScreen extends StatelessWidget {
 
     userSettingsProvider.setMode(graphMode);
 
-    // Ejecutar autoset después de la inicialización según el modo
+    // Run autoset after initialization based on the selected mode
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (graphMode == 'Oscilloscope') {
         final size = Get.size;
-        // Llamar al autoset del OscilloscopeChartProvider
+        // Call autoset on the OscilloscopeChartProvider
         oscilloscopeChartProvider.autoset(size.height, size.width);
       } else if (graphMode == 'Spectrum Analyzer') {
         final size = Get.size;
@@ -93,7 +93,7 @@ class GraphScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: Container(
-                  // Change this line to use the scaffold background color
+                  // Use the scaffold background color for consistent theming
                   color: Theme.of(context).scaffoldBackgroundColor,
                   child: Center(
                     child: Obx(() {

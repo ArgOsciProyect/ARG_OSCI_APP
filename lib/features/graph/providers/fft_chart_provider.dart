@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 
-/// [FFTChartProvider] manages the state and logic for the FFT chart.
+/// [FFTChartProvider] manages the state for the FFT chart.
 class FFTChartProvider extends GetxController {
   final FFTChartService fftChartService;
   final deviceConfig = Get.find<DeviceConfigProvider>();
@@ -56,7 +56,12 @@ class FFTChartProvider extends GetxController {
     _initialValueScale = valueScale.value;
   }
 
-  /// Limitamos "zoom out" a 1.0, permitimos zoom in (< 1.0).
+  /// Sets the time scale (horizontal zoom) for the FFT chart.
+  /// 
+  /// Limits "zoom out" to 1.0 (full view) while allowing "zoom in" (scale < 1.0).
+  /// Adjusts horizontal offset if necessary to keep the view within valid range.
+  /// 
+  /// [scale] New scale factor to apply, where smaller values mean higher zoom
   void setTimeScale(double scale) {
     if (scale > 1.0) {
       if (timeScale.value == 1.0) return;
@@ -69,7 +74,12 @@ class FFTChartProvider extends GetxController {
     }
   }
 
-  /// Si X está en 1.0 y se intenta subir Y => no forzar para mantener proporción
+  /// Sets the value scale (vertical zoom) for the FFT chart.
+  /// 
+  /// If horizontal scale is at maximum (1.0) and attempting to increase
+  /// vertical scale, the operation is ignored to maintain readability.
+  /// 
+  /// [scale] New vertical scale factor, where larger values show more detail
   void setValueScale(double scale) {
     if (timeScale.value == 1.0 && scale > valueScale.value) {
       return;
@@ -79,7 +89,12 @@ class FFTChartProvider extends GetxController {
     }
   }
 
-  /// Zoom simultáneo. Si factor > 1 => clamp a 1
+  /// Applies zoom to both axes simultaneously.
+  /// 
+  /// If the resulting horizontal scale would exceed 1.0, it's clamped
+  /// to the maximum allowed value while preserving aspect ratio.
+  /// 
+  /// [factor] Zoom factor to apply (> 1 zooms out, < 1 zooms in)
   void zoomXY(double factor) {
     final newTS = timeScale.value * factor;
     if (newTS > 1.0) {
@@ -107,10 +122,13 @@ class FFTChartProvider extends GetxController {
     _verticalOffset.value = offset;
   }
 
-  /// Clamps the horizontal offset to ensure it stays within the valid range.
+  /// Ensures the horizontal offset stays within valid range.
+  ///
+  /// Calculates the maximum allowed offset based on current zoom level
+  /// and adjusts the current offset if it exceeds the valid range.
   void _clampHorizontalOffset() {
     final visibleRange = nyquistFreq * timeScale.value;
-    // Si timeScale < 1 => visibleRange < nyquist => podemos desplazar
+    // If timeScale < 1, visible range < nyquist, allowing panning
     final maxOffset = nyquistFreq - visibleRange;
     if (kDebugMode) {
       print("Max offset: $maxOffset");
@@ -120,17 +138,17 @@ class FFTChartProvider extends GetxController {
     final clamped = _horizontalOffset.value.clamp(0.0, maxOffset);
     _horizontalOffset.value = clamped;
   }
-
-  /// Sets the horizontal offset of the chart.
-  void setHorizontalOffset(double freqOffset) {
-    if (freqOffset == 0) {
-      _horizontalOffset.value = 1;
-    } else {
-      _horizontalOffset.value = freqOffset;
-    }
-    _clampHorizontalOffset();
+/// Sets the horizontal offset (panning position) in frequency domain.
+/// 
+/// [freqOffset] New frequency offset value in Hz
+void setHorizontalOffset(double freqOffset) {
+  if (freqOffset == 0) {
+    _horizontalOffset.value = 1;
+  } else {
+    _horizontalOffset.value = freqOffset;
   }
-
+  _clampHorizontalOffset();
+}
   /// Resets both horizontal and vertical offsets to zero.
   void resetOffsets() {
     _horizontalOffset.value = 0.0;
@@ -144,7 +162,14 @@ class FFTChartProvider extends GetxController {
     resetOffsets();
   }
 
-  /// Automatically adjusts the time scale based on the frequency and chart size.
+  /// Automatically adjusts the chart view to optimally display the detected signal.
+  ///
+  /// Calculates and applies the best scale and offset to show approximately 
+  /// ten times the fundamental frequency while centering the view around 
+  /// the primary signal component.
+  ///
+  /// [size] Current chart size
+  /// [freq] The fundamental frequency to focus on
   void autoset(Size size, double freq) {
     // Guard against invalid frequency or size
     if (freq <= 0 || size.width <= 0) {
@@ -152,11 +177,8 @@ class FFTChartProvider extends GetxController {
       return;
     }
 
-    // Skip updating drawing width since it's not used
-    // updateDrawingWidth(size, _offsetX);
-
-    // Calculate optimal scale to show roughly 7 periods
-    final targetFreq = freq * 10; // Show 7x the fundamental frequency
+    // Calculate optimal scale to show roughly 10 times the fundamental frequency
+    final targetFreq = freq * 10;
     final nyquistFreq = samplingFrequency / 2;
 
     // Calculate what portion of nyquist frequency we want to show
@@ -183,12 +205,16 @@ class FFTChartProvider extends GetxController {
         centerOffset.clamp(0.0, nyquistFreq - (nyquistFreq * clampedScale)));
   }
 
-  /// Invertimos increment/decrement para que "increment" haga zoom-in (scale disminuye)
+  /// Increases time scale zoom level (zooms in)
   void incrementTimeScale() => setTimeScale(timeScale.value / 1.02);
+  
+  /// Decreases time scale zoom level (zooms out)
   void decrementTimeScale() => setTimeScale(timeScale.value * 1.02);
 
-  /// Igual para Y
+  /// Increases value scale zoom level (zooms in)
   void incrementValueScale() => setValueScale(valueScale.value / 1.02);
+  
+  /// Decreases value scale zoom level (zooms out)
   void decrementValueScale() => setValueScale(valueScale.value * 1.02);
 
   /// Increments the horizontal offset by a fixed amount.
@@ -207,7 +233,12 @@ class FFTChartProvider extends GetxController {
   void decrementVerticalOffset() =>
       setVerticalOffset(_verticalOffset.value - 0.1);
 
-  /// Mantener presionado un botón para repetir acción
+  /// Starts continuous action when button is held down.
+  ///
+  /// Sets up a periodic timer to continuously call the provided callback
+  /// while a control button is held down.
+  ///
+  /// [callback] Function to call repeatedly
   void startIncrementing(VoidCallback callback) {
     callback();
     _incrementTimer?.cancel();

@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
 /// [DeviceConfigProvider] manages the device configuration parameters.
+///
+/// Provides reactive access to oscilloscope device configuration values and
+/// handles configuration updates throughout the application lifecycle.
 class DeviceConfigProvider extends GetxController {
   final _config = Rx<DeviceConfig?>(DeviceConfig(
     samplingFrequency: 1650000.0,
@@ -57,6 +60,10 @@ class DeviceConfigProvider extends GetxController {
   /// Returns the number of samples to discard from the end
   int get discardTrailer => _config.value?.discardTrailer ?? 0;
 
+  /// Returns the available voltage scales for the current device configuration.
+  ///
+  /// Parses voltage scale definitions from device configuration or
+  /// returns default scales if parsing fails or no configuration is available.
   List<VoltageScale> get voltageScales {
     if (_config.value == null) return VoltageScales.defaultScales;
 
@@ -82,7 +89,9 @@ class DeviceConfigProvider extends GetxController {
   int get midBits => _config.value?.midBits ?? 250;
   int get minBits => _config.value?.minBits ?? 0;
 
-  /// Returns the number of useful bits.
+  /// Returns the number of significant bits in ADC values.
+  ///
+  /// @deprecated Use maxBits and midBits instead for proper voltage calculations.
   @deprecated
   dynamic get usefulBits => _config.value?.usefulBits ?? 12;
 
@@ -92,11 +101,18 @@ class DeviceConfigProvider extends GetxController {
     return (samples);
   }
 
+  /// Registers a callback function to be called when the device configuration changes.
+  ///
+  /// [onChanged] Callback that receives the new device configuration
   void listen(void Function(DeviceConfig?) onChanged) {
     ever(_config, onChanged);
   }
 
-  /// Updates the device configuration.
+  /// Updates the device configuration with new values.
+  ///
+  /// Records the new configuration and logs detailed information in debug mode.
+  ///
+  /// [config] The new device configuration to apply
   void updateConfig(DeviceConfig config) {
     _config.value = config;
     if (kDebugMode) {

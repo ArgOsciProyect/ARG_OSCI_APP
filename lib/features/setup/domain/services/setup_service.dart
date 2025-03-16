@@ -34,6 +34,10 @@ class NetworkInfoService {
   NetworkInfoService() : _httpService = HttpService(HttpConfig(_baseUrl));
 
   /// Sets custom WiFi credentials for ESP32 AP
+  ///
+  /// Updates the SSID and password used to connect to the ESP32 access point
+  /// [ssid] The network name to connect to
+  /// [password] The password for the network
   void setApCredentials(String ssid, String password) {
     _apSsid = ssid;
     _apPassword = password;
@@ -240,11 +244,18 @@ class NetworkInfoService {
   }
 
   /// Gets the current WiFi IP address.
+  ///
+  /// Returns the device's current IP address on the WiFi network,
+  /// or null if it cannot be determined.
   Future<String?> getWifiIP() async {
     return _networkInfo.getWifiIP();
   }
 
   /// Check if device is connected to a specific WiFi network
+  ///
+  /// Compares the current network SSID with the specified SSID
+  /// [ssid] The network name to check against
+  /// Returns true if device is connected to the specified network, false otherwise
   Future<bool> isConnectedToNetwork(String ssid) async {
     String? currentSSID = await getWifiName();
     if (Platform.isAndroid && currentSSID != null) {
@@ -363,11 +374,12 @@ class SetupService implements SetupRepository {
   }
 
   @override
-
   /// Encrypts a message using the device's RSA public key.
   ///
+  /// Uses the previously retrieved public key to encrypt the message using RSA.
+  /// [message] The plain text message to encrypt
+  /// Returns the Base64-encoded encrypted message
   /// Throws an exception if the public key has not been retrieved.
-  /// Returns the Base64-encoded encrypted message.
   String encriptWithPublicKey(String message) {
     if (_publicKey == null) {
       throw Exception('Public key is not set');
@@ -392,12 +404,15 @@ class SetupService implements SetupRepository {
   }
 
   @override
-
   /// Establishes a connection to the device after WiFi network change.
   ///
   /// Tests the connection using an encrypted word challenge to verify
   /// proper communication. Retries up to [maxTestRetries] times.
   /// Initializes HTTP and Socket connections on success.
+  /// 
+  /// [ssid] The SSID of the network to connect to
+  /// [password] The password for the network
+  /// [client] Optional HTTP client to use for connections
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client}) async {
     if (kDebugMode) {
@@ -561,12 +576,13 @@ class SetupService implements SetupRepository {
   }
 
   @override
-
   /// Waits for the device to connect to the specified network.
   ///
   /// Continuously polls the current WiFi connection until it matches
   /// the expected SSID or until timeout (maxAttempts reached).
-  /// Throws TimeoutException if the network change is not detected.
+  /// 
+  /// [ssid] The SSID of the network to wait for
+  /// Throws TimeoutException if the network change is not detected within timeout period.
   Future<void> waitForNetworkChange(String ssid) async {
     const maxAttempts = 60; // 1 minute timeout
     int attempts = 0;

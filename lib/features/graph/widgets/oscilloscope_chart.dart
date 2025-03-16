@@ -1,4 +1,3 @@
-// oscilloscope_chart.dart
 import 'dart:math';
 import 'dart:ui';
 import 'package:arg_osci_app/config/app_theme.dart';
@@ -16,8 +15,8 @@ const double _offsetY = 15;
 const double _offsetX = 50;
 const double _sqrOffsetBot = 15;
 
-/// [OsciloscopeChart] is a Flutter [StatelessWidget] that displays a line chart with zoom, pan, and scale controls.
-/// It uses data from providers to plot real-time data.
+/// [OsciloscopeChart] is a Flutter [StatelessWidget] that displays a time-domain waveform chart with zoom, pan, and scale controls.
+/// It uses data from providers to plot real-time oscilloscope data.
 class OsciloscopeChart extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -63,6 +62,8 @@ class OsciloscopeChart extends StatelessWidget {
 }
 
 /// [_PlayPauseButton] is a [StatelessWidget] that provides a play/pause toggle button for the oscilloscope chart.
+///
+/// Toggles between data acquisition and pause states for the oscilloscope display.
 class _PlayPauseButton extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
 
@@ -83,6 +84,8 @@ class _PlayPauseButton extends StatelessWidget {
 }
 
 /// [_ScaleButtons] is a [StatelessWidget] that provides scale adjustment buttons for time and voltage scales.
+///
+/// Presents controls for adjusting both horizontal (time) and vertical (voltage) scales.
 class _ScaleButtons extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
 
@@ -122,6 +125,8 @@ class _ScaleButtons extends StatelessWidget {
 }
 
 /// [_AutosetButton] is a [StatelessWidget] that provides a button to auto-adjust chart scales based on data.
+///
+/// Automatically configures the display to optimally show the captured waveform with proper scaling.
 class _AutosetButton extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -131,7 +136,6 @@ class _AutosetButton extends StatelessWidget {
     required this.graphProvider,
   });
 
-  @override
   @override
   Widget build(BuildContext context) {
     return IconButton(
@@ -146,6 +150,8 @@ class _AutosetButton extends StatelessWidget {
 }
 
 /// [_ChartArea] is the main chart area that displays the data plot and handles layout constraints.
+///
+/// Creates a container for the oscilloscope display with appropriate sizing and background.
 class _ChartArea extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -179,6 +185,8 @@ class _ChartArea extends StatelessWidget {
 }
 
 /// [_ChartGestureHandler] handles all gesture and pointer interactions for the chart, including zooming and panning.
+///
+/// Processes touch and mouse input to enable interactive zoom and pan operations on the oscilloscope display.
 class _ChartGestureHandler extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -193,6 +201,13 @@ class _ChartGestureHandler extends StatelessWidget {
   });
 
   /// Handles mouse wheel events for zooming.
+  ///
+  /// Processes scroll wheel input with modifier keys to perform different zoom operations:
+  /// - Ctrl+Scroll: Adjust horizontal (time) zoom
+  /// - Shift+Scroll: Adjust vertical (voltage) zoom
+  /// - Scroll alone: Adjust both axes simultaneously
+  ///
+  /// [event] The pointer signal event containing scroll information
   void _handlePointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent) return;
     if (event.kind != PointerDeviceKind.mouse) return;
@@ -225,6 +240,12 @@ class _ChartGestureHandler extends StatelessWidget {
   }
 
   /// Handles scale update events for zooming and panning.
+  ///
+  /// Processes touch gestures to zoom and pan the chart view:
+  /// - Two-finger pinch: Zoom in/out while maintaining focal point
+  /// - One-finger drag: Pan horizontally and vertically
+  ///
+  /// [details] Scale update details from the gesture detector
   void _handleScaleUpdate(ScaleUpdateDetails details) {
     if (details.pointerCount == 2) {
       // Pinch zoom with bounds checking
@@ -270,6 +291,8 @@ class _ChartGestureHandler extends StatelessWidget {
 }
 
 /// [_ChartPainter] handles the painting of the chart using [CustomPaint].
+///
+/// Observes the oscilloscope data stream and renders the appropriate visualization.
 class _ChartPainter extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -311,6 +334,8 @@ class _ChartPainter extends StatelessWidget {
 }
 
 /// [_ControlPanel] is the bottom control panel with all chart controls.
+///
+/// Provides a horizontal toolbar with all available chart controls in a scrollable container.
 class _ControlPanel extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -344,7 +369,9 @@ class _ControlPanel extends StatelessWidget {
   }
 }
 
-/// [_MainControls] contains main control buttons for the line chart, including play/pause, zoom, and autoset.
+/// [_MainControls] contains main control buttons for the oscilloscope chart, including play/pause, zoom, and autoset.
+///
+/// Groups primary control functions for convenient access in the control panel.
 class _MainControls extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
   final DataAcquisitionProvider graphProvider;
@@ -370,6 +397,8 @@ class _MainControls extends StatelessWidget {
 }
 
 /// [_OffsetControls] provides navigation controls for chart offset.
+///
+/// Presents navigation controls for panning the chart view in all directions.
 class _OffsetControls extends StatelessWidget {
   final OscilloscopeChartProvider oscilloscopeChartProvider;
 
@@ -409,6 +438,8 @@ class _OffsetControls extends StatelessWidget {
 }
 
 /// [_ControlButton] is a reusable control button with tap and long press handling.
+///
+/// Provides consistent button behavior for immediate action on tap and continuous action on long press.
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -438,7 +469,9 @@ class _ControlButton extends StatelessWidget {
   }
 }
 
-/// [OscilloscopeChartPainter] is a custom painter for rendering a line chart with grid lines, labels, and data points.
+/// [OscilloscopeChartPainter] is a custom painter for rendering a waveform chart with grid lines, labels, and data points.
+///
+/// Renders the time-domain waveform with grid lines, axes labels, and data visualization.
 class OscilloscopeChartPainter extends CustomPainter {
   final List<DataPoint> dataPoints;
   final double timeScale;
@@ -507,14 +540,20 @@ class OscilloscopeChartPainter extends CustomPainter {
     );
   }
 
-  /// Converts a domain Y value to a screen Y value.
+  /// Converts a domain Y value (voltage) to a screen Y coordinate.
+  ///
+  /// [domainVal] Voltage value to convert
+  /// Returns corresponding Y position on screen in pixels
   double _domainToScreenY(double domainVal) {
     if (domainVal.isNaN || domainVal.isInfinite) return 0.0;
     return _centerY -
         ((domainVal * valueScale + verticalOffset) * _drawingHeight / 2);
   }
 
-  /// Converts a domain X value to a screen X value.
+  /// Converts a domain X value (time) to a screen X coordinate.
+  ///
+  /// [domainVal] Time value to convert
+  /// Returns corresponding X position on screen in pixels
   double _domainToScreenX(double domainVal) {
     if (domainVal.isNaN || domainVal.isInfinite) return _offsetX;
     return (domainVal * timeScale) +
@@ -522,14 +561,20 @@ class OscilloscopeChartPainter extends CustomPainter {
         _offsetX;
   }
 
-  /// Converts a screen X value to a domain X value.
+  /// Converts a screen X coordinate to a domain X value (time).
+  ///
+  /// [screenVal] X position on screen in pixels
+  /// Returns corresponding time value
   double _screenToDomainX(double screenVal) {
     final localX = screenVal - _offsetX;
     return (localX / timeScale) -
         (horizontalOffset * _drawingWidth / timeScale);
   }
 
-  /// Draws the background of the chart.
+  /// Draws the background of the chart including axes areas.
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
   void _drawBackground(Canvas canvas, Size size) {
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, _offsetY),
@@ -545,6 +590,10 @@ class OscilloscopeChartPainter extends CustomPainter {
     );
   }
 
+  /// Draws the Y-axis grid lines and labels (voltage scale).
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
   void _drawYAxisGridAndLabels(Canvas canvas, Size size) {
     const factor = 9;
     final suggestedStep = (1 / valueScale) / factor;
@@ -572,6 +621,12 @@ class OscilloscopeChartPainter extends CustomPainter {
     }
   }
 
+  /// Draws a horizontal grid line and its corresponding voltage label.
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
+  /// [val] Voltage value for this grid line
+  /// [y] Y-coordinate for this grid line
   void _drawHorizontalLineAndLabel(
       Canvas canvas, Size size, double val, double y) {
     canvas.drawLine(Offset(_offsetX, y), Offset(size.width, y), _gridPaint);
@@ -586,7 +641,10 @@ class OscilloscopeChartPainter extends CustomPainter {
     _textPainter.paint(canvas, Offset(5, y - _textPainter.height / 2));
   }
 
-  /// Draws the X-axis grid lines and labels.
+  /// Draws the X-axis grid lines and labels (time scale).
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
   void _drawXAxisGridAndLabels(Canvas canvas, Size size) {
     final xDomainLeft = _screenToDomainX(_offsetX);
     final xDomainRight = _screenToDomainX(size.width);
@@ -620,7 +678,10 @@ class OscilloscopeChartPainter extends CustomPainter {
     }
   }
 
-  /// Draws the zero line on the chart.
+  /// Draws the zero voltage reference line on the chart.
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
   void _drawZeroLine(Canvas canvas, Size size) {
     final zeroY = _domainToScreenY(0.0);
     final clampedZeroY = zeroY.clamp(_offsetY, size.height - _sqrOffsetBot);
@@ -631,7 +692,10 @@ class OscilloscopeChartPainter extends CustomPainter {
     );
   }
 
-  /// Draws the data points on the chart.
+  /// Draws the waveform data points on the chart.
+  ///
+  /// [canvas] Canvas to draw on
+  /// [size] Size of the drawing area
   void _drawDataPoints(Canvas canvas, Size size) {
     if (dataPoints.length <= 1) return;
 
@@ -671,7 +735,12 @@ class OscilloscopeChartPainter extends CustomPainter {
     }
   }
 
-  /// Checks if a line is visible on the chart.
+  /// Checks if a line segment is visible within the chart area.
+  ///
+  /// [p1] First endpoint of the line
+  /// [p2] Second endpoint of the line
+  /// [size] Size of the drawing area
+  /// Returns true if at least part of the line should be visible
   bool _isLineVisible(Offset p1, Offset p2, Size size) {
     if (p1.dy < _offsetY && p2.dy < _offsetY) return false;
     if (p1.dy > size.height - _sqrOffsetBot &&
@@ -684,6 +753,14 @@ class OscilloscopeChartPainter extends CustomPainter {
   }
 
   /// Clips a point to the chart boundaries.
+  ///
+  /// Ensures line segments are properly clipped to the visible chart area
+  /// using the Cohen-Sutherland line clipping algorithm approach.
+  ///
+  /// [point] Point to clip
+  /// [other] The other endpoint of the line segment
+  /// [size] Size of the drawing area
+  /// Returns the clipped point
   Offset _clipPoint(Offset point, Offset other, Size size) {
     if (point.dx.isNaN || point.dy.isNaN || other.dx.isNaN || other.dy.isNaN) {
       return Offset(_offsetX, _centerY);

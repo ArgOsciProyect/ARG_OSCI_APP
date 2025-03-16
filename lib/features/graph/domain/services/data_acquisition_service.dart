@@ -514,7 +514,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     runZonedGuarded(() async {
       Isolate.current.addOnExitListener(exitPort.sendPort);
       Isolate.current
-          .addErrorListener(errorPort.sendPort); // Add error listener
+          .addErrorListener(errorPort.sendPort); 
 
       exitPort.listen((_) async {
         await socketService.close();
@@ -1950,7 +1950,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _socketToProcessingSendPort = value;
   }
 
-  // 6. Corregir el método de prueba para que coincida con los cambios
   @visibleForTesting
   static List<DataPoint> processDataForTest(
     Queue<int> queue,
@@ -1990,7 +1989,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return points;
   }
 
-  // Agregar este método a DataAcquisitionService
   @visibleForTesting
   static (List<DataPoint>, bool) processSingleModeDataForTest(
     Queue<int> queue,
