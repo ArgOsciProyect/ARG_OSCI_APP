@@ -1,0 +1,41 @@
+sequenceDiagram
+    actor User
+    participant Chart
+    participant ChartProvider
+    participant ChartService
+    participant DataAcqProvider
+    participant DataAcqService
+
+    User->>Chart: Click Autoset Button
+    Chart->>ChartProvider: autoset(height, width)
+    
+    ChartProvider->>DataAcqProvider: Get current metrics
+    DataAcqProvider-->>ChartProvider: Return frequency, min/max values
+    
+    alt Oscilloscope Mode
+        ChartProvider->>ChartService: calculateAutosetScales()
+        
+        Note over ChartService: Calculate optimal time scale
+        ChartService->>ChartService: timeScale = 3 periods / chart width
+        
+        Note over ChartService: Calculate vertical scale factor
+        ChartService->>ChartService: Determine signal amplitude range
+        ChartService->>ChartService: valueScale = range / (height * 0.8)
+        
+        ChartService-->>ChartProvider: Return calculated scales
+        
+        ChartProvider->>ChartProvider: setTimeScale(calculatedTimeScale)
+        ChartProvider->>ChartProvider: setValueScale(calculatedValueScale)
+        
+        ChartProvider->>ChartProvider: Center view vertically
+        ChartProvider->>ChartProvider: Reset horizontal offset
+    else FFT Mode
+        ChartProvider->>ChartProvider: Zoom to show 10x fundamental frequency
+        ChartProvider->>ChartProvider: Center on fundamental frequency
+        ChartProvider->>ChartProvider: Reset vertical scale to default
+    end
+    
+    ChartProvider->>DataAcqService: autoset() 
+    DataAcqService->>DataAcqService: Adjust trigger level to signal center
+    
+    ChartProvider-->>Chart: Redraw with optimized settings

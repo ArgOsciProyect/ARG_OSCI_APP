@@ -1,0 +1,102 @@
+sequenceDiagram
+    participant Client as FFTChartService
+    participant DataBuffer
+    participant FFTComputation
+    participant BitReversalPhase
+    participant ButterflyPhase
+    participant MagnitudePhase
+
+    Client->>DataBuffer: Add time-domain points
+    Note over DataBuffer: Buffer fills until reaching blockSize
+
+    alt Buffer has enough points
+        Client->>DataBuffer: Extract blockSize points
+        Client->>FFTComputation: computeFFT(points, maxValue)
+        
+        FFTComputation->>FFTComputation: Create Float32List arrays for real and imaginary parts
+        loop For each input point
+            FFTComputation->>FFTComputation: real[i] = points[i].y
+            FFTComputation->>FFTComputation: imag[i] = 0.0
+            Note over FFTComputation: Input signal has only real component
+        end
+        
+        %% Bit Reversal Phase
+        FFTComputation->>BitReversalPhase: _fft(real, imag) - Begin bit reversal
+        Note over BitReversalPhase: Reorder array elements based on bit-reversed indices
+        
+        BitReversalPhase->>BitReversalPhase: Initialize j = 0
+        loop For each index from 0 to n-2
+            alt if i < j
+                BitReversalPhase->>BitReversalPhase: Swap real[i] with real[j]
+                BitReversalPhase->>BitReversalPhase: Swap imag[i] with imag[j]
+            end
+            BitReversalPhase->>BitReversalPhase: k = n/2
+            loop While k <= j
+                BitReversalPhase->>BitReversalPhase: j = j - k
+                BitReversalPhase->>BitReversalPhase: k = k/2
+            end
+            BitReversalPhase->>BitReversalPhase: j = j + k
+        end
+        
+        %% Butterfly Operations Phase
+        BitReversalPhase->>ButterflyPhase: Proceed with butterfly operations
+        
+        loop For each FFT stage (steps double: 1,2,4,8...)
+            Note over ButterflyPhase: Each stage processes larger groups
+            ButterflyPhase->>ButterflyPhase: angleStep = -π/step
+            
+            loop For each group in current stage
+                Note over ButterflyPhase: Process groups of 2*step elements
+                
+                loop For each pair in current group
+                    Note over ButterflyPhase: Process each butterfly pair
+                    ButterflyPhase->>ButterflyPhase: angle = angleStep * pair
+                    ButterflyPhase->>ButterflyPhase: cosAngle = cos(angle)
+                    ButterflyPhase->>ButterflyPhase: sinAngle = sin(angle)
+                    
+                    ButterflyPhase->>ButterflyPhase: evenIndex = group + pair
+                    ButterflyPhase->>ButterflyPhase: oddIndex = evenIndex + step
+                    
+                    ButterflyPhase->>ButterflyPhase: Store odd values (real[oddIndex], imag[oddIndex])
+                    
+                    %% Calculate rotated values using twiddle factors
+                    ButterflyPhase->>ButterflyPhase: rotatedReal = oddReal*cos - oddImag*sin
+                    ButterflyPhase->>ButterflyPhase: rotatedImag = oddReal*sin + oddImag*cos
+                    
+                    %% Perform butterfly operation
+                    ButterflyPhase->>ButterflyPhase: real[oddIndex] = real[evenIndex] - rotatedReal
+                    ButterflyPhase->>ButterflyPhase: imag[oddIndex] = imag[evenIndex] - rotatedImag
+                    ButterflyPhase->>ButterflyPhase: real[evenIndex] += rotatedReal
+                    ButterflyPhase->>ButterflyPhase: imag[evenIndex] += rotatedImag
+                end
+            end
+        end
+        
+        %% Normalization and Conversion Phase
+        ButterflyPhase->>MagnitudePhase: Normalize and convert to magnitude
+        
+        loop For each FFT result point
+            MagnitudePhase->>MagnitudePhase: real[i] /= n
+            MagnitudePhase->>MagnitudePhase: imag[i] /= n
+        end
+        
+        %% Convert to magnitude and create DataPoints
+        MagnitudePhase->>MagnitudePhase: Calculate halfLength = n/2
+        MagnitudePhase->>MagnitudePhase: freqResolution = samplingRate/n
+        
+        loop For each frequency bin up to Nyquist
+            MagnitudePhase->>MagnitudePhase: magnitude = sqrt(real[i]² + imag[i]²)
+            
+            alt outputInDb is true
+                MagnitudePhase->>MagnitudePhase: db = 20 * log10(magnitude)
+                MagnitudePhase->>MagnitudePhase: Create DataPoint(i*freqResolution, db)
+            else
+                MagnitudePhase->>MagnitudePhase: Create DataPoint(i*freqResolution, magnitude)
+            end
+        end
+        
+        MagnitudePhase->>FFTComputation: Return frequency domain points
+        FFTComputation->>Client: Return FFT result
+        Client->>Client: Store in _lastFFTPoints
+        Client->>Client: Add FFT points to stream controller
+    end

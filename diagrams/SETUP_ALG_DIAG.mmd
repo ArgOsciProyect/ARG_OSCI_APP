@@ -1,0 +1,55 @@
+sequenceDiagram
+    actor User
+    participant SetupScreen
+    participant SetupService
+    participant NetworkInfoService
+    participant ESP32
+    participant HttpService
+
+    User->>SetupScreen: Tap "Start Setup"
+    SetupScreen->>SetupService: connectToLocalAP()
+    SetupService->>NetworkInfoService: connectWithRetries()
+    
+    loop Max 5 retries
+        NetworkInfoService->>ESP32: Connect to ESP32_AP
+        ESP32-->>NetworkInfoService: Connection response
+        NetworkInfoService->>HttpService: testConnection()
+        HttpService->>ESP32: GET /testConnect
+        ESP32-->>HttpService: 200 OK
+        
+        alt Connection successful
+            NetworkInfoService-->>SetupService: Connection established
+        else Connection failed
+            Note over NetworkInfoService: Wait and retry
+        end
+        
+        Note over NetworkInfoService: If successful, exit loop
+    end
+    
+    SetupService-->>SetupScreen: Show mode options
+    User->>SetupScreen: Select "External AP"
+    
+    SetupScreen->>SetupService: scanForWiFiNetworks()
+    SetupService->>ESP32: GET /get_public_key
+    ESP32-->>SetupService: Return RSA public key
+    SetupService->>ESP32: GET /scan_wifi
+    ESP32-->>SetupService: Return available networks
+    
+    SetupService-->>SetupScreen: Display network list
+    User->>SetupScreen: Select network & enter password
+    
+    SetupScreen->>SetupService: connectToWiFi(credentials)
+    SetupService->>SetupService: encriptWithPublicKey(password)
+    SetupService->>ESP32: POST /connect_wifi {encrypted credentials}
+    ESP32-->>SetupService: Return new IP and Port
+
+    SetupService->>NetworkInfoService: waitForNetworkChange(ssid)
+    NetworkInfoService-->>SetupService: Network change confirmed
+    
+    SetupService->>SetupService: handleNetworkChangeAndConnect()
+    SetupService->>HttpService: Update base URL to new IP
+    SetupService->>ESP32: POST /test {encrypted challenge}
+    ESP32-->>SetupService: Return decrypted response
+    
+    SetupService->>SetupService: fetchDeviceConfig()
+    SetupService-->>SetupScreen: Setup complete

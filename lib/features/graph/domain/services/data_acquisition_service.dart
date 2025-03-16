@@ -513,8 +513,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     runZonedGuarded(() async {
       Isolate.current.addOnExitListener(exitPort.sendPort);
-      Isolate.current
-          .addErrorListener(errorPort.sendPort); 
+      Isolate.current.addErrorListener(errorPort.sendPort);
 
       exitPort.listen((_) async {
         await socketService.close();

@@ -11,7 +11,7 @@ import 'dart:async';
 
 /// [OscilloscopeChartProvider] manages the state and logic for the Oscilloscope chart.
 ///
-/// Handles user interactions, zooming, panning, and maintains the state of the 
+/// Handles user interactions, zooming, panning, and maintains the state of the
 /// time-domain waveform display. Coordinates with data acquisition and chart services.
 class OscilloscopeChartProvider extends GetxController {
   final OscilloscopeChartService _oscilloscopeChartService;
@@ -57,7 +57,7 @@ class OscilloscopeChartProvider extends GetxController {
 
   /// Handles zoom gestures, updating scales and offsets while maintaining the focal point.
   ///
-  /// Responds to two-finger zoom gestures with proper scaling calculations and 
+  /// Responds to two-finger zoom gestures with proper scaling calculations and
   /// maintains the focal point position during zoom operations.
   ///
   /// [details] Scale gesture information from the gesture detector
@@ -103,7 +103,7 @@ class OscilloscopeChartProvider extends GetxController {
   }
 
   /// Converts a screen X coordinate to a domain X coordinate.
-  /// 
+  ///
   /// Transforms pixel position to time value accounting for current scale and offset.
   ///
   /// [screenX] X-coordinate in screen/pixel space
@@ -117,7 +117,7 @@ class OscilloscopeChartProvider extends GetxController {
   }
 
   /// Converts a domain X coordinate to a screen X coordinate.
-  /// 
+  ///
   /// Transforms time value to pixel position accounting for current scale and offset.
   ///
   /// [domainX] X-coordinate in time domain
@@ -139,7 +139,7 @@ class OscilloscopeChartProvider extends GetxController {
   }
 
   /// Converts a screen Y coordinate to a domain Y coordinate.
-  /// 
+  ///
   /// Transforms pixel position to voltage value accounting for current scale and offset.
   ///
   /// [screenY] Y-coordinate in screen/pixel space
@@ -153,7 +153,7 @@ class OscilloscopeChartProvider extends GetxController {
   }
 
   /// Converts a domain Y coordinate to a screen Y coordinate.
-  /// 
+  ///
   /// Transforms voltage value to pixel position accounting for current scale and offset.
   ///
   /// [domainY] Y-coordinate in voltage domain
@@ -388,7 +388,7 @@ class OscilloscopeChartProvider extends GetxController {
   }
 
   /// Automatically scales the chart based on the current signal parameters
-  /// 
+  ///
   /// Adjusts time and voltage scales to optimally display the signal with margins.
   /// Centers the signal vertically and resets horizontal panning.
   ///

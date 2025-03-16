@@ -57,10 +57,10 @@ class FFTChartProvider extends GetxController {
   }
 
   /// Sets the time scale (horizontal zoom) for the FFT chart.
-  /// 
+  ///
   /// Limits "zoom out" to 1.0 (full view) while allowing "zoom in" (scale < 1.0).
   /// Adjusts horizontal offset if necessary to keep the view within valid range.
-  /// 
+  ///
   /// [scale] New scale factor to apply, where smaller values mean higher zoom
   void setTimeScale(double scale) {
     if (scale > 1.0) {
@@ -75,10 +75,10 @@ class FFTChartProvider extends GetxController {
   }
 
   /// Sets the value scale (vertical zoom) for the FFT chart.
-  /// 
+  ///
   /// If horizontal scale is at maximum (1.0) and attempting to increase
   /// vertical scale, the operation is ignored to maintain readability.
-  /// 
+  ///
   /// [scale] New vertical scale factor, where larger values show more detail
   void setValueScale(double scale) {
     if (timeScale.value == 1.0 && scale > valueScale.value) {
@@ -90,10 +90,10 @@ class FFTChartProvider extends GetxController {
   }
 
   /// Applies zoom to both axes simultaneously.
-  /// 
+  ///
   /// If the resulting horizontal scale would exceed 1.0, it's clamped
   /// to the maximum allowed value while preserving aspect ratio.
-  /// 
+  ///
   /// [factor] Zoom factor to apply (> 1 zooms out, < 1 zooms in)
   void zoomXY(double factor) {
     final newTS = timeScale.value * factor;
@@ -138,17 +138,19 @@ class FFTChartProvider extends GetxController {
     final clamped = _horizontalOffset.value.clamp(0.0, maxOffset);
     _horizontalOffset.value = clamped;
   }
-/// Sets the horizontal offset (panning position) in frequency domain.
-/// 
-/// [freqOffset] New frequency offset value in Hz
-void setHorizontalOffset(double freqOffset) {
-  if (freqOffset == 0) {
-    _horizontalOffset.value = 1;
-  } else {
-    _horizontalOffset.value = freqOffset;
+
+  /// Sets the horizontal offset (panning position) in frequency domain.
+  ///
+  /// [freqOffset] New frequency offset value in Hz
+  void setHorizontalOffset(double freqOffset) {
+    if (freqOffset == 0) {
+      _horizontalOffset.value = 1;
+    } else {
+      _horizontalOffset.value = freqOffset;
+    }
+    _clampHorizontalOffset();
   }
-  _clampHorizontalOffset();
-}
+
   /// Resets both horizontal and vertical offsets to zero.
   void resetOffsets() {
     _horizontalOffset.value = 0.0;
@@ -164,8 +166,8 @@ void setHorizontalOffset(double freqOffset) {
 
   /// Automatically adjusts the chart view to optimally display the detected signal.
   ///
-  /// Calculates and applies the best scale and offset to show approximately 
-  /// ten times the fundamental frequency while centering the view around 
+  /// Calculates and applies the best scale and offset to show approximately
+  /// ten times the fundamental frequency while centering the view around
   /// the primary signal component.
   ///
   /// [size] Current chart size
@@ -207,13 +209,13 @@ void setHorizontalOffset(double freqOffset) {
 
   /// Increases time scale zoom level (zooms in)
   void incrementTimeScale() => setTimeScale(timeScale.value / 1.02);
-  
+
   /// Decreases time scale zoom level (zooms out)
   void decrementTimeScale() => setTimeScale(timeScale.value * 1.02);
 
   /// Increases value scale zoom level (zooms in)
   void incrementValueScale() => setValueScale(valueScale.value / 1.02);
-  
+
   /// Decreases value scale zoom level (zooms out)
   void decrementValueScale() => setValueScale(valueScale.value * 1.02);
 

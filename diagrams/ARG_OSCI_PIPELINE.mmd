@@ -1,0 +1,105 @@
+---
+config:
+    layout: elk
+    rankdir: LR
+---
+flowchart LR
+    %% Strong connection to enforce pipeline order
+    Acquisition ==> Processing ==> Visualization
+    
+    %% Define the main pipeline stages using subgraphs
+    subgraph Acquisition["Data Acquisition"]
+        direction TB
+        Device([ESP32 Oscilloscope Device]) --> Socket[Socket Isolate]
+        Socket --> Process[Processing Isolate]
+        
+        %% Configuration affecting acquisition
+        DeviceConfig[DeviceConfigProvider] -.->|Sampling frequency\nVoltage scales| Process
+        Filter[Filter Types] -.->|Signal conditioning| Process
+    end
+    
+    subgraph Processing["Signal Processing"]
+        direction TB
+        Process --> DataService[DataAcquisitionService]
+        
+        %% Branch into two processing paths
+        DataService --> OscilloService[OscilloscopeChartService]
+        DataService --> FFTService[FFTChartService]
+        
+        %% Domain-specific processing
+        OscilloService -->|Time-domain analysis| OscilloProvider[OscilloscopeChartProvider]
+        FFTService -->|Frequency-domain analysis| FFTProvider[FFTChartProvider]
+    end
+    
+    subgraph Visualization["Visualization Layer"]
+        direction TB
+        %% GraphScreen layout structure
+        GraphScreen[GraphScreen] --> ChartArea
+        GraphScreen --> UserSettingsWidget[UserSettings Widget]
+        
+        %% Mode management through UserSettingsProvider
+        UserSettingsProvider -->|Mode selection| GraphScreen
+        
+        %% The chart area contains both potential chart components
+        ChartArea -.->|"if mode==Oscilloscope"| OscilloContainer
+        ChartArea -.->|"if mode==Spectrum Analyzer"| FFTContainer
+        
+        %% Each chart container has gesture handlers and chart display
+        subgraph OscilloContainer["OscilloscopeChart"]
+            OscilloGesture[ChartGestureHandler] --> OscilloChart[ChartPainter]
+            OscilloControl[ControlPanel] --> OscilloChart
+        end
+        
+        subgraph FFTContainer["FFTChart"]
+            FFTGesture[ChartGestureHandler] --> FFTChart[ChartPainter]
+            FFTControl[ControlPanel] --> FFTChart
+        end
+        
+        %% Final display - ensure this is always rightmost
+        OscilloChart --> Screen([User Display])
+        FFTChart --> Screen
+    end
+    
+    %% Provider data flow to charts
+    OscilloProvider -.-> OscilloContainer
+    FFTProvider -.-> FFTContainer
+    
+    %% User interaction positioned to avoid disrupting main flow
+    UserInteraction([User Controls]) -.-> UserSettingsWidget
+    UserInteraction -.-> OscilloGesture
+    UserInteraction -.-> FFTGesture
+    UserInteraction -.-> OscilloControl
+    UserInteraction -.-> FFTControl
+    
+    %% Minimal feedback connections to reduce layout interference
+    UserSettingsWidget -..-> DataService
+    UserSettingsWidget -..-> DeviceConfig
+    UserSettingsWidget -..-> UserSettingsProvider
+    
+    %% Style definitions
+    classDef hardware fill:#f96,stroke:#333,stroke-width:2px
+    classDef isolate fill:#bbf,stroke:#333,stroke-width:1px
+    classDef service fill:#bfb,stroke:#333,stroke-width:1px
+    classDef provider fill:#fbf,stroke:#333,stroke-width:1px
+    classDef ui fill:#9ee,stroke:#333,stroke-width:1px
+    classDef config fill:#feb,stroke:#333,stroke-width:1px
+    classDef container fill:#e8f4f8,stroke:#666,stroke-width:1px
+    classDef output fill:#f96,stroke:#333,stroke-width:3px
+    
+    %% Apply classes
+    class Device,UserInteraction hardware
+    class Screen output
+    class Socket,Process isolate
+    class DataService,OscilloService,FFTService service
+    class OscilloProvider,FFTProvider,UserSettingsProvider provider
+    class OscilloChart,FFTChart,OscilloGesture,FFTGesture,OscilloControl,FFTControl,GraphScreen,ChartArea,UserSettingsWidget ui
+    class DeviceConfig,Filter config
+    class OscilloContainer,FFTContainer container
+    
+    %% Style the subgraphs with distinct colors and stronger borders
+    style Acquisition fill:#f5f5f5,stroke:#777,stroke-width:2px
+    style Processing fill:#f0f8ff,stroke:#777,stroke-width:2px
+    style Visualization fill:#f0fff0,stroke:#777,stroke-width:2px,stroke-dasharray:none
+
+    %% Position UserInteraction to avoid disrupting the main flow
+    UserInteraction ~~~ Acquisition

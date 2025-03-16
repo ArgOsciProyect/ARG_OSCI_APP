@@ -374,6 +374,7 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
   /// Encrypts a message using the device's RSA public key.
   ///
   /// Uses the previously retrieved public key to encrypt the message using RSA.
@@ -404,12 +405,13 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
   /// Establishes a connection to the device after WiFi network change.
   ///
   /// Tests the connection using an encrypted word challenge to verify
   /// proper communication. Retries up to [maxTestRetries] times.
   /// Initializes HTTP and Socket connections on success.
-  /// 
+  ///
   /// [ssid] The SSID of the network to connect to
   /// [password] The password for the network
   /// [client] Optional HTTP client to use for connections
@@ -576,11 +578,12 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
   /// Waits for the device to connect to the specified network.
   ///
   /// Continuously polls the current WiFi connection until it matches
   /// the expected SSID or until timeout (maxAttempts reached).
-  /// 
+  ///
   /// [ssid] The SSID of the network to wait for
   /// Throws TimeoutException if the network change is not detected within timeout period.
   Future<void> waitForNetworkChange(String ssid) async {

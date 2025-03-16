@@ -101,7 +101,7 @@ class UserSettings extends StatelessWidget {
 
   /// Builds the trigger settings section.
   ///
-  /// Creates controls for configuring trigger mode, level, edge, 
+  /// Creates controls for configuring trigger mode, level, edge,
   /// and additional options like low-pass filtering and hysteresis.
   Widget _buildTriggerSettings() {
     return Container(

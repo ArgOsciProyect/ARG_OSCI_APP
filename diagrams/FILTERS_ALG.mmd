@@ -1,0 +1,118 @@
+sequenceDiagram
+    participant Provider as DataAcquisitionProvider
+    participant FilterType as FilterType Interface
+    participant MA as MovingAverageFilter
+    participant Exp as ExponentialFilter
+    participant LP as LowPassFilter
+    participant FFHelper as FiltfiltHelper Mixin
+    participant Chart as OscilloscopeChart
+
+    Provider->>Provider: _applyFilter(dataPoints)
+    
+    alt No Filter
+        Provider-->>Chart: Return original points unchanged
+    else Moving Average Filter
+        Provider->>MA: apply(points, {windowSize: N}, doubleFilt: true/false)
+        
+        MA->>MA: Create filter coefficients
+        Note over MA: b = [1/N, 1/N, ..., 1/N] (N elements)
+        Note over MA: a = [1.0, 0.0, 0.0, ...] (N elements)
+        MA->>MA: Extract y values from points
+        
+        alt Zero-Phase enabled (doubleFilt=true)
+            MA->>FFHelper: _filtfilt(b, a, signal)
+            
+            %% Signal extension process
+            FFHelper->>FFHelper: Calculate reflection length (lrefl = 3*(n-1))
+            FFHelper->>FFHelper: Validate signal length > lrefl
+            FFHelper->>FFHelper: Create reflected front section
+            Note over FFHelper: front[i] = 2*signal[0] - signal[lrefl-i]
+            FFHelper->>FFHelper: Create reflected end section
+            Note over FFHelper: back[i] = 2*signal[last] - signal[length-2-i]
+            FFHelper->>FFHelper: Join sections: ext = [front, signal, back]
+            
+            %% Initial state computation
+            FFHelper->>FFHelper: _computeFInitialState(b, a)
+            Note over FFHelper: 1. Normalize and pad coefficients
+            Note over FFHelper: 2. Calculate DC gain (sum(b)/sum(a))
+            Note over FFHelper: 3. Compute difference terms
+            Note over FFHelper: 4. Create cumulative sum in reverse
+            FFHelper->>FFHelper: Scale initial state by first signal value
+            
+            %% Forward filtering
+            FFHelper->>FFHelper: _lfilterWithInit(b, a, ext, initFwd)
+            loop For each sample i
+                FFHelper->>FFHelper: Calculate filtered value y[i]
+                FFHelper->>FFHelper: Update state vector z
+            end
+            
+            %% Reverse and backward filtering
+            FFHelper->>FFHelper: Reverse filtered signal
+            FFHelper->>FFHelper: Scale initial state by new first value
+            FFHelper->>FFHelper: _lfilterWithInit(b, a, reversed, initBwd)
+            loop For each sample i
+                FFHelper->>FFHelper: Calculate filtered value y[i]
+                FFHelper->>FFHelper: Update state vector z
+            end
+            
+            %% Extract result and return
+            FFHelper->>FFHelper: Reverse result again
+            FFHelper->>FFHelper: Extract central section matching original signal
+            FFHelper-->>MA: Return filtered values
+        else Single-pass filter (doubleFilt=false)
+            MA->>FFHelper: _singleFilt(b, a, signal)
+            FFHelper->>FFHelper: _computeFInitialState(b, a)
+            FFHelper->>FFHelper: Scale initial state by first signal value
+            FFHelper->>FFHelper: _lfilterWithInit(b, a, signal, init)
+            Note over FFHelper: Single-direction filtering with initial state
+            FFHelper-->>MA: Return filtered values
+        end
+        
+        MA->>MA: Create new DataPoints preserving x, isTrigger and isInterpolated
+        MA-->>Provider: Return filtered points
+    else Exponential Filter
+        Provider->>Exp: apply(points, {alpha: value}, doubleFilt: true/false)
+        
+        Exp->>Exp: Create filter coefficients
+        Note over Exp: b = [alpha, 0.0, 0.0]
+        Note over Exp: a = [1.0, -(1-alpha), 0.0]
+        Exp->>Exp: Extract y values from points
+        
+        alt Zero-Phase enabled (doubleFilt=true)
+            Exp->>FFHelper: _filtfilt(b, a, signal)
+            Note over FFHelper: Same bidirectional filtering process as above
+            FFHelper-->>Exp: Return filtered values
+        else Single-pass filter (doubleFilt=false)
+            Exp->>FFHelper: _singleFilt(b, a, signal)
+            Note over FFHelper: Single-direction filtering with initial state
+            FFHelper-->>Exp: Return filtered values
+        end
+        
+        Exp->>Exp: Create new DataPoints preserving metadata
+        Exp-->>Provider: Return filtered points
+    else Low Pass Filter
+        Provider->>LP: apply(points, {cutoffFrequency: fc, samplingFrequency: fs}, doubleFilt: true/false)
+        
+        LP->>LP: _designButter(cutoff, fs)
+        Note over LP: 1. Calculate normalized cutoff: wn = fc/(fs/2)
+        Note over LP: 2. Apply bilinear transform: k = tan(π*wn/2)
+        Note over LP: 3. Calculate 2nd-order Butterworth coefficients
+        Note over LP: b = [k²/a₀, 2k²/a₀, k²/a₀]
+        Note over LP: a = [1, 2(k²-1)/a₀, (k²-√2k+1)/a₀]
+        LP->>LP: Extract y values from points
+        
+        alt Zero-Phase enabled (doubleFilt=true)
+            LP->>FFHelper: _filtfilt(butterB, butterA, signal)
+            Note over FFHelper: Same bidirectional filtering process as above
+            FFHelper-->>LP: Return filtered values
+        else Single-pass filter (doubleFilt=false)
+            LP->>FFHelper: _singleFilt(butterB, butterA, signal)
+            Note over FFHelper: Single-direction filtering with initial state
+            FFHelper-->>LP: Return filtered values
+        end
+        
+        LP->>LP: Create new DataPoints preserving metadata
+        LP-->>Provider: Return filtered points
+    end
+    
+    Provider->>Chart: Update display with filtered points

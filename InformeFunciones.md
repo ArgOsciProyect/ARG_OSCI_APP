@@ -1,3 +1,404 @@
+
+# Initializer.dart Documentation
+
+## Overview
+
+`Initializer.dart` serves as the dependency initialization system for the oscilloscope application, providing a centralized mechanism for configuring, instantiating, and registering all service and provider components. This file plays a critical role in establishing the application architecture by implementing a systematic initialization process that ensures proper dependency resolution and service availability throughout the application lifecycle.
+
+## Core Functionality
+
+The `Initializer` class provides a single static method, `init()`, that orchestrates the entire initialization process. This method is called during application startup (from
+
+main.dart
+
+) before the first UI components are rendered, ensuring that all required services and providers are ready when the application begins execution.
+
+## Initialization Architecture
+
+The initialization process follows a carefully structured sequence that respects dependency relationships:
+
+### 1. Flutter Binding Initialization
+
+The process begins by calling `WidgetsFlutterBinding.ensureInitialized()`, which initializes the Flutter engine's bindings. This step is necessary for any Flutter application that performs initialization before calling `runApp()`.
+
+### 2. Configuration Objects Setup
+
+The initializer creates and registers fundamental configuration objects that don't depend on other components:
+
+- `HttpConfig`: Contains base URL configuration for HTTP communication (`http://192.168.4.1:81`)
+- `SocketConnection`: Contains network parameters for WebSocket communication (`192.168.4.1:8080`)
+- `DeviceConfigProvider`: Manages device-specific configuration parameters
+
+These configurations are registered as permanent singletons in the GetX dependency injection system, making them accessible throughout the application.
+
+### 3. Service Layer Initialization
+
+With configuration objects in place, the initializer proceeds to create service layer components:
+
+- `HttpService`: Handles HTTP communication using the `HttpConfig`
+- `DataAcquisitionService`: Manages data acquisition operations using the `HttpConfig`
+- `OscilloscopeChartService`: Processes time-domain signal data
+- `FFTChartService`: Processes frequency-domain signal data
+- `SetupService`: Handles device setup and configuration
+
+The `DataAcquisitionService` undergoes an additional initialization step through its `initialize()` method, which likely sets up internal state or performs initial communication with the hardware.
+
+### 4. Provider Layer Configuration
+
+After services are initialized, provider components that depend on these services are created and registered:
+
+- `UserSettingsProvider`: Manages user preferences and settings
+- `DataAcquisitionProvider`: Coordinates data acquisition operations
+- `OscilloscopeChartProvider`: Manages oscilloscope chart state and operations
+- `FFTChartProvider`: Manages FFT chart state and operations
+- `SetupProvider`: Manages setup workflow state
+
+These providers form the application's state management layer, bridging between services and UI components.
+
+### 5. Cross-Component Integration
+
+The initializer performs essential cross-component integration to establish proper communication channels:
+
+```dart
+oscilloscopeChartService.updateProvider(dataAcquisitionProvider);
+fftChartService.updateProvider(dataAcquisitionProvider);
+```
+
+This step connects the chart services to their data source, enabling them to receive real-time measurement data.
+
+## Dependency Management Approach
+
+The file uses GetX's dependency injection system for managing application dependencies:
+
+### Singleton Registration
+
+Each dependency is registered using `Get.put()` with the `permanent: true` flag for most components, ensuring they remain in memory throughout the application's lifecycle:
+
+```dart
+Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
+```
+
+### Type-Safe Registration
+
+Dependencies are registered with explicit type parameters to enable type-safe resolution later:
+
+```dart
+Get.put<HttpService>(httpService, permanent: true);
+```
+
+### Dependency Access
+
+Dependencies can be accessed later in the application using `Get.find()`:
+
+```dart
+oscilloscopeService: Get.find<OscilloscopeChartService>()
+```
+
+## Error Handling
+
+The initialization process includes comprehensive error handling to prevent application crashes during startup:
+
+```dart
+try {
+  // Initialization code
+} catch (e) {
+  if (kDebugMode) {
+    print('Error during initialization: $e');
+  }
+  rethrow;
+}
+```
+
+This approach provides debugging information in development mode while ensuring that any initialization errors are properly propagated to the calling context.
+
+## Component Dependencies
+
+The initialization sequence reveals the dependency structure of the application:
+
+1. **Base Dependencies**:
+   - `HttpConfig`
+   - `SocketConnection`
+   - `DeviceConfigProvider`
+
+2. **Service Layer**:
+   - `HttpService` ← `HttpConfig`
+   - `DataAcquisitionService` ← `HttpConfig`
+   - `OscilloscopeChartService` ← (initially null, later `DataAcquisitionProvider`)
+   - `FFTChartService` ← (initially null, later `DataAcquisitionProvider`)
+   - `SetupService` ← `SocketConnection`, `HttpConfig`
+
+3. **Provider Layer**:
+   - `UserSettingsProvider` ← `OscilloscopeChartService`, `FFTChartService`
+   - `DataAcquisitionProvider` ← `DataAcquisitionService`, `SocketConnection`
+   - `OscilloscopeChartProvider` ← `OscilloscopeChartService`
+   - `FFTChartProvider` ← `FFTChartService`
+   - `SetupProvider` ← `SetupService`
+
+This hierarchy ensures that each component has access to its required dependencies when initialized.
+
+## Integration with Application Architecture
+
+Within the broader application architecture, `Initializer.dart` serves several critical functions:
+
+1. **Dependency Provision**: Ensures all components can access their dependencies through GetX's injection system
+2. **Configuration Management**: Centralizes configuration values for network communication
+3. **Startup Orchestration**: Establishes the correct initialization order for interdependent components
+4. **Application Lifecycle Management**: Creates permanent instances that persist throughout the application's lifespan
+
+By centralizing these responsibilities, the initializer promotes clean architecture principles by separating configuration concerns from business logic and UI components.
+
+# AppTheme.dart Documentation
+
+## Overview
+
+`AppTheme.dart` implements the visual design system for the oscilloscope application, providing a comprehensive theming solution that supports both light and dark modes. This file centralizes all theme-related configuration, ensuring visual consistency across the application while enabling dynamic theme switching and context-aware styling.
+
+## Core Components
+
+The file defines several key components that collectively establish the application's visual identity:
+
+### 1. Theme Definitions
+
+Two complete `ThemeData` instances are defined:
+
+- `lightTheme`: A bright theme with blue accent colors and predominantly white backgrounds
+- `darkTheme`: A dark theme with blue accents and black backgrounds
+
+Each theme defines a comprehensive set of properties including:
+
+- Color scheme (primary, secondary, and accent colors)
+- Text styles for various typography elements
+- AppBar styling configuration
+- Button styling
+- Icon color definitions
+- Background colors
+
+### 2. Context-Aware Styling Methods
+
+The file provides numerous static methods that return theme-appropriate styling elements based on the current context:
+
+- `getDataPaint`: Returns a paint style for waveform data (yellow in dark mode, blue in light mode)
+- `getZeroPaint`: Returns a paint style for the zero-voltage reference line
+- `getBorderPaint`: Returns a paint style for chart borders
+- `getChartBackgroundPaint`: Returns a paint style for chart backgrounds
+- `getFFTDataPaint`: Returns a paint style for FFT data visualization
+
+These methods examine the current theme context (light or dark) and return appropriately styled visual elements.
+
+### 3. Color Accessors
+
+Simple accessors provide theme-appropriate colors for various UI elements:
+
+- `getAppBarTextColor`: For AppBar text
+- `getChartAreaColor`: For chart container backgrounds
+- `getTextColor`: For general text elements
+- `getIconColor`: For icons
+- `getControlPanelColor`: For control panel backgrounds
+- `getLoadingIndicatorColor`: For progress indicators
+- `getFFTBackgroundColor`: For FFT chart backgrounds
+
+These accessors ensure that individual components can get the correct color for the current theme without duplicating theme-switching logic.
+
+## Implementation Details
+
+### Theme Configuration
+
+Both light and dark themes are configured with consistent properties to ensure appropriate contrast and readability:
+
+#### Light Theme
+
+```dart
+static ThemeData lightTheme = ThemeData(
+  brightness: Brightness.light,
+  primarySwatch: Colors.blue,
+  scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255),
+  // Additional properties...
+)
+```
+
+#### Dark Theme
+
+```dart
+static ThemeData darkTheme = ThemeData(
+  brightness: Brightness.dark,
+  primarySwatch: Colors.blue,
+  scaffoldBackgroundColor: Colors.black,
+  // Additional properties...
+)
+```
+
+Each theme maintains a consistent color identity while adapting contrast levels to ensure readability in different lighting conditions.
+
+### Context-Aware Styling
+
+The context-aware styling methods follow a consistent pattern:
+
+1. Examine the current context to determine if dark mode is active
+2. Return an appropriately configured styling object
+
+For example:
+
+```dart
+static Paint getDataPaint(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return Paint()
+    ..color = isDark ? Colors.yellow : Colors.blue
+    ..strokeWidth = 2;
+}
+```
+
+This approach enables components to adapt their appearance to the current theme without maintaining duplicate styling logic.
+
+### Paint vs. Color Providers
+
+The file implements two categories of styling providers:
+
+1. **Paint Providers**: Return complete `Paint` objects configured with color, stroke width, and style
+2. **Color Providers**: Return simple `Color` objects for direct use
+
+This distinction accommodates different requirements across the UI - complex drawing operations requiring `Paint` objects and simple styling requiring only colors.
+
+## Integration with Application Architecture
+
+Within the application architecture, `AppTheme.dart` serves as a central visual design system that:
+
+1. **Provides Theme Data**: Supplies complete theme configurations to the `GetMaterialApp` in
+
+main.dart
+
+2. **Supports Chart Visualization**: Provides specialized painting styles to the oscilloscope and FFT chart components
+3. **Ensures Consistency**: Centralizes theme definitions to maintain visual coherence throughout the application
+4. **Enables Adaptation**: Allows the application to seamlessly switch between light and dark modes without component changes
+
+By centralizing theme definitions, the file ensures that all components share a consistent visual language while remaining adaptable to different theme configurations.
+
+# Main.dart Documentation
+
+## Overview
+
+main.dart
+
+ serves as the entry point for the oscilloscope application, handling initial setup, configuration, and UI bootstrapping. This file orchestrates the application's startup sequence, including dependency initialization, permission requests, orientation configuration, and theme application.
+
+## Core Functions
+
+The file implements several key functions that establish the application environment:
+
+### 1. Application Entry Point
+
+The `main()` function serves as the primary entry point, orchestrating the startup sequence:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([...]);
+  if (Platform.isAndroid) {
+    await requestPermissions();
+  }
+  await Initializer.init();
+  runApp(MyApp());
+}
+```
+
+This sequence ensures that all necessary configurations and initializations occur before the UI is rendered.
+
+### 2. Permission Management
+
+The `requestPermissions()` function handles requesting necessary runtime permissions on Android devices:
+
+```dart
+Future<void> requestPermissions() async {
+  await [
+    Permission.locationAlways,
+    Permission.nearbyWifiDevices,
+    Permission.location,
+  ].request();
+}
+```
+
+These permissions are essential for WiFi and network functionality used by the application to communicate with oscilloscope hardware.
+
+### 3. Application Root Widget
+
+The `MyApp` class defines the root widget of the application, configuring the GetX navigation system and applying the theming:
+
+```dart
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'ARG_OSCI',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      home: SetupScreen(),
+      getPages: [...],
+    );
+  }
+}
+```
+
+This configuration establishes the application's visual identity and navigation structure.
+
+## Initialization Process
+
+The application startup follows a deliberate sequence:
+
+1. **Flutter Binding Initialization**: `WidgetsFlutterBinding.ensureInitialized()` initializes Flutter engine bindings
+2. **Orientation Lock**: Forces the application into landscape orientation, which is optimal for oscilloscope visualization
+3. **Permission Request**: On Android devices, requests necessary permissions for network and location functionality
+4. **Dependency Initialization**: Calls `Initializer.init()` to set up all application services and providers
+5. **UI Rendering**: Calls `runApp()` with the root `MyApp` widget to begin UI rendering
+
+This sequence ensures that all prerequisites are satisfied before the application UI is displayed.
+
+## Navigation Configuration
+
+The file configures the GetX navigation system with defined routes:
+
+```dart
+getPages: [
+  GetPage(name: '/', page: () => SetupScreen()),
+  GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
+  GetPage(name: '/graph', page: () => GraphScreen(graphMode: 'Oscilloscope')),
+],
+```
+
+These routes define the application's main navigation paths:
+
+1. Root path (`/`): Initial setup screen
+2. Mode selection (`/mode_selection`): Screen for choosing oscilloscope or spectrum analyzer mode
+3. Graph display (`/graph`): The main oscilloscope or spectrum analyzer display
+
+## Theme Application
+
+The file applies the themes defined in `AppTheme.dart`:
+
+```dart
+theme: AppTheme.lightTheme,
+darkTheme: AppTheme.darkTheme,
+themeMode: ThemeMode.light,
+```
+
+The application is configured to use light mode by default, but the dark theme is registered to support theme switching.
+
+## Integration with Application Architecture
+
+Within the application architecture,
+
+main.dart
+
+ serves several critical functions:
+
+1. **Application Bootstrap**: Initializes the application environment and launches the UI
+2. **Configuration Application**: Applies system-wide settings like orientation and theme
+3. **Navigation Setup**: Configures the application's navigation routes
+4. **Permission Management**: Ensures the application has necessary runtime permissions
+5. **Dependency Coordination**: Coordinates with `Initializer.dart` to ensure all dependencies are ready
+
+By centralizing these responsibilities, the file provides a clean and organized entry point that establishes the core execution environment for the oscilloscope application.
+
 # SetupProvider.dart Documentation
 
 ## Overview
@@ -3282,403 +3683,3 @@ The implementation includes several performance optimizations:
 5. **Layout Caching**: Stores calculated layout dimensions for consistent use
 
 These optimizations ensure smooth performance even with high-frequency waveform data or rapid updates.
-
-# Initializer.dart Documentation
-
-## Overview
-
-`Initializer.dart` serves as the dependency initialization system for the oscilloscope application, providing a centralized mechanism for configuring, instantiating, and registering all service and provider components. This file plays a critical role in establishing the application architecture by implementing a systematic initialization process that ensures proper dependency resolution and service availability throughout the application lifecycle.
-
-## Core Functionality
-
-The `Initializer` class provides a single static method, `init()`, that orchestrates the entire initialization process. This method is called during application startup (from
-
-main.dart
-
-) before the first UI components are rendered, ensuring that all required services and providers are ready when the application begins execution.
-
-## Initialization Architecture
-
-The initialization process follows a carefully structured sequence that respects dependency relationships:
-
-### 1. Flutter Binding Initialization
-
-The process begins by calling `WidgetsFlutterBinding.ensureInitialized()`, which initializes the Flutter engine's bindings. This step is necessary for any Flutter application that performs initialization before calling `runApp()`.
-
-### 2. Configuration Objects Setup
-
-The initializer creates and registers fundamental configuration objects that don't depend on other components:
-
-- `HttpConfig`: Contains base URL configuration for HTTP communication (`http://192.168.4.1:81`)
-- `SocketConnection`: Contains network parameters for WebSocket communication (`192.168.4.1:8080`)
-- `DeviceConfigProvider`: Manages device-specific configuration parameters
-
-These configurations are registered as permanent singletons in the GetX dependency injection system, making them accessible throughout the application.
-
-### 3. Service Layer Initialization
-
-With configuration objects in place, the initializer proceeds to create service layer components:
-
-- `HttpService`: Handles HTTP communication using the `HttpConfig`
-- `DataAcquisitionService`: Manages data acquisition operations using the `HttpConfig`
-- `OscilloscopeChartService`: Processes time-domain signal data
-- `FFTChartService`: Processes frequency-domain signal data
-- `SetupService`: Handles device setup and configuration
-
-The `DataAcquisitionService` undergoes an additional initialization step through its `initialize()` method, which likely sets up internal state or performs initial communication with the hardware.
-
-### 4. Provider Layer Configuration
-
-After services are initialized, provider components that depend on these services are created and registered:
-
-- `UserSettingsProvider`: Manages user preferences and settings
-- `DataAcquisitionProvider`: Coordinates data acquisition operations
-- `OscilloscopeChartProvider`: Manages oscilloscope chart state and operations
-- `FFTChartProvider`: Manages FFT chart state and operations
-- `SetupProvider`: Manages setup workflow state
-
-These providers form the application's state management layer, bridging between services and UI components.
-
-### 5. Cross-Component Integration
-
-The initializer performs essential cross-component integration to establish proper communication channels:
-
-```dart
-oscilloscopeChartService.updateProvider(dataAcquisitionProvider);
-fftChartService.updateProvider(dataAcquisitionProvider);
-```
-
-This step connects the chart services to their data source, enabling them to receive real-time measurement data.
-
-## Dependency Management Approach
-
-The file uses GetX's dependency injection system for managing application dependencies:
-
-### Singleton Registration
-
-Each dependency is registered using `Get.put()` with the `permanent: true` flag for most components, ensuring they remain in memory throughout the application's lifecycle:
-
-```dart
-Get.put<DeviceConfigProvider>(deviceConfigProvider, permanent: true);
-```
-
-### Type-Safe Registration
-
-Dependencies are registered with explicit type parameters to enable type-safe resolution later:
-
-```dart
-Get.put<HttpService>(httpService, permanent: true);
-```
-
-### Dependency Access
-
-Dependencies can be accessed later in the application using `Get.find()`:
-
-```dart
-oscilloscopeService: Get.find<OscilloscopeChartService>()
-```
-
-## Error Handling
-
-The initialization process includes comprehensive error handling to prevent application crashes during startup:
-
-```dart
-try {
-  // Initialization code
-} catch (e) {
-  if (kDebugMode) {
-    print('Error during initialization: $e');
-  }
-  rethrow;
-}
-```
-
-This approach provides debugging information in development mode while ensuring that any initialization errors are properly propagated to the calling context.
-
-## Component Dependencies
-
-The initialization sequence reveals the dependency structure of the application:
-
-1. **Base Dependencies**:
-   - `HttpConfig`
-   - `SocketConnection`
-   - `DeviceConfigProvider`
-
-2. **Service Layer**:
-   - `HttpService` ← `HttpConfig`
-   - `DataAcquisitionService` ← `HttpConfig`
-   - `OscilloscopeChartService` ← (initially null, later `DataAcquisitionProvider`)
-   - `FFTChartService` ← (initially null, later `DataAcquisitionProvider`)
-   - `SetupService` ← `SocketConnection`, `HttpConfig`
-
-3. **Provider Layer**:
-   - `UserSettingsProvider` ← `OscilloscopeChartService`, `FFTChartService`
-   - `DataAcquisitionProvider` ← `DataAcquisitionService`, `SocketConnection`
-   - `OscilloscopeChartProvider` ← `OscilloscopeChartService`
-   - `FFTChartProvider` ← `FFTChartService`
-   - `SetupProvider` ← `SetupService`
-
-This hierarchy ensures that each component has access to its required dependencies when initialized.
-
-## Integration with Application Architecture
-
-Within the broader application architecture, `Initializer.dart` serves several critical functions:
-
-1. **Dependency Provision**: Ensures all components can access their dependencies through GetX's injection system
-2. **Configuration Management**: Centralizes configuration values for network communication
-3. **Startup Orchestration**: Establishes the correct initialization order for interdependent components
-4. **Application Lifecycle Management**: Creates permanent instances that persist throughout the application's lifespan
-
-By centralizing these responsibilities, the initializer promotes clean architecture principles by separating configuration concerns from business logic and UI components.
-
-# AppTheme.dart Documentation
-
-## Overview
-
-`AppTheme.dart` implements the visual design system for the oscilloscope application, providing a comprehensive theming solution that supports both light and dark modes. This file centralizes all theme-related configuration, ensuring visual consistency across the application while enabling dynamic theme switching and context-aware styling.
-
-## Core Components
-
-The file defines several key components that collectively establish the application's visual identity:
-
-### 1. Theme Definitions
-
-Two complete `ThemeData` instances are defined:
-
-- `lightTheme`: A bright theme with blue accent colors and predominantly white backgrounds
-- `darkTheme`: A dark theme with blue accents and black backgrounds
-
-Each theme defines a comprehensive set of properties including:
-
-- Color scheme (primary, secondary, and accent colors)
-- Text styles for various typography elements
-- AppBar styling configuration
-- Button styling
-- Icon color definitions
-- Background colors
-
-### 2. Context-Aware Styling Methods
-
-The file provides numerous static methods that return theme-appropriate styling elements based on the current context:
-
-- `getDataPaint`: Returns a paint style for waveform data (yellow in dark mode, blue in light mode)
-- `getZeroPaint`: Returns a paint style for the zero-voltage reference line
-- `getBorderPaint`: Returns a paint style for chart borders
-- `getChartBackgroundPaint`: Returns a paint style for chart backgrounds
-- `getFFTDataPaint`: Returns a paint style for FFT data visualization
-
-These methods examine the current theme context (light or dark) and return appropriately styled visual elements.
-
-### 3. Color Accessors
-
-Simple accessors provide theme-appropriate colors for various UI elements:
-
-- `getAppBarTextColor`: For AppBar text
-- `getChartAreaColor`: For chart container backgrounds
-- `getTextColor`: For general text elements
-- `getIconColor`: For icons
-- `getControlPanelColor`: For control panel backgrounds
-- `getLoadingIndicatorColor`: For progress indicators
-- `getFFTBackgroundColor`: For FFT chart backgrounds
-
-These accessors ensure that individual components can get the correct color for the current theme without duplicating theme-switching logic.
-
-## Implementation Details
-
-### Theme Configuration
-
-Both light and dark themes are configured with consistent properties to ensure appropriate contrast and readability:
-
-#### Light Theme
-
-```dart
-static ThemeData lightTheme = ThemeData(
-  brightness: Brightness.light,
-  primarySwatch: Colors.blue,
-  scaffoldBackgroundColor: const Color.fromARGB(255, 255, 255, 255),
-  // Additional properties...
-)
-```
-
-#### Dark Theme
-
-```dart
-static ThemeData darkTheme = ThemeData(
-  brightness: Brightness.dark,
-  primarySwatch: Colors.blue,
-  scaffoldBackgroundColor: Colors.black,
-  // Additional properties...
-)
-```
-
-Each theme maintains a consistent color identity while adapting contrast levels to ensure readability in different lighting conditions.
-
-### Context-Aware Styling
-
-The context-aware styling methods follow a consistent pattern:
-
-1. Examine the current context to determine if dark mode is active
-2. Return an appropriately configured styling object
-
-For example:
-
-```dart
-static Paint getDataPaint(BuildContext context) {
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return Paint()
-    ..color = isDark ? Colors.yellow : Colors.blue
-    ..strokeWidth = 2;
-}
-```
-
-This approach enables components to adapt their appearance to the current theme without maintaining duplicate styling logic.
-
-### Paint vs. Color Providers
-
-The file implements two categories of styling providers:
-
-1. **Paint Providers**: Return complete `Paint` objects configured with color, stroke width, and style
-2. **Color Providers**: Return simple `Color` objects for direct use
-
-This distinction accommodates different requirements across the UI - complex drawing operations requiring `Paint` objects and simple styling requiring only colors.
-
-## Integration with Application Architecture
-
-Within the application architecture, `AppTheme.dart` serves as a central visual design system that:
-
-1. **Provides Theme Data**: Supplies complete theme configurations to the `GetMaterialApp` in
-
-main.dart
-
-2. **Supports Chart Visualization**: Provides specialized painting styles to the oscilloscope and FFT chart components
-3. **Ensures Consistency**: Centralizes theme definitions to maintain visual coherence throughout the application
-4. **Enables Adaptation**: Allows the application to seamlessly switch between light and dark modes without component changes
-
-By centralizing theme definitions, the file ensures that all components share a consistent visual language while remaining adaptable to different theme configurations.
-
-# Main.dart Documentation
-
-## Overview
-
-main.dart
-
- serves as the entry point for the oscilloscope application, handling initial setup, configuration, and UI bootstrapping. This file orchestrates the application's startup sequence, including dependency initialization, permission requests, orientation configuration, and theme application.
-
-## Core Functions
-
-The file implements several key functions that establish the application environment:
-
-### 1. Application Entry Point
-
-The `main()` function serves as the primary entry point, orchestrating the startup sequence:
-
-```dart
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([...]);
-  if (Platform.isAndroid) {
-    await requestPermissions();
-  }
-  await Initializer.init();
-  runApp(MyApp());
-}
-```
-
-This sequence ensures that all necessary configurations and initializations occur before the UI is rendered.
-
-### 2. Permission Management
-
-The `requestPermissions()` function handles requesting necessary runtime permissions on Android devices:
-
-```dart
-Future<void> requestPermissions() async {
-  await [
-    Permission.locationAlways,
-    Permission.nearbyWifiDevices,
-    Permission.location,
-  ].request();
-}
-```
-
-These permissions are essential for WiFi and network functionality used by the application to communicate with oscilloscope hardware.
-
-### 3. Application Root Widget
-
-The `MyApp` class defines the root widget of the application, configuring the GetX navigation system and applying the theming:
-
-```dart
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'ARG_OSCI',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.light,
-      home: SetupScreen(),
-      getPages: [...],
-    );
-  }
-}
-```
-
-This configuration establishes the application's visual identity and navigation structure.
-
-## Initialization Process
-
-The application startup follows a deliberate sequence:
-
-1. **Flutter Binding Initialization**: `WidgetsFlutterBinding.ensureInitialized()` initializes Flutter engine bindings
-2. **Orientation Lock**: Forces the application into landscape orientation, which is optimal for oscilloscope visualization
-3. **Permission Request**: On Android devices, requests necessary permissions for network and location functionality
-4. **Dependency Initialization**: Calls `Initializer.init()` to set up all application services and providers
-5. **UI Rendering**: Calls `runApp()` with the root `MyApp` widget to begin UI rendering
-
-This sequence ensures that all prerequisites are satisfied before the application UI is displayed.
-
-## Navigation Configuration
-
-The file configures the GetX navigation system with defined routes:
-
-```dart
-getPages: [
-  GetPage(name: '/', page: () => SetupScreen()),
-  GetPage(name: '/mode_selection', page: () => ModeSelectionScreen()),
-  GetPage(name: '/graph', page: () => GraphScreen(graphMode: 'Oscilloscope')),
-],
-```
-
-These routes define the application's main navigation paths:
-
-1. Root path (`/`): Initial setup screen
-2. Mode selection (`/mode_selection`): Screen for choosing oscilloscope or spectrum analyzer mode
-3. Graph display (`/graph`): The main oscilloscope or spectrum analyzer display
-
-## Theme Application
-
-The file applies the themes defined in `AppTheme.dart`:
-
-```dart
-theme: AppTheme.lightTheme,
-darkTheme: AppTheme.darkTheme,
-themeMode: ThemeMode.light,
-```
-
-The application is configured to use light mode by default, but the dark theme is registered to support theme switching.
-
-## Integration with Application Architecture
-
-Within the application architecture,
-
-main.dart
-
- serves several critical functions:
-
-1. **Application Bootstrap**: Initializes the application environment and launches the UI
-2. **Configuration Application**: Applies system-wide settings like orientation and theme
-3. **Navigation Setup**: Configures the application's navigation routes
-4. **Permission Management**: Ensures the application has necessary runtime permissions
-5. **Dependency Coordination**: Coordinates with `Initializer.dart` to ensure all dependencies are ready
-
-By centralizing these responsibilities, the file provides a clean and organized entry point that establishes the core execution environment for the oscilloscope application.

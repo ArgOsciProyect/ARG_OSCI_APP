@@ -15,7 +15,7 @@ import 'package:get/get.dart';
 enum FrequencySource {
   /// Measure frequency from time-domain signal
   timeDomain,
-  
+
   /// Measure frequency from FFT spectrum analysis
   fft
 }

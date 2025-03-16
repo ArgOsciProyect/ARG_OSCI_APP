@@ -1,0 +1,46 @@
+sequenceDiagram
+    actor User
+    participant Chart
+    participant GestureHandler
+    participant ChartProvider
+    participant Painter
+
+    User->>Chart: Perform pinch gesture
+    Chart->>GestureHandler: onScaleUpdate(details)
+    
+    alt Two fingers (Zoom)
+        GestureHandler->>ChartProvider: setInitialScales()
+        GestureHandler->>ChartProvider: handleZoom(details, size, offset)
+        
+        ChartProvider->>ChartProvider: Calculate focal point
+        ChartProvider->>ChartProvider: Convert screen position to domain
+        
+        ChartProvider->>ChartProvider: Calculate new scales
+        ChartProvider->>ChartProvider: Adjust offsets to maintain focal point
+        
+        ChartProvider->>ChartProvider: setTimeScale(newTimeScale)
+        ChartProvider->>ChartProvider: setValueScale(newValueScale)
+    else One finger (Pan)
+        GestureHandler->>ChartProvider: Calculate delta movement
+        
+        ChartProvider->>ChartProvider: Convert screen delta to domain delta
+        ChartProvider->>ChartProvider: setHorizontalOffset(newOffset)
+        ChartProvider->>ChartProvider: setVerticalOffset(newOffset)
+        
+        ChartProvider->>ChartProvider: Clamp offsets to valid range
+    end
+    
+    User->>Chart: Use mouse wheel
+    Chart->>GestureHandler: _handlePointerSignal(event)
+    
+    alt Ctrl + Scroll
+        GestureHandler->>ChartProvider: setTimeScale(timeScale * factor)
+    else Shift + Scroll
+        GestureHandler->>ChartProvider: setValueScale(valueScale * factor)
+    else Normal Scroll
+        GestureHandler->>ChartProvider: setTimeScale(timeScale * factor)
+        GestureHandler->>ChartProvider: setValueScale(valueScale * factor)
+    end
+    
+    ChartProvider->>Painter: Redraw with updated transforms
+    Painter->>User: Display updated view

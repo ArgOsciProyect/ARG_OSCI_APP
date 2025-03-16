@@ -1,0 +1,135 @@
+sequenceDiagram
+    actor User
+    participant Main
+    participant Initializer
+    participant SetupScreen
+    participant SetupService
+    participant NetworkInfoService
+    participant ModeSelectionScreen
+    participant GraphScreen
+    participant UserSettings
+    participant DataAcqProvider
+    participant DataAcqService
+    participant SocketIsolate
+    participant ProcessingIsolate
+    participant OscilloChartProvider
+    participant FFTChartProvider
+    participant OscilloChart
+    participant FFTChart
+    participant ChartPainter
+
+    %% Application Initialization
+    User->>Main: Launch application
+    Main->>Initializer: init()
+    Note over Initializer: Configure system dependencies
+    Initializer->>Initializer: ensureInitialized()
+    Initializer->>Initializer: Register configurations (HttpConfig, SocketConnection)
+    Initializer->>Initializer: Register services (HttpService, DataAcquisitionService)
+    Initializer->>Initializer: Register providers (DeviceConfigProvider, etc.)
+    Initializer-->>Main: Initialization complete
+    Main->>SetupScreen: Navigate to setup screen
+    
+    %% Device Connection Flow
+    SetupScreen->>User: Display connection options
+    User->>SetupScreen: Select connection mode
+    
+    alt External AP Selected
+        SetupScreen->>SetupService: connectToLocalAP()
+        SetupService->>NetworkInfoService: Connect to ESP32 access point
+        NetworkInfoService->>NetworkInfoService: connectWithRetries()
+        NetworkInfoService-->>SetupService: Connection established
+        SetupService->>SetupService: scanForWiFiNetworks()
+        SetupService->>SetupService: Fetch public key from device
+        SetupService-->>SetupScreen: Return available networks
+        SetupScreen->>User: Show WiFi network selection
+        User->>SetupScreen: Select network & enter password
+        SetupScreen->>SetupService: connectToWiFi(credentials)
+        SetupService->>SetupService: encriptWithPublicKey(password)
+        SetupService->>SetupService: Send credentials to device
+        SetupService->>SetupService: waitForNetworkChange(ssid)
+        SetupService->>SetupService: handleNetworkChangeAndConnect()
+        SetupService->>SetupService: Test connection with encrypted challenge
+        SetupService->>SetupService: fetchDeviceConfig()
+        SetupService-->>SetupScreen: Connection successful
+    else Internal AP Selected
+        SetupScreen->>SetupService: selectMode("Internal AP")
+        SetupService->>SetupService: initializeGlobalHttpConfig()
+        SetupService->>SetupService: initializeGlobalSocketConnection()
+        SetupService->>SetupService: fetchDeviceConfig()
+        SetupService-->>SetupScreen: Configuration successful
+    end
+    
+    SetupScreen->>ModeSelectionScreen: Navigate to mode selection
+    
+    %% Mode Selection
+    ModeSelectionScreen->>User: Display oscilloscope modes
+    User->>ModeSelectionScreen: Select mode (Oscilloscope/FFT)
+    ModeSelectionScreen->>GraphScreen: navigateToMode(selectedMode)
+    
+    %% Graph Screen Initialization
+    GraphScreen->>DataAcqProvider: stopAcquisition() (clean start)
+    GraphScreen->>GraphScreen: Initialize controller
+    GraphScreen->>UserSettings: Set mode (Oscilloscope/FFT)
+    
+    %% Start Data Acquisition
+    GraphScreen->>DataAcqProvider: startAcquisition()
+    DataAcqProvider->>DataAcqService: fetchData(ip, port)
+    DataAcqService->>DataAcqService: initialize()
+    
+    %% Create Isolates
+    DataAcqService->>ProcessingIsolate: Create processing isolate
+    ProcessingIsolate-->>DataAcqService: Return SendPort
+    DataAcqService->>SocketIsolate: Create socket isolate
+    SocketIsolate->>SocketIsolate: Connect to device
+    
+    %% Data Processing Workflow
+    loop Data Acquisition
+        SocketIsolate->>SocketIsolate: Receive binary data packet
+        SocketIsolate->>ProcessingIsolate: Send raw data
+        ProcessingIsolate->>ProcessingIsolate: Parse binary data
+        ProcessingIsolate->>ProcessingIsolate: Apply trigger logic
+        ProcessingIsolate->>ProcessingIsolate: Process signal based on config
+        ProcessingIsolate->>DataAcqService: Send processed data points
+        DataAcqService->>DataAcqProvider: Update data streams
+        
+        alt Oscilloscope Mode
+            DataAcqProvider->>OscilloChartProvider: Update time domain data
+            OscilloChartProvider->>OscilloChart: Refresh chart display
+            OscilloChart->>ChartPainter: Draw waveform
+        else FFT Mode
+            DataAcqProvider->>FFTChartProvider: Update frequency domain data
+            FFTChartProvider->>FFTChart: Refresh chart display
+            FFTChart->>ChartPainter: Draw spectrum
+        end
+    end
+    
+    %% User Settings Interaction
+    User->>UserSettings: Change settings (trigger, filter, etc.)
+    UserSettings->>DataAcqProvider: Update configuration
+    DataAcqProvider->>DataAcqService: updateConfig()
+    DataAcqService->>ProcessingIsolate: Send UpdateConfigMessage
+    ProcessingIsolate->>ProcessingIsolate: Apply new configuration
+    
+    %% Chart Interaction
+    User->>OscilloChart: Zoom/Pan gesture
+    OscilloChart->>OscilloChartProvider: handleZoom()/setHorizontalOffset()
+    OscilloChartProvider->>OscilloChart: Update display parameters
+    
+    %% Mode Switching
+    User->>GraphScreen: Request mode change
+    GraphScreen->>UserSettings: setMode(newMode)
+    UserSettings->>DataAcqProvider: Pause current acquisition
+    UserSettings->>GraphScreen: Update chart display
+    GraphScreen->>DataAcqProvider: Resume acquisition with new mode
+    
+    %% Error Handling Flow
+    alt Connection Error
+        SocketIsolate->>DataAcqService: Report connection error
+        DataAcqService->>DataAcqService: _handleConnectionError()
+        DataAcqService->>DataAcqService: Attempt reconnection
+        
+        alt Reconnection Failed
+            DataAcqService->>DataAcqProvider: handleCriticalError()
+            DataAcqProvider->>SetupScreen: Navigate back to setup
+        end
+    end
