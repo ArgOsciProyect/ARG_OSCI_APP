@@ -21,6 +21,7 @@ import 'dart:math';
 import 'package:wifi_iot/wifi_iot.dart';
 
 /// [NetworkInfoService] provides network-related information and connection functionalities.
+/// Handles WiFi connections and maintains information about the current network state.
 class NetworkInfoService {
   final NetworkInfo _networkInfo = NetworkInfo();
   final HttpService _httpService;
@@ -33,12 +34,19 @@ class NetworkInfoService {
   NetworkInfoService() : _httpService = HttpService(HttpConfig(_baseUrl));
 
   /// Sets custom WiFi credentials for ESP32 AP
+  ///
+  /// Updates the SSID and password used to connect to the ESP32 access point
+  /// [ssid] The network name to connect to
+  /// [password] The password for the network
   void setApCredentials(String ssid, String password) {
     _apSsid = ssid;
     _apPassword = password;
   }
 
-  /// Attempts to connect to the ESP32 access point with retries.
+  /// Attempts to connect to the ESP32 access point with multiple retries.
+  ///
+  /// Makes up to [maxRetries] connection attempts with a delay of [retryDelay]
+  /// between attempts. Returns true if connection was successful, false otherwise.
   Future<bool> connectWithRetries() async {
     const maxRetries = 5;
     const retryDelay = Duration(seconds: 1);
@@ -66,7 +74,10 @@ class NetworkInfoService {
     return false;
   }
 
-  /// Tests the connection to the ESP32 by making a GET request with improved error handling.
+  /// Tests the connection to the ESP32 by making a GET request.
+  ///
+  /// Sends a test request to verify the connection is working properly.
+  /// Returns true if connection test succeeds, false otherwise.
   Future<bool> testConnection() async {
     try {
       await _httpService.get('/testConnect', skipNavigation: true).timeout(
@@ -87,7 +98,11 @@ class NetworkInfoService {
     }
   }
 
-  /// Attempts to connect to the ESP32 access point with improved null handling.
+  /// Attempts to connect to the ESP32 access point using multiple strategies.
+  ///
+  /// First tries to connect using WiFiForIoTPlugin, then falls back to traditional
+  /// SSID verification if the first method fails. Returns true if connection
+  /// succeeds, false otherwise.
   Future<bool> connectToESP32() async {
     if (!Platform.isAndroid) return false;
 
@@ -212,7 +227,9 @@ class NetworkInfoService {
     }
   }
 
-  /// Gets the current WiFi network name.
+  /// Gets the current WiFi network name (SSID).
+  ///
+  /// Returns the SSID as a string, or null if it cannot be determined.
   Future<String?> getWifiName() async {
     try {
       final name = await _networkInfo.getWifiName();
@@ -227,11 +244,18 @@ class NetworkInfoService {
   }
 
   /// Gets the current WiFi IP address.
+  ///
+  /// Returns the device's current IP address on the WiFi network,
+  /// or null if it cannot be determined.
   Future<String?> getWifiIP() async {
     return _networkInfo.getWifiIP();
   }
 
   /// Check if device is connected to a specific WiFi network
+  ///
+  /// Compares the current network SSID with the specified SSID
+  /// [ssid] The network name to check against
+  /// Returns true if device is connected to the specified network, false otherwise
   Future<bool> isConnectedToNetwork(String ssid) async {
     String? currentSSID = await getWifiName();
     if (Platform.isAndroid && currentSSID != null) {
@@ -243,6 +267,9 @@ class NetworkInfoService {
 }
 
 /// [SetupService] implements the [SetupRepository] to manage device setup and network configuration.
+///
+/// Handles operations related to device initialization, WiFi network scanning and connection,
+/// and secure communication using RSA encryption.
 class SetupService implements SetupRepository {
   SocketConnection globalSocketConnection;
   HttpConfig globalHttpConfig;
@@ -254,7 +281,10 @@ class SetupService implements SetupRepository {
   late dynamic extPort;
   late dynamic _pubKey;
 
-  /// Generates a random word for testing the connection.
+  /// Generates a random word for secure connection testing.
+  ///
+  /// Creates a 10-character random string using lowercase letters.
+  /// Used to verify encrypted communication with the device.
   String _generateRandomWord() {
     const chars = 'abcdefghijklmnopqrstuvwxyz';
     final random = Random();
@@ -304,10 +334,8 @@ class SetupService implements SetupRepository {
       extPort = response['Port'];
 
       if (kDebugMode) {
-        print("ip recibido: $extIp");
-      }
-      if (kDebugMode) {
-        print("port recibido: $extPort");
+        print("Received IP: $extIp");
+        print("Received port: $extPort");
       }
       return true;
     } on TimeoutException {
@@ -346,6 +374,13 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
+  /// Encrypts a message using the device's RSA public key.
+  ///
+  /// Uses the previously retrieved public key to encrypt the message using RSA.
+  /// [message] The plain text message to encrypt
+  /// Returns the Base64-encoded encrypted message
+  /// Throws an exception if the public key has not been retrieved.
   String encriptWithPublicKey(String message) {
     if (_publicKey == null) {
       throw Exception('Public key is not set');
@@ -370,6 +405,16 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
+  /// Establishes a connection to the device after WiFi network change.
+  ///
+  /// Tests the connection using an encrypted word challenge to verify
+  /// proper communication. Retries up to [maxTestRetries] times.
+  /// Initializes HTTP and Socket connections on success.
+  ///
+  /// [ssid] The SSID of the network to connect to
+  /// [password] The password for the network
+  /// [client] Optional HTTP client to use for connections
   Future<void> handleNetworkChangeAndConnect(String ssid, String password,
       {http.Client? client}) async {
     if (kDebugMode) {
@@ -497,11 +542,6 @@ class SetupService implements SetupRepository {
           continue;
         }
 
-        if (Platform.isIOS) {
-          // On iOS, remove quotes that might be around SSID
-          currentSSID = currentSSID.replaceAll('"', '');
-        }
-
         if (currentSSID.startsWith(targetSsid)) {
           if (kDebugMode) {
             print("Successfully connected to $targetSsid");
@@ -538,6 +578,14 @@ class SetupService implements SetupRepository {
   }
 
   @override
+
+  /// Waits for the device to connect to the specified network.
+  ///
+  /// Continuously polls the current WiFi connection until it matches
+  /// the expected SSID or until timeout (maxAttempts reached).
+  ///
+  /// [ssid] The SSID of the network to wait for
+  /// Throws TimeoutException if the network change is not detected within timeout period.
   Future<void> waitForNetworkChange(String ssid) async {
     const maxAttempts = 60; // 1 minute timeout
     int attempts = 0;
@@ -589,6 +637,9 @@ class SetupService implements SetupRepository {
 }
 
 /// [SetupException] is a custom exception class for setup-related errors.
+///
+/// Used to encapsulate and identify errors that occur specifically during
+/// the device setup process.
 class SetupException implements Exception {
   final String message;
   SetupException(this.message);

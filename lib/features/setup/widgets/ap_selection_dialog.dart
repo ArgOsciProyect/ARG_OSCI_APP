@@ -5,6 +5,9 @@ import 'package:get/get.dart';
 import 'show_wifi_network_dialog.dart';
 
 /// [showAPSelectionDialog] displays a dialog to select the Access Point (AP) mode.
+///
+/// First connects to the ESP32 AP, then allows the user to choose between
+/// using the device's local AP or connecting to an external WiFi network.
 Future<void> showAPSelectionDialog() async {
   final SetupProvider controller = Get.find<SetupProvider>();
 

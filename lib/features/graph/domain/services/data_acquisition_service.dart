@@ -19,6 +19,10 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:arg_osci_app/features/http/domain/models/http_config.dart';
 
+/// Extension to check if a Completer has already completed
+///
+/// Provides a way to check if a Completer's future has already completed
+/// without affecting its completion state
 extension CompleterExtension<T> on Completer<T> {
   bool get isCompleted {
     var completed = false;
@@ -72,6 +76,10 @@ class DataProcessingConfig {
     this.triggerMode = TriggerMode.normal,
   });
 
+  /// Creates a copy of this configuration with optional changes
+  ///
+  /// Returns a new DataProcessingConfig with updated values for any parameters provided,
+  /// or keeps existing values for parameters not specified
   DataProcessingConfig copyWith({
     double? scale,
     double? distance,
@@ -423,6 +431,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     updateConfig();
   }
 
+  /// Increases the sampling frequency of the device
+  ///
+  /// Sends a request to the device to increase its sampling frequency
+  /// and updates the device configuration with the new frequency
+  /// Shows success or error messages in debug mode
   Future<void> increaseSamplingFrequency() async {
     try {
       final response = await httpService.post('/freq', {'action': 'more'});
@@ -451,6 +464,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  /// Decreases the sampling frequency of the device
+  ///
+  /// Sends a request to the device to decrease its sampling frequency
+  /// and updates the device configuration with the new frequency
+  /// Shows success or error messages in debug mode
   Future<void> decreaseSamplingFrequency() async {
     try {
       final response = await httpService.post('/freq', {'action': 'less'});
@@ -495,8 +513,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
 
     runZonedGuarded(() async {
       Isolate.current.addOnExitListener(exitPort.sendPort);
-      Isolate.current
-          .addErrorListener(errorPort.sendPort); // Add error listener
+      Isolate.current.addErrorListener(errorPort.sendPort);
 
       exitPort.listen((_) async {
         await socketService.close();
@@ -596,8 +613,15 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     socketService.subscribe(sendPort.send);
   }
 
-  // New helper function to handle single mode processing
-  /// Processes data in single trigger mode.
+  /// Handles data processing for single trigger mode
+  ///
+  /// Processes data to find a trigger point and returns points when found
+  /// Returns null if no trigger is detected in the available data
+  /// [singleModeQueue] Queue containing data for single mode processing
+  /// [processingChunkSize] Size of each processing chunk
+  /// [config] Configuration for data processing
+  /// [sendPort] Port to send processed data back to main isolate
+  /// Returns the processed points if a trigger is found, null otherwise
   static List<DataPoint>? _handleSingleModeProcessing(
     Queue<int> singleModeQueue,
     int processingChunkSize,
@@ -624,8 +648,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return null;
   }
 
-  // New helper function to handle normal mode processing
-  /// Processes data in normal trigger mode.
+  /// Handles data processing for normal trigger mode
+  ///
+  /// Processes data in chunks and sends processed points to the main isolate
+  /// [queue] The data queue to process
+  /// [processingChunkSize] Size of each processing chunk
+  /// [config] Configuration for data processing
+  /// [sendPort] Port to send processed data back to main isolate
   static void _handleNormalModeProcessing(
     Queue<int> queue,
     int processingChunkSize,
@@ -645,8 +674,13 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  // New helper function to manage queue size
-  /// Manages the size of the data queue.
+  /// Manages data queues to prevent memory growth
+  ///
+  /// Adds new data to the queue and removes oldest data when queue exceeds maximum size
+  /// [queue] Queue to manage
+  /// [newData] New data to add to the queue
+  /// [maxQueueSize] Maximum allowed queue size
+  /// [processingChunkSize] Number of items to remove at once when queue is too large
   static void _manageQueueSize(
     Queue<int> queue,
     List<int> newData,
@@ -767,7 +801,11 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     });
   }
 
-  /// Updates the data processing configuration.
+  /// Updates the data processing configuration based on a message
+  ///
+  /// Takes the current configuration and a message with updated parameters,
+  /// returns a new configuration with updated values
+  /// Logs configuration changes in debug mode
   static DataProcessingConfig _updateConfig(
     DataProcessingConfig currentConfig,
     UpdateConfigMessage message,
@@ -1325,7 +1363,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  /// Sets up the processing isolate to receive data and send it to the main isolate.
+  /// Sets up the processing isolate and establishes communication channels
+  ///
+  /// Creates listeners for the processing isolate communication
+  /// Handles data messages, config updates, and error conditions
+  /// [processingStream] Stream of messages from the processing isolate
+  /// Throws exceptions if communication cannot be established
   Future<void> _setupProcessingIsolate(Stream processingStream) async {
     final completer = Completer<SendPort>();
     bool isSendPortReceived = false;
@@ -1543,7 +1586,10 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
-  /// Waits for a config update to complete
+  /// Waits for a configuration update to complete
+  ///
+  /// Returns a Future that completes when the current configuration update
+  /// has been processed by the isolate, or immediately if no update is pending
   Future<void> waitForConfigUpdate() {
     if (!_pendingConfigUpdate) {
       return Future.value();
@@ -1903,7 +1949,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     _socketToProcessingSendPort = value;
   }
 
-  // 6. Corregir el método de prueba para que coincida con los cambios
   @visibleForTesting
   static List<DataPoint> processDataForTest(
     Queue<int> queue,
@@ -1943,7 +1988,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     return points;
   }
 
-  // Agregar este método a DataAcquisitionService
   @visibleForTesting
   static (List<DataPoint>, bool) processSingleModeDataForTest(
     Queue<int> queue,

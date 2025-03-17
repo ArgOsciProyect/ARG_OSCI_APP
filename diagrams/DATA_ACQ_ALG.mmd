@@ -1,0 +1,46 @@
+sequenceDiagram
+    participant Device
+    participant Socket
+    participant ProcessingIsolate
+    participant DataService
+    participant Provider
+    participant ChartService
+    participant Chart
+
+    loop While acquisition active
+        Device->>Socket: Send binary data packet
+        Socket->>ProcessingIsolate: Forward raw data
+        
+        ProcessingIsolate->>ProcessingIsolate: Parse binary format
+        ProcessingIsolate->>ProcessingIsolate: Apply bit masks
+        ProcessingIsolate->>ProcessingIsolate: Extract values & channels
+        ProcessingIsolate->>ProcessingIsolate: Convert to voltage
+        
+        alt With trigger detection
+            ProcessingIsolate->>ProcessingIsolate: Run trigger detection algorithm
+        end
+        
+        ProcessingIsolate->>DataService: Send processed DataPoints
+        DataService->>DataService: Update metrics (frequency, max value)
+        DataService->>Provider: Update data streams
+        
+        alt Oscilloscope Mode
+            Provider->>ChartService: Forward time-domain data
+            ChartService->>ChartService: Apply active filters
+            
+            alt Filter enabled
+                ChartService->>ChartService: Apply selected filter (MA, Exp, LP)
+                
+                alt Zero-Phase enabled
+                    ChartService->>ChartService: Apply forward-backward filtering
+                end
+            end
+            
+            ChartService->>Chart: Update waveform display
+        else FFT Mode
+            Provider->>ChartService: Forward time-domain data
+            ChartService->>ChartService: Buffer points until blockSize reached
+            ChartService->>ChartService: Perform FFT computation
+            ChartService->>Chart: Update frequency spectrum display
+        end
+    end

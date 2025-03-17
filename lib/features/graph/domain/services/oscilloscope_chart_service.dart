@@ -7,6 +7,9 @@ import 'package:arg_osci_app/features/graph/providers/device_config_provider.dar
 import 'package:get/get.dart';
 
 /// [OscilloscopeChartService] implements the [OscilloscopeChartRepository] to manage the data stream for the oscilloscope chart.
+///
+/// Processes and forwards time-domain data from the acquisition system to the chart display,
+/// while handling trigger conditions and display state.
 class OscilloscopeChartService implements OscilloscopeChartRepository {
   DataAcquisitionProvider? _graphProvider;
   final DeviceConfigProvider deviceConfig = Get.find<DeviceConfigProvider>();
@@ -23,6 +26,9 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
   @override
   bool get isPaused => _isPaused;
 
+  /// Creates a new OscilloscopeChartService with the specified data provider
+  ///
+  /// [provider] The data acquisition provider that supplies time-domain data
   OscilloscopeChartService(DataAcquisitionProvider? provider) {
     _graphProvider = provider;
     if (provider != null) {
@@ -31,20 +37,23 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
   }
 
   /// Sets up the data stream subscription to receive data points from the [DataAcquisitionProvider].
+  ///
+  /// Configures the subscription to handle different trigger modes and manages
+  /// the flow of data points to the chart display.
   void _setupSubscriptions() {
     _dataSubscription?.cancel();
 
     if (_graphProvider != null) {
       _dataSubscription = _graphProvider!.dataPointsStream.listen((points) {
-        // Verificar primero si hay trigger en modo single
+        // Check first if there's a trigger in single mode
         if (_graphProvider?.triggerMode.value == TriggerMode.single &&
             points.any((p) => p.isTrigger)) {
-          _dataController.add(points); // Emitir los puntos con el trigger
-          pause(); // Pausar después de emitir
-          return; // Salir para evitar más emisiones
+          _dataController.add(points); // Emit points with the trigger
+          pause(); // Pause after emitting
+          return; // Exit to prevent further emissions
         }
 
-        // Para modo normal o sin trigger
+        // For normal mode or without trigger
         if (!_isPaused) {
           _dataController.add(points);
         }
@@ -53,6 +62,16 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
   }
 
   /// Calculates optimal chart scaling values based on signal parameters
+  ///
+  /// Determines appropriate time and voltage scales to display the signal
+  /// with proper margins and visibility.
+  ///
+  /// [chartWidth] Width of the chart area in pixels
+  /// [frequency] Detected frequency of the signal in Hz
+  /// [maxValue] Maximum voltage value in the signal
+  /// [minValue] Minimum voltage value in the signal
+  /// [marginFactor] Optional multiplier to add margins around the signal (default: 1.15)
+  /// Returns a map with timeScale, valueScale, and verticalCenter values
   @override
   Map<String, double> calculateAutosetScales(
       double chartWidth, double frequency, double maxValue, double minValue,
@@ -106,29 +125,41 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
     };
   }
 
+  /// Resumes data flow and prepares for a new trigger event
+  ///
+  /// Used in single trigger mode to reactivate data acquisition
+  /// while waiting for the next trigger condition.
   @override
   void resumeAndWaitForTrigger() {
     _isPaused = false;
-    // No limpiamos los datos aquí - dejemos que el provider lo haga
+    // We don't clear data here - let the provider handle it
     _setupSubscriptions();
   }
 
+  /// Pauses the data flow from acquisition system to chart
   @override
   void pause() {
     _isPaused = true;
   }
 
+  /// Resumes the data flow from acquisition system to chart
   @override
   void resume() {
     _isPaused = false;
   }
 
+  /// Updates the data provider used by this service
+  ///
+  /// [provider] The new data acquisition provider to use
   @override
   void updateProvider(DataAcquisitionProvider provider) {
     _graphProvider = provider;
     _setupSubscriptions();
   }
 
+  /// Releases resources used by the service
+  ///
+  /// Cancels subscriptions and closes stream controllers
   @override
   Future<void> dispose() async {
     await _dataSubscription?.cancel();

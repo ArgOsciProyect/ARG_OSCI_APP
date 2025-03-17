@@ -1,5 +1,10 @@
 // ignore_for_file: provide_deprecation_message, deprecated_member_use_from_same_package
 
+/// Configuration for oscilloscope device hardware capabilities
+///
+/// Defines parameters for data acquisition including sampling frequency,
+/// bit configuration, packet structure, and available voltage scales.
+/// This class maps raw hardware parameters to meaningful application settings.
 class DeviceConfig {
   /// Private base sampling frequency in Hz
   final double _baseSamplingFrequency;
@@ -88,6 +93,13 @@ class DeviceConfig {
               {'baseRange': 0.2, 'displayName': '100mV, -100mV'},
             ];
 
+  /// Creates a DeviceConfig from a JSON map
+  ///
+  /// Parses the standard device configuration format from JSON,
+  /// including optional voltage scales if provided.
+  ///
+  /// [json] Map containing device configuration parameters
+  /// Throws FormatException if JSON format is invalid
   factory DeviceConfig.fromJson(Map<String, dynamic> json) {
     try {
       // Parse voltage scales if available
@@ -127,6 +139,9 @@ class DeviceConfig {
     }
   }
 
+  /// Converts this configuration to a JSON-compatible map
+  ///
+  /// Returns a map that can be serialized to JSON for storage or transmission
   Map<String, dynamic> toJson() => {
         'sampling_frequency': _baseSamplingFrequency,
         'bits_per_packet': bitsPerPacket,
@@ -142,6 +157,12 @@ class DeviceConfig {
         'voltage_scales': voltageScales,
       };
 
+  /// Creates a copy of this config with updated values for specified parameters
+  ///
+  /// Returns a new DeviceConfig with the same values as this instance,
+  /// except for the values explicitly specified in the parameters.
+  ///
+  /// Used for updating device configuration without modifying the original.
   DeviceConfig copyWith({
     double? samplingFrequency,
     int? bitsPerPacket,

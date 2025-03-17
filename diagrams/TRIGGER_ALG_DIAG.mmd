@@ -1,0 +1,118 @@
+sequenceDiagram
+    participant Queue as Raw Data Queue
+    participant Processor as ProcessingIsolate
+    participant TriggerAlgo as Trigger Detection Algorithm
+    participant Validator as Trigger Validator
+    participant Interpolator as Trigger Point Interpolator
+    participant DataService
+    
+    Queue->>Processor: Provide raw binary data packet
+    
+    %% Data extraction phase
+    Processor->>Processor: Extract data points from queue using _readDataFromQueue()
+    Processor->>Processor: Apply bit masks to separate data and channel
+    Processor->>Processor: Convert to voltage using scale factor
+    Processor->>Processor: Calculate max/min values of signal
+    
+    %% Prepare for trigger detection
+    Processor->>Processor: Calculate trigger sensitivity based on signal amplitude
+    Note over Processor: sensitivity = (maxValue - minValue) * 0.25
+    
+    %% Apply filter if needed
+    alt useLowPassFilter = true
+        Processor->>Processor: Apply low-pass filter to signal for trigger detection
+        Note over Processor: Creates filtered signal for stable triggering
+    else useLowPassFilter = false
+        Processor->>Processor: Use unfiltered signal values for trigger detection
+    end
+    
+    %% Main detection loop
+    loop For each adjacent point pair
+        Processor->>TriggerAlgo: Check for trigger condition
+        
+        %% First check for exact trigger level match
+        TriggerAlgo->>TriggerAlgo: Check if either point exactly matches trigger level
+        
+        alt No exact match
+            %% Check for level crossing
+            alt Trigger edge = Positive
+                TriggerAlgo->>TriggerAlgo: Check if prevY < triggerLevel && currentY >= triggerLevel
+                Note over TriggerAlgo: Rising edge detection
+            else Trigger edge = Negative
+                TriggerAlgo->>TriggerAlgo: Check if prevY > triggerLevel && currentY <= triggerLevel
+                Note over TriggerAlgo: Falling edge detection
+            end
+        end
+        
+        alt Potential trigger detected && not waitingForNextTrigger
+            %% Apply hysteresis if enabled
+            alt useHysteresis = true && not exact match
+                TriggerAlgo->>Validator: Verify trigger with hysteresis
+                Validator->>Validator: Calculate window size (up to 5 points)
+                Validator->>Validator: _calculateTrend() on signal segment
+                Note over Validator: Computes linear regression slope
+                
+                alt Trigger edge = Positive
+                    Validator->>TriggerAlgo: Valid if trend > 0 (actually rising)
+                else Trigger edge = Negative
+                    Validator->>TriggerAlgo: Valid if trend < 0 (actually falling)
+                end
+            else Simple validation
+                TriggerAlgo->>TriggerAlgo: Accept trigger candidate as valid
+            end
+            
+            %% Process valid trigger
+            alt Trigger is valid
+                TriggerAlgo->>TriggerAlgo: Create trigger marker
+                
+                alt Exact match at trigger level
+                    TriggerAlgo->>TriggerAlgo: Mark existing point as trigger
+                else Need interpolation
+                    TriggerAlgo->>Interpolator: Calculate precise trigger crossing
+                    Interpolator->>Interpolator: Calculate ratio using: (triggerLevel - y1) / (y2 - y1)
+                    Interpolator->>Interpolator: Find x at crossing: x1 + ratio * (x2 - x1)
+                    Interpolator->>TriggerAlgo: Return interpolated DataPoint with isTrigger=true
+                    TriggerAlgo->>TriggerAlgo: Replace point with interpolated trigger point
+                end
+                
+                alt First trigger found
+                    TriggerAlgo->>TriggerAlgo: Record firstTriggerX for alignment
+                    TriggerAlgo->>TriggerAlgo: Set foundFirstTrigger = true
+                end
+                
+                alt triggerMode = normal
+                    TriggerAlgo->>TriggerAlgo: Set waitingForNextTrigger = true
+                    Note over TriggerAlgo: Prevents multiple triggers until signal returns
+                else triggerMode = single
+                    TriggerAlgo->>TriggerAlgo: Keep waitingForNextTrigger = false
+                    Note over TriggerAlgo: Will capture only one triggered waveform
+                end
+            end
+        end
+        
+        %% Reset waiting state when signal moves away from trigger zone
+        alt waitingForNextTrigger = true && triggerMode = normal
+            alt triggerEdge = positive
+                TriggerAlgo->>TriggerAlgo: If currentY < (triggerLevel - sensitivity), reset waiting
+                Note over TriggerAlgo: Ensures signal must fall below threshold before next trigger
+            else triggerEdge = negative
+                TriggerAlgo->>TriggerAlgo: If currentY > (triggerLevel + sensitivity), reset waiting
+                Note over TriggerAlgo: Ensures signal must rise above threshold before next trigger
+            end
+        end
+    end
+    
+    %% Final alignment and output
+    alt foundFirstTrigger = true
+        TriggerAlgo->>Processor: Align all points to first trigger (x - firstTriggerX)
+        Note over Processor: Makes trigger point appear at x=0
+    end
+    
+    %% Return results
+    Processor->>DataService: Return processed points with trigger markers
+    
+    alt triggerMode = single && trigger found
+        Processor->>DataService: Send pause message
+        DataService->>DataService: Set pause = true
+        Note over DataService: Freezes acquisition after capturing single triggered waveform
+    end

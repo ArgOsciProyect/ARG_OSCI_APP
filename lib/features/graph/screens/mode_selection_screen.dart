@@ -35,9 +35,12 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
     super.dispose();
   }
 
-  // Función para manejar la navegación de regreso a Setup
+  /// Handles navigation back to the Setup screen
+  ///
+  /// Resets relevant state before navigating and ensures proper cleanup
+  /// to prevent issues when returning to the setup process.
   void _navigateBackToSetup() async {
-    // Limpia el estado relevante antes de navegar
+    // Clear relevant state before navigating
     try {
       final setupProvider = Get.find<SetupProvider>();
       final dataProvider = Get.find<DataAcquisitionProvider>();
@@ -45,11 +48,11 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
       setupProvider.reset();
     } catch (e) {
       if (kDebugMode) {
-        print('Error al resetear estado: $e');
+        print('Error resetting state: $e');
       }
     }
 
-    // Navegación explícita
+    // Explicit navigation
     Get.offAll(() => const SetupScreen());
   }
 
@@ -63,7 +66,7 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _navigateBackToSetup, // Usa la función de navegación aquí
+          onPressed: _navigateBackToSetup, // Use navigation function here
         ),
       ),
       body: SafeArea(
@@ -103,8 +106,8 @@ class _ModeSelectionScreenState extends State<ModeSelectionScreen>
                           ),
                         ),
                       )),
-                  // Botón de retorno eliminado, ahora está en la AppBar
-                  const SizedBox(height: 16), // Mantener espacio inferior
+                  // Back button removed, now in AppBar
+                  const SizedBox(height: 16), // Maintain bottom spacing
                 ],
               ),
             ),

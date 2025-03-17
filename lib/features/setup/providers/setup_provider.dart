@@ -4,16 +4,24 @@ import 'package:arg_osci_app/features/setup/domain/services/setup_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
-/// [SetupProvider] manages the state and logic for the setup process.
+/// [SetupProvider] manages the state and logic for the device setup process.
+///
+/// It orchestrates the connection to access points, WiFi network scanning,
+/// and error handling while updating the UI state accordingly.
 class SetupProvider extends GetxController {
   final SetupService setupService;
   final _state = SetupState().obs;
 
+  /// Maximum number of connection retry attempts.
   static const maxRetries = 2;
 
+  /// Returns the current setup state.
   SetupState get state => _state.value;
+
+  /// Returns the list of available WiFi networks.
   List<String> get availableNetworks => state.networks;
 
+  /// Creates a [SetupProvider] with the given [setupService].
   SetupProvider(this.setupService);
 
   /// Updates the setup state using a function.
@@ -53,7 +61,12 @@ class SetupProvider extends GetxController {
     }
   }
 
-  /// Connects to an external access point.
+  /// Connects to an external access point with the provided credentials.
+  ///
+  /// Encrypts the [ssid] and [password] using the device's public key,
+  /// then attempts to connect the ESP32 to the specified WiFi network.
+  /// Makes up to [maxRetries] attempts before failing.
+  /// Updates state throughout the connection process.
   Future<void> connectToExternalAP(String ssid, String password) async {
     int attempts = 0;
     if (kDebugMode) {
@@ -118,11 +131,19 @@ class SetupProvider extends GetxController {
   }
 
   /// Waits for the network to change to the specified SSID.
+  ///
+  /// Delegates to the setup service to monitor network changes
+  /// until the device connects to the specified [ssid].
   Future<void> waitForNetworkChange(String ssid) async {
     await setupService.waitForNetworkChange(ssid);
   }
 
   /// Handles the network change and connects to the new network.
+  ///
+  /// After the ESP32 connects to the specified WiFi network,
+  /// this method establishes a connection to the device using
+  /// the new network parameters. Uses [ssid] and [password]
+  /// to validate the connection.
   Future<void> handleNetworkChangeAndConnect(
       String ssid, String password) async {
     await setupService.handleNetworkChangeAndConnect(ssid, password);

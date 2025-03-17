@@ -31,6 +31,9 @@ class UserSettings extends StatelessWidget {
   });
 
   /// Builds the voltage scale selector dropdown.
+  ///
+  /// Creates a dropdown menu to select from available voltage scales
+  /// and updates the data acquisition provider when changed.
   Widget _buildScaleSelector() {
     final deviceConfig = Get.find<DeviceConfigProvider>();
 
@@ -97,6 +100,9 @@ class UserSettings extends StatelessWidget {
   }
 
   /// Builds the trigger settings section.
+  ///
+  /// Creates controls for configuring trigger mode, level, edge,
+  /// and additional options like low-pass filtering and hysteresis.
   Widget _buildTriggerSettings() {
     return Container(
       width: double.infinity,
@@ -216,6 +222,9 @@ class UserSettings extends StatelessWidget {
   }
 
   /// Builds the filter settings section.
+  ///
+  /// Creates controls for selecting and configuring signal processing filters
+  /// with filter-specific parameter inputs that appear conditionally.
   Widget _buildFilterSettings() {
     return Container(
       width: double.infinity,
@@ -372,6 +381,9 @@ class UserSettings extends StatelessWidget {
   }
 
   /// Builds the information section to display frequency source and value.
+  ///
+  /// Creates controls for selecting the frequency measurement source
+  /// and displays the current measured frequency value.
   Widget _buildInformationSection() {
     final userSettings = Get.find<UserSettingsProvider>();
 
@@ -424,7 +436,10 @@ class UserSettings extends StatelessWidget {
     );
   }
 
-  /// Builds the sampling frequency section
+  /// Builds the sampling frequency section.
+  ///
+  /// Creates controls for adjusting the device's sampling frequency
+  /// and displays the current sampling rate.
   Widget _buildSamplingFrequencySection() {
     return Container(
       width: double.infinity,
@@ -509,7 +524,7 @@ class UserSettings extends StatelessWidget {
           _buildTriggerSettings(),
           _buildInformationSection(),
           _buildFilterSettings(),
-          _buildSamplingFrequencySection(), // Add the new section
+          _buildSamplingFrequencySection(),
         ],
       ),
     );

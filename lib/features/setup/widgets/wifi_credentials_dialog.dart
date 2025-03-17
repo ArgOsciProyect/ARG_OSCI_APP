@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 
+/// [WiFiCredentialsDialog] displays a form for entering ESP32 WiFi credentials.
+///
+/// Shows different UI based on platform - Android users can input SSID and password,
+/// while other platforms only input SSID and are instructed to connect manually.
 class WiFiCredentialsDialog extends StatefulWidget {
   const WiFiCredentialsDialog({super.key});
 

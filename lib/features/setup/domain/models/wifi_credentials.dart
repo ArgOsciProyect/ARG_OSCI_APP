@@ -1,4 +1,4 @@
-/// Model representing WiFi network credentials
+/// Model representing WiFi network credentials with encrypted SSID and password
 class WiFiCredentials {
   /// Network SSID (name)
   final String ssid;
@@ -15,6 +15,7 @@ class WiFiCredentials {
   /// Creates WiFi credentials from JSON map
   ///
   /// [json] Map containing 'SSID' and 'Password' keys
+  /// Throws [FormatException] if required fields are missing
   /// Returns parsed WiFiCredentials instance
   factory WiFiCredentials.fromJson(Map<String, dynamic> json) {
     if (!json.containsKey('SSID') || !json.containsKey('Password')) {
