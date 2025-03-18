@@ -11,7 +11,8 @@ permissions:
 jobs:
   build-linux:
     name: 🐧 Build Linux App
-    runs-on: ubuntu-latest
+    # Usar una versión específica y más antigua de Ubuntu para mayor compatibilidad
+    runs-on: ubuntu-20.04
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v3
@@ -49,7 +50,8 @@ jobs:
   appimage-package:
     name: 📦 Build AppImage Package
     needs: build-linux
-    runs-on: ubuntu-latest
+    # Usar la misma versión de Ubuntu más antigua
+    runs-on: ubuntu-20.04
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v3
@@ -120,25 +122,17 @@ jobs:
           echo "Using version: $APP_VERSION"
 
           # Create AppDir structure
-          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps},lib/x86_64-linux-gnu}
+          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
 
-          # Copy application files
+          # Copy application files - don't copy system libraries to AppDir/usr/lib/x86_64-linux-gnu
           cp -r app-contents/* AppDir/usr/lib/$APP_NAME/
 
           # Show executable files for debugging
           echo "Executable files found in app directory:"
           find AppDir/usr/lib/$APP_NAME -type f -executable
           
-          # Copy required shared libraries for compatibility
-          echo "Copying shared libraries for compatibility..."
-          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgtk-3.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgdk-3.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libpango-1.0.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libcairo.so* AppDir/usr/lib/x86_64-linux-gnu/
-          cp -L /usr/lib/x86_64-linux-gnu/libfontconfig.so* AppDir/usr/lib/x86_64-linux-gnu/
+          # Don't copy external libraries, use system libraries instead
+          # for better compatibility with older systems
           
           # Use EXEC_NAME environment variable we set earlier
           echo "Using executable: ${{ env.EXEC_NAME }}"
@@ -146,15 +140,6 @@ jobs:
           # Create launcher script with improved error handling
           cat > AppDir/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          # Debug info to help troubleshoot
-          echo "Starting launcher script in \$(pwd)"
-          echo "Looking for executable at /usr/lib/$APP_NAME/${{ env.EXEC_NAME }}"
-          ls -la /usr/lib/$APP_NAME/
-
-          # List all available executables for debug
-          echo "All executables in directory:"
-          find /usr/lib/$APP_NAME -type f -executable
-
           # Execute with error handling
           if [ -f "/usr/lib/$APP_NAME/${{ env.EXEC_NAME }}" ]; then
             exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
@@ -193,15 +178,11 @@ jobs:
           cp AppDir/$APP_NAME.desktop AppDir/usr/share/applications/
           
           # Create AppRun file (entry point) with improved library path handling
+          # Use system libraries instead of bundled ones for compatibility
           cat > AppDir/AppRun << EOF
           #!/bin/bash
           APPDIR="\$(dirname "\$(readlink -f "\${0}")")"
           export PATH="\${APPDIR}/usr/bin:\${PATH}"
-          export LD_LIBRARY_PATH="\${APPDIR}/usr/lib:\${APPDIR}/usr/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH}"
-          
-          # Print debug info
-          echo "Running from: \${APPDIR}"
-          echo "LD_LIBRARY_PATH: \${LD_LIBRARY_PATH}"
           
           # Execute
           exec "\${APPDIR}/usr/bin/$APP_NAME" "\$@"
@@ -226,7 +207,8 @@ jobs:
   deb-package:
     name: 📦 Build DEB Package
     needs: build-linux
-    runs-on: ubuntu-latest
+    # Usar la misma versión de Ubuntu más antigua
+    runs-on: ubuntu-20.04
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v3
@@ -321,16 +303,17 @@ jobs:
           Comment=Oscilloscope Visualization Tool
           EOF
           
+          # Especificar versiones más específicas y compatibles de las dependencias
           fpm -s dir -t deb -C debian-package \
             --name $APP_NAME \
             --version $APP_VERSION \
             --architecture amd64 \
             --description "$APP_DESCRIPTION" \
-            --depends "libgtk-3-0 (>= 3.24.0)" \
-            --depends "libglib2.0-0 (>= 2.56.0)" \
+            --depends "libgtk-3-0 (>= 3.22.0)" \
+            --depends "libglib2.0-0 (>= 2.50.0)" \
             --depends "liblzma5" \
-            --depends "libc6" \
-            --depends "libstdc++6" \
+            --depends "libc6 (>= 2.27)" \
+            --depends "libstdc++6 (>= 8.0.0)" \
             .
             
       - name: 📤 Upload .deb package
@@ -342,7 +325,8 @@ jobs:
   rpm-package:
     name: 📦 Build RPM Package
     needs: build-linux
-    runs-on: ubuntu-latest
+    # Usar la misma versión de Ubuntu más antigua
+    runs-on: ubuntu-20.04
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v3
@@ -437,16 +421,17 @@ jobs:
           Comment=Oscilloscope Visualization Tool
           EOF
           
+          # Ajustar las versiones de las dependencias para mayor compatibilidad
           fpm -s dir -t rpm -C rpm-package \
             --name $APP_NAME \
             --version $APP_VERSION \
             --architecture x86_64 \
             --description "$APP_DESCRIPTION" \
-            --depends "gtk3 >= 3.24.0" \
-            --depends "glib2 >= 2.56.0" \
+            --depends "gtk3 >= 3.22.0" \
+            --depends "glib2 >= 2.50.0" \
             --depends "xz-libs" \
-            --depends "glibc" \
-            --depends "libstdc++" \
+            --depends "glibc >= 2.27" \
+            --depends "libstdc++ >= 8.0" \
             .
             
       - name: 📤 Upload .rpm package

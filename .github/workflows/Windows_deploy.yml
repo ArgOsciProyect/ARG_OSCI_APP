@@ -56,30 +56,15 @@ jobs:
             Write-Warning "Icon not found: $ICON_PATH"
           }
           
-          # Create zip archive with a fixed name first
-          $ZIP_NAME = "windows-release.zip"
-          if (Test-Path -Path $ZIP_NAME) {
-            Remove-Item -Path $ZIP_NAME -Force
-          }
-          
-          # Create versioned zip file 
+          # Create versioned zip file (only one file, no fixed name version)
           $ZIP_PATH = "arg-osci-${APP_VERSION}-windows.zip"
           if (Test-Path -Path $ZIP_PATH) {
             Remove-Item -Path $ZIP_PATH -Force
           }
           
-          Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_NAME -Force
+          Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_PATH -Force
           
-          # Make a copy with version in name
-          Copy-Item -Path $ZIP_NAME -Destination $ZIP_PATH
-      
-      - name: 📤 Upload Windows Build - Fixed Name
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-release
-          path: windows-release.zip
-          
-      - name: 📤 Upload Windows Build - Versioned
+      - name: 📤 Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: windows-release-versioned
@@ -107,7 +92,6 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            releases/windows-release/*.zip
             releases/windows-release-versioned/*.zip
           generate_release_notes: true
           fail_on_unmatched_files: false
