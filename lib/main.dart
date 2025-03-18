@@ -31,9 +31,7 @@ void main() async {
 /// Requests necessary permissions for the app.
 Future<void> requestPermissions() async {
   await [
-    Permission.locationAlways,
     Permission.nearbyWifiDevices,
-    Permission.location,
   ].request();
 }
 

@@ -1252,10 +1252,27 @@ class DataAcquisitionService implements DataAcquisitionRepository {
     }
   }
 
+  /// Initiates data acquisition from the specified socket connection
+  ///
+  /// Sets up the processing and socket isolates for data communication,
+  /// initializes configuration, and establishes stream listeners.
+  /// The method handles setup errors with retry capabilities.
+  /// [ip] IP address of the data source
+  /// [port] Network port of the data source
+  /// Throws exceptions if isolates cannot be created or communication fails
   @override
   Future<void> fetchData(String ip, int port) async {
     if (kDebugMode) {
       print('🔄 Starting data acquisition for $ip:$port');
+    }
+
+    DataAcquisitionProvider dataAcquisitionProvider =
+        Get.find<DataAcquisitionProvider>();
+    if (dataAcquisitionProvider.triggerMode.value == TriggerMode.normal) {
+      sendNormalTriggerRequest();
+    } else if (dataAcquisitionProvider.triggerMode.value ==
+        TriggerMode.single) {
+      sendSingleTriggerRequest();
     }
 
     // Ensure clean state by stopping any existing acquisition

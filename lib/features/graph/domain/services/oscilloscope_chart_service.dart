@@ -70,19 +70,20 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
   /// [frequency] Detected frequency of the signal in Hz
   /// [maxValue] Maximum voltage value in the signal
   /// [minValue] Minimum voltage value in the signal
-  /// [marginFactor] Optional multiplier to add margins around the signal (default: 1.15)
+  /// [marginFactor] Multiplier to adjust the signal amplitude for display (default: 1.15)
+  ///   - Values > 1.0: Add margins around the signal (zoom out)
+  ///   - Values < 1.0: Magnify the signal (zoom in)
   /// Returns a map with timeScale, valueScale, and verticalCenter values
   @override
   Map<String, double> calculateAutosetScales(
       double chartWidth, double frequency, double maxValue, double minValue,
-      {double marginFactor = 1.15}) {
-    // Add margin to min and max values
-    final adjustedMaxValue =
-        maxValue > 0 ? maxValue * marginFactor : maxValue / marginFactor;
-    final adjustedMinValue =
-        minValue < 0 ? minValue * marginFactor : minValue / marginFactor;
-
-    // Calculate the total range with margins
+      {double marginFactor = 0.8}) {
+    // Calculate symmetric range with margin
+    final center = (maxValue + minValue) / 2;
+    final amplitude = (maxValue - minValue).abs() / 2;
+    final adjustedAmp = amplitude * marginFactor;
+    final adjustedMaxValue = center + adjustedAmp;
+    final adjustedMinValue = center - adjustedAmp;
     final totalRange = adjustedMaxValue - adjustedMinValue;
     final verticalCenter = (adjustedMaxValue + adjustedMinValue) / 2;
 
@@ -90,38 +91,29 @@ class OscilloscopeChartService implements OscilloscopeChartRepository {
     double valueScale;
 
     if (frequency <= 0) {
-      // No frequency detected, use default time scale
-      timeScale = 100000;
+      timeScale = 100000; // Default time scale when frequency not detected
 
-      // Calculate value scale based on adjusted range
-      if (totalRange > 0) {
-        valueScale = 1.0 / totalRange;
-      } else {
-        // Fallback for zero or very small range
-        valueScale = 1.0;
-      }
+      // Value scale adjustment
+      valueScale = totalRange > 0 ? 1.0 / totalRange : 1.0;
     } else {
-      // Calculate time scale to show 3 periods
+      // Time scale calculation based on signal period
       final period = 1 / frequency;
-      final totalTime = 3 * period;
+      final totalTime = 3 * period; // Show 3 periods of the signal
       timeScale = chartWidth / totalTime;
 
-      // Calculate value scale based on adjusted range
+      // Value scale adjustment
       if (totalRange > 0) {
         valueScale = 1.0 / totalRange;
       } else {
-        // Fallback using max absolute value
-        final maxAbsValue =
-            maxValue.abs() > minValue.abs() ? maxValue.abs() : minValue.abs();
-        final expandedAbsValue = maxAbsValue * marginFactor;
-        valueScale = expandedAbsValue > 0 ? 1.0 / (expandedAbsValue * 2) : 1.0;
+        // Fallback value scale
+        valueScale = 1.0;
       }
     }
 
     return {
       'timeScale': timeScale,
       'valueScale': valueScale,
-      'verticalCenter': verticalCenter
+      'verticalCenter': verticalCenter,
     };
   }
 

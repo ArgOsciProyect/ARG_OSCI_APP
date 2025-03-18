@@ -81,11 +81,13 @@ void main() {
       // So timeScale should be chartWidth / 0.03
       expect(scales['timeScale'], closeTo(800.0 / 0.03, 0.01));
 
-      // Range is 1.5V with 15% margins on each side, so about 1.725V
-      expect(scales['valueScale'], closeTo(1.0 / 1.725, 0.01));
+      // Range is 1.5V with marginFactor 0.8
+      const amplitude = 1.5 / 2; // (1.0-(-0.5))/2 = 0.75
+      const adjustedRange = amplitude * 2 * 0.8; // 0.75*2*0.8 = 1.2V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
 
-      // Vertical center should be midpoint of min and max with margins
-      const expectedCenter = ((1.0 * 1.15) + (-0.5 * 1.15)) / 2;
+      // Vertical center should be midpoint of min and max
+      const expectedCenter = (1.0 + (-0.5)) / 2; // 0.25
       expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
     });
 
@@ -101,9 +103,13 @@ void main() {
       // Time scale should default to 100000
       expect(scales['timeScale'], equals(100000));
 
-      // Total range is 1.6V with 15% margins on each side
-      const expectedValueScale = 1.0 / (0.8 * 1.15 * 2);
-      expect(scales['valueScale'], closeTo(expectedValueScale, 0.01));
+      // Total range is 1.6V with marginFactor 0.8
+      const amplitude = 1.6 / 2; // (0.8-(-0.8))/2 = 0.8
+      const adjustedRange = amplitude * 2 * 0.8; // 0.8*2*0.8 = 1.28V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
+
+      // Vertical center should be 0
+      expect(scales['verticalCenter'], closeTo(0.0, 0.01));
     });
 
     test('handles asymmetric signal with both positive values', () {
@@ -115,12 +121,13 @@ void main() {
       final scales = service.calculateAutosetScales(
           chartWidth, frequency, maxValue, minValue);
 
-      // Range is 1.5V with 15% margins
-      const totalRange = (2.0 * 1.15) - (0.5 / 1.15);
-      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+      // Range calculation with marginFactor 0.8
+      const amplitude = (2.0 - 0.5) / 2; // 0.75
+      const adjustedRange = amplitude * 2 * 0.8; // 0.75*2*0.8 = 1.2V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
 
-      // Vertical center should be midpoint of min and max with margins
-      const expectedCenter = ((2.0 * 1.15) + (0.5 / 1.15)) / 2;
+      // Vertical center should be midpoint of min and max
+      const expectedCenter = (2.0 + 0.5) / 2; // 1.25
       expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
     });
 
@@ -133,12 +140,13 @@ void main() {
       final scales = service.calculateAutosetScales(
           chartWidth, frequency, maxValue, minValue);
 
-      // Range is 1.5V with 15% margins
-      const totalRange = (-0.5 / 1.15) - (-2.0 * 1.15);
-      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+      // Range calculation with marginFactor 0.8
+      const amplitude = (-0.5 - (-2.0)) / 2; // 0.75
+      const adjustedRange = amplitude * 2 * 0.8; // 0.75*2*0.8 = 1.2V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
 
-      // Vertical center should be midpoint of min and max with margins
-      const expectedCenter = ((-0.5 / 1.15) + (-2.0 * 1.15)) / 2;
+      // Vertical center should be midpoint of min and max
+      const expectedCenter = (-0.5 + (-2.0)) / 2; // -1.25
       expect(scales['verticalCenter'], closeTo(expectedCenter, 0.01));
     });
 
@@ -151,9 +159,13 @@ void main() {
       final scales = service.calculateAutosetScales(
           chartWidth, frequency, maxValue, minValue);
 
-      // Total range is 0.02V with 15% margins on each side
-      const totalRange = (0.01 * 1.15) - (-0.01 * 1.15);
-      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+      // Range calculation with marginFactor 0.8
+      const amplitude = 0.01; // (0.01-(-0.01))/2 = 0.01
+      const adjustedRange = amplitude * 2 * 0.8; // 0.01*2*0.8 = 0.016V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
+
+      // Vertical center should be 0
+      expect(scales['verticalCenter'], closeTo(0.0, 0.01));
     });
 
     test('handles custom margin factor', () {
@@ -161,15 +173,19 @@ void main() {
       const maxValue = 1.0;
       const minValue = -1.0;
       const chartWidth = 800.0;
-      const customMargin = 1.3; // 30% margin
+      const customMargin = 1.3; // 130% - expanded view
 
       final scales = service.calculateAutosetScales(
           chartWidth, frequency, maxValue, minValue,
           marginFactor: customMargin);
 
-      // Range is 2.0V with 30% margins
-      const totalRange = (1.0 * 1.3) - (-1.0 * 1.3);
-      expect(scales['valueScale'], closeTo(1.0 / totalRange, 0.01));
+      // Range calculation with custom marginFactor 1.3
+      const amplitude = 1.0; // (1.0-(-1.0))/2 = 1.0
+      const adjustedRange = amplitude * 2 * 1.3; // 1.0*2*1.3 = 2.6V
+      expect(scales['valueScale'], closeTo(1.0 / adjustedRange, 0.01));
+
+      // Vertical center should be 0
+      expect(scales['verticalCenter'], closeTo(0.0, 0.01));
     });
 
     test('handles zero range signal', () {
@@ -186,13 +202,11 @@ void main() {
       const totalTime = 3 * period;
       expect(scales['timeScale'], closeTo(chartWidth / totalTime, 0.01));
 
-      // For zero range, we don't need to check exact valueScale value
-      // as it depends on implementation details - just verify it's positive
-      expect(scales['valueScale'], isPositive);
+      // For zero range, we should get the default value scale
+      expect(scales['valueScale'], equals(1.0));
 
-      // Vertical center should be approximately equal to the maxValue
-      // Allow a bit more tolerance since the implementation applies margin calculations
-      expect(scales['verticalCenter'], closeTo(maxValue, 0.1));
+      // Vertical center should be equal to the single value
+      expect(scales['verticalCenter'], equals(maxValue));
     });
   });
 

@@ -46,6 +46,14 @@ class MockHttpConfig extends Mock implements HttpConfig {
 class MockDataAcquisitionProvider extends GetxController
     implements DataAcquisitionProvider {
   bool _isPaused = false;
+  final _dataController = StreamController<List<DataPoint>>.broadcast();
+  final _triggerMode = Rx<TriggerMode>(TriggerMode.normal);
+
+  @override
+  Stream<List<DataPoint>> get dataPointsStream => _dataController.stream;
+
+  @override
+  Rx<TriggerMode> get triggerMode => _triggerMode;
 
   @override
   void setPause(bool value) {
@@ -53,6 +61,15 @@ class MockDataAcquisitionProvider extends GetxController
   }
 
   bool get isPaused => _isPaused;
+
+  @override
+  void addPoints(List<DataPoint> points) => _dataController.add(points);
+
+  @override
+  Future dispose() {
+    super.dispose();
+    return _dataController.close();
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
