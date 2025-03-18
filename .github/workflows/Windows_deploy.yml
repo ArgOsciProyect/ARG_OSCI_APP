@@ -35,6 +35,12 @@ jobs:
       - name: 📦 Package Windows
         shell: pwsh
         run: |
+          $APP_VERSION = "${{ github.ref_name }}"
+          # Quitar el prefijo 'v' si existe
+          $APP_VERSION = $APP_VERSION -replace '^v',''
+          
+          Write-Host "Using version: $APP_VERSION"
+          
           $BUILD_DIR = "build\windows\x64\runner\Release"
           $ICON_PATH = "lib\assets\icons\ARG_OSCI_ICON.png"
           
@@ -51,19 +57,19 @@ jobs:
             Write-Warning "Icon not found: $ICON_PATH"
           }
           
-          # Create zip archive
-          $ZIP_PATH = "windows-release.zip"
+          # Create zip archive with version in filename
+          $ZIP_PATH = "arg-osci-${APP_VERSION}-windows.zip"
           if (Test-Path -Path $ZIP_PATH) {
             Remove-Item -Path $ZIP_PATH -Force
           }
           
           Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_PATH -Force
-
+      
       - name: 📤 Upload Windows Build
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: windows-release.zip
+          path: arg-osci-${{ github.ref_name }}-windows.zip
 
   create-release:
     name: 📦 Create Release
