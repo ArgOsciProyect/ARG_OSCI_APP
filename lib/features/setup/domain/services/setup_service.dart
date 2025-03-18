@@ -350,7 +350,7 @@ class SetupService implements SetupRepository {
     try {
       // Fetch the public key from the device
       final publicKeyResponse = await localHttpService
-          .get('/get_public_key', skipNavigation: false)
+          .get('/get_public_key', skipNavigation: true)
           .timeout(Duration(seconds: 5));
 
       _pubKey = publicKeyResponse;
@@ -359,7 +359,7 @@ class SetupService implements SetupRepository {
 
       // Scan for available WiFi networks
       final wifiResponse = await localHttpService
-          .get('/scan_wifi', skipNavigation: false)
+          .get('/scan_wifi', skipNavigation: true)
           .timeout(Duration(seconds: 15));
 
       final wifiData = wifiResponse as List;
