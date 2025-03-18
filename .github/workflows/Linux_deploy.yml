@@ -62,7 +62,7 @@ jobs:
       - name: 🔧 Install AppImage tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y libfuse2 wget
+          sudo apt-get install -y libfuse2 wget libglib2.0-0 libgtk-3-0
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
       
@@ -71,10 +71,45 @@ jobs:
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
           
-          # Find the executable file
-          EXEC_FILE=$(find app-contents -type f -executable | head -1)
-          echo "Executable found: $EXEC_FILE"
-          EXEC_NAME=$(basename $EXEC_FILE)
+          # List all files for detailed debugging
+          echo "All files in app-contents:"
+          find app-contents -type f | sort
+          
+          # Find all executables for better diagnosis
+          echo "All executable files:"
+          find app-contents -type f -executable | sort
+          
+          # Determine executable name from pubspec.yaml
+          if [ -f "pubspec.yaml" ]; then
+            PROJECT_NAME=$(grep "name:" pubspec.yaml | head -1 | awk '{print $2}' | tr -d "'\"")
+            echo "Project name from pubspec: $PROJECT_NAME"
+          else
+            PROJECT_NAME="arg_osci_app" # Default fallback
+            echo "Using default project name: $PROJECT_NAME"
+          fi
+          
+          # Try to find the executable based on multiple strategies
+          # Strategy 1: Direct match with project name
+          EXEC_FILE=$(find app-contents -type f -executable -name "$PROJECT_NAME" | head -1)
+          
+          # Strategy 2: Any executable in 'lib' directory
+          if [ -z "$EXEC_FILE" ]; then
+            EXEC_FILE=$(find app-contents/lib -type f -executable 2>/dev/null | head -1)
+          fi
+          
+          # Strategy 3: Any executable
+          if [ -z "$EXEC_FILE" ]; then
+            EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          fi
+          
+          if [ -z "$EXEC_FILE" ]; then
+            echo "No executable found, using project name as fallback"
+            EXEC_NAME="$PROJECT_NAME"
+          else
+            echo "Executable found: $EXEC_FILE"
+            EXEC_NAME=$(basename "$EXEC_FILE")
+          fi
+          
           echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
       
       - name: 🏗️ Build AppImage
@@ -85,15 +120,56 @@ jobs:
           echo "Using version: $APP_VERSION"
 
           # Create AppDir structure
-          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps}}
-          
+          mkdir -p AppDir/usr/{bin,lib/$APP_NAME,share/{applications,icons/hicolor/128x128/apps},lib/x86_64-linux-gnu}
+
           # Copy application files
           cp -r app-contents/* AppDir/usr/lib/$APP_NAME/
+
+          # Show executable files for debugging
+          echo "Executable files found in app directory:"
+          find AppDir/usr/lib/$APP_NAME -type f -executable
           
-          # Create launcher script
+          # Copy required shared libraries for compatibility
+          echo "Copying shared libraries for compatibility..."
+          cp -L /usr/lib/x86_64-linux-gnu/libglib-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgtk-3.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgdk-3.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgio-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libgobject-2.0.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libpango-1.0.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libcairo.so* AppDir/usr/lib/x86_64-linux-gnu/
+          cp -L /usr/lib/x86_64-linux-gnu/libfontconfig.so* AppDir/usr/lib/x86_64-linux-gnu/
+          
+          # Use EXEC_NAME environment variable we set earlier
+          echo "Using executable: ${{ env.EXEC_NAME }}"
+
+          # Create launcher script with improved error handling
           cat > AppDir/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          # Debug info to help troubleshoot
+          echo "Starting launcher script in \$(pwd)"
+          echo "Looking for executable at /usr/lib/$APP_NAME/${{ env.EXEC_NAME }}"
+          ls -la /usr/lib/$APP_NAME/
+
+          # List all available executables for debug
+          echo "All executables in directory:"
+          find /usr/lib/$APP_NAME -type f -executable
+
+          # Execute with error handling
+          if [ -f "/usr/lib/$APP_NAME/${{ env.EXEC_NAME }}" ]; then
+            exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          else
+            echo "Error: Executable not found at /usr/lib/$APP_NAME/${{ env.EXEC_NAME }}"
+            echo "Attempting to find alternative executable..."
+            ALT_EXEC=\$(find /usr/lib/$APP_NAME -type f -executable | head -1)
+            if [ -n "\$ALT_EXEC" ]; then
+              echo "Found alternative: \$ALT_EXEC"
+              exec "\$ALT_EXEC" "\$@"
+            else
+              echo "No executable found. Installation may be corrupted."
+              exit 1
+            fi
+          fi
           EOF
           chmod +x AppDir/usr/bin/$APP_NAME
           
@@ -116,12 +192,18 @@ jobs:
           # Copy desktop file to standard locations
           cp AppDir/$APP_NAME.desktop AppDir/usr/share/applications/
           
-          # Create AppRun file (entry point)
+          # Create AppRun file (entry point) with improved library path handling
           cat > AppDir/AppRun << EOF
           #!/bin/bash
           APPDIR="\$(dirname "\$(readlink -f "\${0}")")"
           export PATH="\${APPDIR}/usr/bin:\${PATH}"
-          export LD_LIBRARY_PATH="\${APPDIR}/usr/lib:\${LD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="\${APPDIR}/usr/lib:\${APPDIR}/usr/lib/x86_64-linux-gnu:\${LD_LIBRARY_PATH}"
+          
+          # Print debug info
+          echo "Running from: \${APPDIR}"
+          echo "LD_LIBRARY_PATH: \${LD_LIBRARY_PATH}"
+          
+          # Execute
           exec "\${APPDIR}/usr/bin/$APP_NAME" "\$@"
           EOF
           chmod +x AppDir/AppRun
@@ -165,10 +247,35 @@ jobs:
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
           
-          # Find the executable file
-          EXEC_FILE=$(find app-contents -type f -executable | head -1)
-          echo "Executable found: $EXEC_FILE"
-          EXEC_NAME=$(basename $EXEC_FILE)
+          # Find the executable file with more comprehensive search
+          echo "Looking for executables in app-contents:"
+          find app-contents -type f -executable | sort
+          
+          # Try to determine the executable name from pubspec
+          if [ -f "pubspec.yaml" ]; then
+            PROJECT_NAME=$(grep "name:" pubspec.yaml | head -1 | awk '{print $2}' | tr -d "'\"")
+            echo "Project name from pubspec: $PROJECT_NAME"
+          else
+            PROJECT_NAME="arg_osci_app"
+            echo "Using default project name: $PROJECT_NAME"
+          fi
+          
+          # First try by project name
+          EXEC_FILE=$(find app-contents -type f -executable -name "$PROJECT_NAME" | head -1)
+          
+          # Fall back to any executable
+          if [ -z "$EXEC_FILE" ]; then
+            EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          fi
+          
+          if [ -z "$EXEC_FILE" ]; then
+            echo "No executable found, using project name as fallback"
+            EXEC_NAME="$PROJECT_NAME"
+          else
+            echo "Executable found: $EXEC_FILE"
+            EXEC_NAME=$(basename "$EXEC_FILE")
+          fi
+          
           echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
           
       - name: 🏗️ Build .deb package
@@ -184,9 +291,23 @@ jobs:
           cp -r app-contents/* debian-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png debian-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
           
+          # Create improved launcher script with fallback
           cat > debian-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          if [ -f "/usr/lib/$APP_NAME/${{ env.EXEC_NAME }}" ]; then
+            exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          else
+            echo "Error: Executable not found at /usr/lib/$APP_NAME/${{ env.EXEC_NAME }}"
+            echo "Trying to find alternative executable..."
+            ALT_EXEC=\$(find /usr/lib/$APP_NAME -type f -executable | head -1)
+            if [ -n "\$ALT_EXEC" ]; then
+              echo "Found alternative: \$ALT_EXEC"
+              exec "\$ALT_EXEC" "\$@"
+            else
+              echo "No executable found. Installation may be corrupted."
+              exit 1
+            fi
+          fi
           EOF
           chmod +x debian-package/usr/bin/$APP_NAME
           
@@ -205,7 +326,8 @@ jobs:
             --version $APP_VERSION \
             --architecture amd64 \
             --description "$APP_DESCRIPTION" \
-            --depends "libgtk-3-0" \
+            --depends "libgtk-3-0 (>= 3.24.0)" \
+            --depends "libglib2.0-0 (>= 2.56.0)" \
             --depends "liblzma5" \
             --depends "libc6" \
             --depends "libstdc++6" \
@@ -241,10 +363,35 @@ jobs:
           mkdir -p app-contents
           tar -xzvf linux-app.tar.gz -C app-contents
           
-          # Find the executable file
-          EXEC_FILE=$(find app-contents -type f -executable | head -1)
-          echo "Executable found: $EXEC_FILE"
-          EXEC_NAME=$(basename $EXEC_FILE)
+          # Find the executable file with more comprehensive search
+          echo "Looking for executables in app-contents:"
+          find app-contents -type f -executable | sort
+          
+          # Try to determine the executable name from pubspec
+          if [ -f "pubspec.yaml" ]; then
+            PROJECT_NAME=$(grep "name:" pubspec.yaml | head -1 | awk '{print $2}' | tr -d "'\"")
+            echo "Project name from pubspec: $PROJECT_NAME"
+          else
+            PROJECT_NAME="arg_osci_app"
+            echo "Using default project name: $PROJECT_NAME"
+          fi
+          
+          # First try by project name
+          EXEC_FILE=$(find app-contents -type f -executable -name "$PROJECT_NAME" | head -1)
+          
+          # Fall back to any executable
+          if [ -z "$EXEC_FILE" ]; then
+            EXEC_FILE=$(find app-contents -type f -executable | head -1)
+          fi
+          
+          if [ -z "$EXEC_FILE" ]; then
+            echo "No executable found, using project name as fallback"
+            EXEC_NAME="$PROJECT_NAME"
+          else
+            echo "Executable found: $EXEC_FILE"
+            EXEC_NAME=$(basename "$EXEC_FILE")
+          fi
+          
           echo "EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
           
       - name: 🏗️ Build .rpm package
@@ -260,9 +407,23 @@ jobs:
           cp -r app-contents/* rpm-package/usr/lib/$APP_NAME/
           cp lib/assets/icons/ARG_OSCI_ICON.png rpm-package/usr/share/icons/hicolor/128x128/apps/$APP_NAME.png || echo "Warning: Icon not found"
           
+          # Create improved launcher script with fallback
           cat > rpm-package/usr/bin/$APP_NAME << EOF
           #!/bin/bash
-          exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          if [ -f "/usr/lib/$APP_NAME/${{ env.EXEC_NAME }}" ]; then
+            exec /usr/lib/$APP_NAME/${{ env.EXEC_NAME }} "\$@"
+          else
+            echo "Error: Executable not found at /usr/lib/$APP_NAME/${{ env.EXEC_NAME }}"
+            echo "Trying to find alternative executable..."
+            ALT_EXEC=\$(find /usr/lib/$APP_NAME -type f -executable | head -1)
+            if [ -n "\$ALT_EXEC" ]; then
+              echo "Found alternative: \$ALT_EXEC"
+              exec "\$ALT_EXEC" "\$@"
+            else
+              echo "No executable found. Installation may be corrupted."
+              exit 1
+            fi
+          fi
           EOF
           chmod +x rpm-package/usr/bin/$APP_NAME
           
@@ -281,7 +442,8 @@ jobs:
             --version $APP_VERSION \
             --architecture x86_64 \
             --description "$APP_DESCRIPTION" \
-            --depends "gtk3" \
+            --depends "gtk3 >= 3.24.0" \
+            --depends "glib2 >= 2.56.0" \
             --depends "xz-libs" \
             --depends "glibc" \
             --depends "libstdc++" \

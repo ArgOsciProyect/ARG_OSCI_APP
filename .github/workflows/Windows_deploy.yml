@@ -8,7 +8,6 @@ permissions:
   contents: write
   packages: write
 
-
 jobs:
   build-windows:
     name: 🖥️ Build Windows App
@@ -57,18 +56,33 @@ jobs:
             Write-Warning "Icon not found: $ICON_PATH"
           }
           
-          # Create zip archive with version in filename
+          # Create zip archive with a fixed name first
+          $ZIP_NAME = "windows-release.zip"
+          if (Test-Path -Path $ZIP_NAME) {
+            Remove-Item -Path $ZIP_NAME -Force
+          }
+          
+          # Create versioned zip file 
           $ZIP_PATH = "arg-osci-${APP_VERSION}-windows.zip"
           if (Test-Path -Path $ZIP_PATH) {
             Remove-Item -Path $ZIP_PATH -Force
           }
           
-          Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_PATH -Force
+          Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath $ZIP_NAME -Force
+          
+          # Make a copy with version in name
+          Copy-Item -Path $ZIP_NAME -Destination $ZIP_PATH
       
-      - name: 📤 Upload Windows Build
+      - name: 📤 Upload Windows Build - Fixed Name
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
+          path: windows-release.zip
+          
+      - name: 📤 Upload Windows Build - Versioned
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release-versioned
           path: arg-osci-${{ github.ref_name }}-windows.zip
 
   create-release:
@@ -76,7 +90,6 @@ jobs:
     needs: [build-windows]
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
-    # Add specific permissions for release job
     permissions:
       contents: write
     steps:
@@ -85,11 +98,17 @@ jobs:
         with:
           path: releases
 
+      - name: 📝 List downloaded files
+        run: |
+          echo "List of downloaded artifacts:"
+          find releases -type f | sort
+          
       - name: 🚀 Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            releases/windows-release/windows-release.zip
+            releases/windows-release/*.zip
+            releases/windows-release-versioned/*.zip
           generate_release_notes: true
           fail_on_unmatched_files: false
         env:
