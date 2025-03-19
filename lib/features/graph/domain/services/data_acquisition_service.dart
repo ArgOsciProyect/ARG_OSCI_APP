@@ -206,7 +206,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> sendSingleTriggerRequest() async {
     try {
-      await httpService.get('/single');
+      await httpService.get('/single', skipNavigation: true);
     } catch (e) {
       if (kDebugMode) {
         print('Error sending single trigger request: $e');
@@ -218,7 +218,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   @override
   Future<void> sendNormalTriggerRequest() async {
     try {
-      await httpService.get('/normal');
+      await httpService.get('/normal', skipNavigation: true);
     } catch (e) {
       if (kDebugMode) {
         print('Error sending normal trigger request: $e');
@@ -438,7 +438,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   /// Shows success or error messages in debug mode
   Future<void> increaseSamplingFrequency() async {
     try {
-      final response = await httpService.post('/freq', {'action': 'more'});
+      final response =
+          await httpService.post('/freq', {'action': 'more'}, true);
       if (response['sampling_frequency'] != null) {
         final newFreq = double.parse(response['sampling_frequency'].toString());
         if (kDebugMode) {
@@ -471,7 +472,8 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   /// Shows success or error messages in debug mode
   Future<void> decreaseSamplingFrequency() async {
     try {
-      final response = await httpService.post('/freq', {'action': 'less'});
+      final response =
+          await httpService.post('/freq', {'action': 'less'}, true);
       if (response['sampling_frequency'] != null) {
         final newFreq = double.parse(response['sampling_frequency'].toString());
         if (kDebugMode) {

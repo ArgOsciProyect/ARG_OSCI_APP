@@ -16,7 +16,7 @@ import 'package:get/get.dart';
 /// retry mechanisms and error handling, including automatic navigation to setup
 /// screen on connection failures.
 class HttpService implements HttpRepository {
-  final HttpConfig config;
+  HttpConfig config;
 
   /// Maximum number of retry attempts for failed requests
   static const int _maxRetries = 5;
@@ -33,6 +33,11 @@ class HttpService implements HttpRepository {
   HttpService(this.config, {void Function(String)? navigateToSetupScreen})
       : navigateToSetupScreen =
             navigateToSetupScreen ?? _defaultNavigateToSetupScreen;
+
+  // Add this method to update configuration
+  void updateConfig(HttpConfig newConfig) {
+    config = newConfig;
+  }
 
   /// Default implementation of navigation to setup screen on connection errors
   ///

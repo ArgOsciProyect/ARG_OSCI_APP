@@ -309,6 +309,15 @@ class SetupService implements SetupRepository {
       {http.Client? client}) async {
     globalHttpConfig = HttpConfig(baseUrl, client: client);
     localHttpService = HttpService(globalHttpConfig);
+
+    // Update the global HttpService that other services use
+    try {
+      final httpService = Get.find<HttpService>();
+      httpService.updateConfig(globalHttpConfig);
+    } catch (e) {
+      // If HttpService isn't registered yet, register it
+      Get.put(HttpService(globalHttpConfig), permanent: true);
+    }
   }
 
   @override
@@ -350,7 +359,7 @@ class SetupService implements SetupRepository {
     try {
       // Fetch the public key from the device
       final publicKeyResponse = await localHttpService
-          .get('/get_public_key', skipNavigation: false)
+          .get('/get_public_key', skipNavigation: true)
           .timeout(Duration(seconds: 5));
 
       _pubKey = publicKeyResponse;
@@ -359,7 +368,7 @@ class SetupService implements SetupRepository {
 
       // Scan for available WiFi networks
       final wifiResponse = await localHttpService
-          .get('/scan_wifi', skipNavigation: false)
+          .get('/scan_wifi', skipNavigation: true)
           .timeout(Duration(seconds: 15));
 
       final wifiData = wifiResponse as List;
