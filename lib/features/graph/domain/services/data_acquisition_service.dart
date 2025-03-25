@@ -1044,12 +1044,12 @@ class DataAcquisitionService implements DataAcquisitionRepository {
               triggerPoint = result[i];
             }
           } else {
-            // Interpolate to find exact trigger point
-            triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
-                currentPoint.x, currentY, config.triggerLevel);
-
+            //triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
+            //    currentPoint.x, currentY, config.triggerLevel);
+            triggerPoint =
+                DataPoint(currentPoint.x, currentPoint.y, isTrigger: true);
             // Replace the previous point with the interpolated trigger point
-            result[i - 1] = triggerPoint;
+            result[i] = triggerPoint;
           }
 
           if (!foundFirstTrigger) {
@@ -1089,27 +1089,6 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         : points;
 
     return (adjustedPoints, maxValue, minValue);
-  }
-
-  /// Interpolates to find the exact point where signal crosses trigger level
-  static DataPoint _interpolateTriggerPoint(
-      double x1, double y1, double x2, double y2, double triggerLevel) {
-    // If the points are identical or already at trigger level
-    if (y1 == y2 || y1 == triggerLevel) {
-      return DataPoint(x1, triggerLevel, isTrigger: true, isInterpolated: true);
-    }
-    if (y2 == triggerLevel) {
-      return DataPoint(x2, triggerLevel, isTrigger: true, isInterpolated: true);
-    }
-
-    // Calculate the ratio for linear interpolation
-    final ratio = (triggerLevel - y1) / (y2 - y1);
-
-    // Calculate the x coordinate where the line crosses the trigger level
-    final xTrigger = x1 + ratio * (x2 - x1);
-
-    return DataPoint(xTrigger, triggerLevel,
-        isTrigger: true, isInterpolated: true);
   }
 
   @override
