@@ -141,10 +141,32 @@ class FFTChartService {
     _setupSubscriptions();
   }
 
+  /// Checks if a number is a power of 2
+  ///
+  /// [n] The number to check
+  /// Returns true if the number is a power of 2, false otherwise
+  bool _isPowerOfTwo(int n) {
+    return n > 0 && (n & (n - 1)) == 0;
+  }
+
+  /// Finds the next power of 2 greater than or equal to a number
+  ///
+  /// [n] The input number
+  /// Returns the next power of 2
+  int _nextPowerOfTwo(int n) {
+    if (n <= 1) return 1;
+    int power = 2;
+    while (power < n) {
+      power *= 2;
+    }
+    return power;
+  }
+
   /// Computes the Fast Fourier Transform of the given data points
   ///
   /// Converts time-domain data into frequency-domain representation
-  /// using the FFT algorithm
+  /// using the FFT algorithm. If the input size is not a power of 2,
+  /// zero-padding is automatically applied.
   ///
   /// [points] List of time-domain data points to transform
   /// [maxValue] Maximum amplitude value in the input data for normalization
@@ -155,12 +177,22 @@ class FFTChartService {
         throw ArgumentError('Empty points list');
       }
 
-      final n = points.length;
-      final real = Float32List(n);
-      final imag = Float32List(n);
+      final originalSize = points.length;
+      int fftSize = originalSize;
+
+      // Check if we need to apply zero-padding
+      if (!_isPowerOfTwo(originalSize)) {
+        fftSize = _nextPowerOfTwo(originalSize);
+        if (kDebugMode) {
+          print("Applying zero-padding from $originalSize to $fftSize points");
+        }
+      }
+
+      final real = Float32List(fftSize);
+      final imag = Float32List(fftSize);
 
       // Prepare real and imaginary components for FFT
-      for (var i = 0; i < n; i++) {
+      for (var i = 0; i < originalSize; i++) {
         final value = points[i].y;
         if (value.isInfinite || value.isNaN) {
           throw ArgumentError('Invalid data point at index $i: $value');
@@ -168,6 +200,8 @@ class FFTChartService {
         real[i] = value;
         imag[i] = 0.0;
       }
+
+      // Zero padding (remaining points are already 0.0 by default)
 
       try {
         // Perform the FFT using the _fft method
@@ -177,15 +211,16 @@ class FFTChartService {
       }
 
       // Normalize the FFT results
-      for (var i = 0; i < n; i++) {
-        if (n == 0) throw StateError('Division by zero in normalization');
-        real[i] /= n;
-        imag[i] /= n;
+      for (var i = 0; i < fftSize; i++) {
+        if (fftSize == 0) throw StateError('Division by zero in normalization');
+        real[i] /= fftSize;
+        imag[i] /= fftSize;
       }
 
-      final halfLength = (n / 2).ceil();
+      final halfLength = (fftSize / 2).ceil();
       final samplingRate = deviceConfig.samplingFrequency;
-      final freqResolution = samplingRate / n;
+      final freqResolution =
+          samplingRate / fftSize; // Note: using fftSize, not originalSize
 
       // Convert the FFT results to DataPoint objects
       _lastFFTPoints = List<DataPoint>.generate(halfLength, (i) {
@@ -220,12 +255,18 @@ class FFTChartService {
   /// Implements the Fast Fourier Transform algorithm (in-place)
   ///
   /// Uses the Cooley-Tukey radix-2 decimation-in-time algorithm
-  /// with bit-reversal permutation
+  /// with bit-reversal permutation. Requires input length to be a power of 2.
   ///
   /// [real] Real part of the input/output (modified in-place)
   /// [imag] Imaginary part of the input/output (modified in-place)
   void _fft(Float32List real, Float32List imag) {
     final n = real.length;
+
+    // Verify input length is power of 2
+    if (!_isPowerOfTwo(n)) {
+      throw ArgumentError(
+          'FFT requires input length to be a power of 2, got $n');
+    }
 
     // Bit reversal permutation
     var j = 0;

@@ -928,7 +928,7 @@ class DataAcquisitionService implements DataAcquisitionRepository {
   }
 
   /// Processes the data to extract data points and apply triggering logic.
-  /// Preserves original data points when they exactly match the trigger level.
+  /// Interpolates only the first trigger, preserves original data for subsequent triggers.
   static (List<DataPoint>, double, double) _processData(
     Queue<int> queue,
     int chunkSize,
@@ -1030,31 +1030,45 @@ class DataAcquisitionService implements DataAcquisitionRepository {
         if (validTrigger) {
           DataPoint triggerPoint;
 
-          // If we have an exact match, mark the existing point as trigger instead of interpolating
-          if (exactMatch) {
-            // Use the original point that matches the trigger level
-            if (prevY == config.triggerLevel) {
-              result[i - 1] =
-                  DataPoint(prevPoint.x, prevPoint.y, isTrigger: true);
-              triggerPoint = result[i - 1];
+          // Only interpolate for the first trigger
+          if (!foundFirstTrigger) {
+            // If we have an exact match, mark the existing point as trigger instead of interpolating
+            if (exactMatch) {
+              // Use the original point that matches the trigger level
+              if (prevY == config.triggerLevel) {
+                result[i - 1] =
+                    DataPoint(prevPoint.x, prevPoint.y, isTrigger: true);
+                triggerPoint = result[i - 1];
+              } else {
+                // currentY == config.triggerLevel
+                result[i] =
+                    DataPoint(currentPoint.x, currentPoint.y, isTrigger: true);
+                triggerPoint = result[i];
+              }
             } else {
-              // currentY == config.triggerLevel
+              // Interpolate to find exact trigger point (only for first trigger)
+              triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
+                  currentPoint.x, currentY, config.triggerLevel);
+
+              // Replace the previous point with the interpolated trigger point
+              result[i - 1] = triggerPoint;
+            }
+
+            firstTriggerX = triggerPoint.x;
+            foundFirstTrigger = true;
+          } else {
+            // For subsequent triggers, just mark one of the existing points without interpolation
+            if (config.triggerEdge == TriggerEdge.positive) {
+              // For rising edge, mark the current point (just after crossing)
               result[i] =
                   DataPoint(currentPoint.x, currentPoint.y, isTrigger: true);
               triggerPoint = result[i];
+            } else {
+              // For falling edge, mark the previous point (just before crossing)
+              result[i - 1] =
+                  DataPoint(prevPoint.x, prevPoint.y, isTrigger: true);
+              triggerPoint = result[i - 1];
             }
-          } else {
-            // Interpolate to find exact trigger point
-            triggerPoint = _interpolateTriggerPoint(prevPoint.x, prevY,
-                currentPoint.x, currentY, config.triggerLevel);
-
-            // Replace the previous point with the interpolated trigger point
-            result[i - 1] = triggerPoint;
-          }
-
-          if (!foundFirstTrigger) {
-            firstTriggerX = triggerPoint.x;
-            foundFirstTrigger = true;
           }
 
           if (config.triggerMode == TriggerMode.normal) {
