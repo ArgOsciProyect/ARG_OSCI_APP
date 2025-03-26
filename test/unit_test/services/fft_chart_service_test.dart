@@ -20,8 +20,9 @@ class MockDeviceConfigProvider extends GetxController
     bitsPerPacket: 16,
     dataMask: 0x0FFF,
     channelMask: 0xF000,
+    // ignore: deprecated_member_use_from_same_package
     usefulBits: 9,
-    samplesPerPacket: 8190,
+    samplesPerPacket: 8192,
     dividingFactor: 1,
     discardHead: 0,
     discardTrailer: 0,
@@ -59,6 +60,7 @@ class MockDeviceConfigProvider extends GetxController
   int get minBits => _config.value?.minBits ?? 0;
 
   @override
+  // ignore: deprecated_member_use_from_same_package
   dynamic get usefulBits => _config.value?.usefulBits ?? 12;
 
   @override
@@ -654,7 +656,7 @@ void main() {
     _saveFftResults(
         'test/unit_test/services/internal_fft_results.csv', fftResults);
 
-    const tolerance = 3.0; // Keep same tolerance for dBV comparison
+    const tolerance = 1.0; // Keep same tolerance for dBV comparison
 
     for (var i = 0;
         i < math.min(fftResults.length, referenceValues.length);

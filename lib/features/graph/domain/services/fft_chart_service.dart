@@ -149,14 +149,14 @@ class FFTChartService {
     return n > 0 && (n & (n - 1)) == 0;
   }
 
-  /// Finds the next power of 2 greater than or equal to a number
+  /// Finds the previous power of 2 less than or equal to a number
   ///
   /// [n] The input number
-  /// Returns the next power of 2
-  int _nextPowerOfTwo(int n) {
+  /// Returns the previous power of 2
+  int _previousPowerOfTwo(int n) {
     if (n <= 1) return 1;
-    int power = 2;
-    while (power < n) {
+    int power = 1;
+    while (power * 2 <= n) {
       power *= 2;
     }
     return power;
@@ -180,19 +180,19 @@ class FFTChartService {
       final originalSize = points.length;
       int fftSize = originalSize;
 
-      // Check if we need to apply zero-padding
+      // Check if we need to trim data to previous power of 2
       if (!_isPowerOfTwo(originalSize)) {
-        fftSize = _nextPowerOfTwo(originalSize);
+        fftSize = _previousPowerOfTwo(originalSize);
         if (kDebugMode) {
-          print("Applying zero-padding from $originalSize to $fftSize points");
+          print("Trimming data from $originalSize to $fftSize points");
         }
       }
 
       final real = Float32List(fftSize);
       final imag = Float32List(fftSize);
 
-      // Prepare real and imaginary components for FFT
-      for (var i = 0; i < originalSize; i++) {
+      // Prepare real and imaginary components for FFT (use only fftSize points)
+      for (var i = 0; i < fftSize; i++) {
         final value = points[i].y;
         if (value.isInfinite || value.isNaN) {
           throw ArgumentError('Invalid data point at index $i: $value');
