@@ -97,7 +97,7 @@ class DeviceConfigProvider extends GetxController {
 
   /// Returns the number of samples per packet.
   dynamic get samplesPerPacket {
-    var samples = _config.value?.samplesPerPacket ?? 8192;
+    var samples = _config.value?.samplesPerPacket ?? 8192 - 1.5;
     return (samples);
   }
 
